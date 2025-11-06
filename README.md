@@ -9,5 +9,6 @@ Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_
 ## Documentazione
 
 - `network_info.txt` - IP e credenziali SSH per Robot e AI Accelerator
-- `Documento Ai Accelerator - Avanamanto Progetto Demo.docx` - Documentazione completa del progetto
+- `Documento Ai Accelerator - Avanamanto Progetto Demo.txt` - Guida setup UR AI Accelerator (formato testo)
+- `Documento Ai Accelerator - Avanamanto Progetto Demo.docx` - Documentazione completa del progetto (formato Word)
 
