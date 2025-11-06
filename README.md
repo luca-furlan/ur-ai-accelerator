@@ -2,11 +2,12 @@
 
 Repository per il progetto con robot e AI accelerator.
 
-## Setup
+## Informazioni di Rete
 
-Per configurare il progetto, crea un file `network_info.txt` con le credenziali di rete necessarie.
+Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_info.txt`.
 
-## Note
+## Documentazione
 
-- Il file `network_info.txt` è escluso dal version control per motivi di sicurezza
+- `network_info.txt` - IP e credenziali SSH per Robot e AI Accelerator
+- `Documento Ai Accelerator - Avanamanto Progetto Demo.docx` - Documentazione completa del progetto
 

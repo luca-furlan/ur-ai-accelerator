@@ -1,0 +1,23 @@
+INFORMAZIONI DI RETE E CREDENZIALI DEL PROGETTO
+================================================
+
+IP ADDRESSES
+------------
+Robot:              192.168.10.194
+AI Accelerator:     192.168.10.191
+
+
+CREDENZIALI SSH - ROBOT
+------------------------
+IP:         192.168.10.194
+Utente:     root
+Password:   easybot
+            (se non funzionante provare: 12345678)
+
+
+CREDENZIALI SSH - AI ACCELERATOR
+---------------------------------
+IP:         192.168.10.191
+Utente:     lab
+Password:   easybot
+
