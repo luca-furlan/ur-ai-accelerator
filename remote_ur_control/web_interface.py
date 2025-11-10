@@ -428,8 +428,8 @@ HTML_TEMPLATE = """
 
       const JOY_MAX = 1.0;      // max linear velocity scaling (rad/s)
       const JOY_DEADZONE = 0.08;
-      const JOY_CART_STEP = 0.001; // 1mm incremental step for smoother cartesian
-      const JOY_INTERVAL = 300; // ms - balanced frequency
+      const JOY_CART_STEP = 0.0005; // 0.5mm - molto più lento e preciso
+      const JOY_INTERVAL = 200; // ms - più frequente per fluidità
 
       let joystickActive = false;
       let joystickTimer = null;
@@ -490,7 +490,7 @@ HTML_TEMPLATE = """
 
           try {
             const payload = cartesianMode 
-              ? { delta: speeds, acceleration: 0.3, velocity: 0.03, blend: 0.01 }
+              ? { delta: speeds, acceleration: 0.1, velocity: 0.015, blend: 0.03 }
               : { speeds, duration: JOY_INTERVAL / 1000.0 + 0.05, acceleration: 1.0 };
             
             await fetch(endpoint, {
@@ -611,21 +611,31 @@ HTML_TEMPLATE = """
           const cartesianMode = document.getElementById("cartesian-mode").checked;
           if (!cartesianMode) return;
 
+          // Secondo joystick: Y = Z (su/giù), X = Rotazione Z
           const delta = [
-            0, 0,
-            joy2Vector.y * JOY_CART_STEP * 2,  // dz 
-            0, 0,
-            joy2Vector.x * JOY_CART_STEP * 5,  // drz rotation
+            0,                                     // dx
+            0,                                     // dy
+            -joy2Vector.y * JOY_CART_STEP * 3,    // dz (invertito: su=+, giù=-)
+            0,                                     // drx
+            0,                                     // dry
+            joy2Vector.x * JOY_CART_STEP * 8,     // drz (rotazione)
           ];
 
           try {
             await fetch("/api/movel_relative", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ delta, acceleration: 0.2, velocity: 0.02, blend: 0.01 }),
+              body: JSON.stringify({ 
+                delta, 
+                acceleration: 0.1, 
+                velocity: 0.015, 
+                blend: 0.03 
+              }),
             });
+            setStatus("Joystick Z/Rot command sent", true);
           } catch (err) {
             console.error(err);
+            setStatus("Joystick2 error: " + err, false);
           }
         }, JOY_INTERVAL);
       }

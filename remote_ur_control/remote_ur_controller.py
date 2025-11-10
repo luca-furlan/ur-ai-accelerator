@@ -159,21 +159,22 @@ class RemoteURController:
     def movel_relative(
         self,
         delta_pose: list[float],
-        acceleration: float = 0.3,
-        velocity: float = 0.05,
-        blend: float = 0.01,
+        acceleration: float = 0.15,
+        velocity: float = 0.02,
+        blend: float = 0.02,
     ) -> None:
-        """Move tool by relative cartesian offset with blending.
+        """Move tool by relative cartesian offset with smooth blending.
         
         Args:
             delta_pose: [dx, dy, dz, drx, dry, drz] relative to current TCP
-            acceleration: acceleration in m/s²
-            velocity: velocity in m/s
-            blend: blend radius for smooth path (m)
+            acceleration: acceleration in m/s² (low for smoothness)
+            velocity: velocity in m/s (slow for precision)
+            blend: blend radius for smooth path (m, larger = smoother)
         """
         if len(delta_pose) != 6:
             raise ValueError("movel_relative expects 6 values [dx,dy,dz,drx,dry,drz]")
 
+        # Use servoj for smoother continuous motion
         script = (
             "def remote_movel_rel():\n"
             "  current = get_actual_tcp_pose()\n"
