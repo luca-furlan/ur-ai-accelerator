@@ -107,6 +107,52 @@ Branch sbagliato Orbbec?
 
 
 ================================================================================
+OBJECT RECOGNITION CON YOLOV5
+================================================================================
+
+Prerequisiti (Jetson AI Accelerator)
+   sudo apt update
+   sudo apt install -y \
+     ros-humble-vision-msgs \
+     ros-humble-cv-bridge \
+     python3-opencv \
+     python3-numpy
+
+Modelli YOLOV5
+   cd ~/projects/ur-ai-accelerator-object-recognition/ros2/yolov5_detector/models
+   ./download_yolov5n_onnx.sh      # ~8 MB, verifica sha256
+   # opzionale: sostituisci con il tuo modello ONNX e aggiorna weights_path
+
+Aggancia il package al workspace ROS2
+   cd ~/ros2_ws/src
+   ln -s ~/projects/ur-ai-accelerator-object-recognition/ros2/yolov5_detector .
+   cd ~/ros2_ws
+   colcon build --packages-select yolov5_detector
+   source install/setup.bash
+
+Avvio (Camera già attiva su /camera/color/image_raw)
+   ros2 launch yolov5_detector yolov5_detector.launch.py \
+     use_cuda:=true \
+     publish_annotated_image:=true
+
+Output
+   Detections -> topic `detections` (vision_msgs/Detection2DArray)
+   Immagine annotata -> `/camera/color/yolov5_annotated`
+   Visualizza: `rqt_image_view` oppure `image_tools showimage`
+
+Parametri utili
+   confidence_threshold (float)  Default 0.4
+   iou_threshold (float)         Default 0.45
+   weights_path (string)         Default share/yolov5_detector/models/yolov5n.onnx
+   use_cuda (bool)               true per backend DNN CUDA
+   image_topic (string)          Topic camera, default `/camera/color/image_raw`
+
+Debug
+   ros2 topic echo detections --once
+   rviz2 + vision_msgs plugin per overlay bounding box
+
+
+================================================================================
 DOCUMENTAZIONE
 ================================================================================
 

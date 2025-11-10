@@ -1,0 +1,10 @@
+yolov5_detector_node:
+  ros__parameters:
+    image_topic: /camera/color/image_raw
+    weights_path: ""
+    class_names_path: ""
+    confidence_threshold: 0.4
+    iou_threshold: 0.45
+    use_cuda: false
+    publish_annotated_image: true
+    annotated_topic: /camera/color/yolov5_annotated
