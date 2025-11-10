@@ -1,6 +1,19 @@
 ================================================================================
-                    GUIDA MINIMA UR AI ACCELERATOR
+GUIDA MINIMA UR AI ACCELERATOR
 ================================================================================
+
+================================================================================
+STRUTTURA BRANCH FUNZIONALI
+================================================================================
+
+Abbiamo creato quattro branch Git dedicati alle principali aree di sviluppo:
+
+1. `feature/remote-ur-control` – test e automazioni per il controllo remoto del braccio UR da AI Accelerator.
+2. `feature/camera-streaming` – configurazione e validazione dello streaming video dalla camera Orbbec.
+3. `feature/object-recognition` – pipeline di riconoscimento oggetti basata sui flussi camera.
+4. `feature/vision-guided-demo` – demo end-to-end: il robot osserva la scena, riconosce un oggetto (es. pallina rossa) e lo afferra su comando.
+
+Usa questi branch come riferimento per isolare e testare ogni componente prima di integrarli in `main`.
 
 ================================================================================
 3 REPOSITORY PRINCIPALI (In ordine di importanza)

@@ -2,6 +2,13 @@
 
 Repository per il progetto con robot e AI accelerator.
 
+## Branch roadmap
+
+- `feature/remote-ur-control` – controllo remoto del robot UR dall’AI Accelerator.
+- `feature/camera-streaming` – acquisizione e streaming video della camera Orbbec.
+- `feature/object-recognition` – pipeline di riconoscimento oggetti basata sullo stream.
+- `feature/vision-guided-demo` – demo integrata “vedi e afferra la pallina rossa”.
+
 ## Informazioni di Rete
 
 Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_info.txt`.
