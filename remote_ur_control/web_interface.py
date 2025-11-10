@@ -269,6 +269,10 @@ HTML_TEMPLATE = """
           <label>Step size (rad)
             <input type="number" step="0.01" name="step" id="step-size" value="0.10">
           </label>
+          <label style="margin-left: 2em;">
+            <input type="checkbox" id="cartesian-mode">
+            Cartesian mode (Tool X/Y/Z control)
+          </label>
         </div>
         <div class="joint-grid">
           {% for idx in range(6) %}
@@ -434,23 +438,42 @@ HTML_TEMPLATE = """
           const magnitude = Math.hypot(joyVector.x, joyVector.y);
           if (magnitude < JOY_DEADZONE) return;
 
-          const speeds = [
-            joyVector.y * JOY_MAX,
-            joyVector.x * JOY_MAX,
-            0,
-            0,
-            0,
-            0,
-          ];
+          const cartesianMode = document.getElementById("cartesian-mode").checked;
+          let speeds;
+          let endpoint;
+
+          if (cartesianMode) {
+            // Cartesian: X forward/back, Y left/right
+            speeds = [
+              joyVector.y * JOY_MAX * 0.1,  // vx (m/s)
+              joyVector.x * JOY_MAX * 0.1,  // vy (m/s)
+              0,                             // vz
+              0,                             // wx
+              0,                             // wy
+              0,                             // wz
+            ];
+            endpoint = "/api/speedl";
+          } else {
+            // Joint space
+            speeds = [
+              joyVector.y * JOY_MAX,
+              joyVector.x * JOY_MAX,
+              0,
+              0,
+              0,
+              0,
+            ];
+            endpoint = "/api/speedj";
+          }
 
           try {
-            await fetch("/api/speedj", {
+            await fetch(endpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 speeds,
                 duration: JOY_INTERVAL / 1000.0 + 0.05,
-                acceleration: 1.0,
+                acceleration: cartesianMode ? 0.5 : 1.0,
               }),
             });
             setStatus("Joystick speed command sent", true);
@@ -607,6 +630,20 @@ def api_speedj():
         acceleration=float(payload.get("acceleration", 1.0)),
     )
     return jsonify({"status": "ok", "message": "SpeedJ command sent"})
+
+
+@app.route("/api/speedl", methods=["POST"])
+def api_speedl():
+    """Cartesian velocity control endpoint."""
+    payload = request.get_json(force=True)
+    controller = get_controller()
+    speeds = parse_joints(payload.get("speeds"))  # [vx,vy,vz,wx,wy,wz]
+    controller.speedl(
+        speeds,
+        duration=float(payload.get("duration", 0.3)),
+        acceleration=float(payload.get("acceleration", 0.5)),
+    )
+    return jsonify({"status": "ok", "message": "SpeedL command sent"})
 
 
 @app.route("/api/config", methods=["GET"])
