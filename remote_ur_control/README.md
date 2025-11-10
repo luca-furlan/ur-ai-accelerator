@@ -8,6 +8,7 @@ Script e interfaccia web da eseguire sull'AI Accelerator per comandare il robot 
 - `web_interface.py`: applicazione Flask con UI avanzata (frecce ±, step configurabile, joystick virtuale con `speedj`, stato live) per comandare il robot da browser.
 - `requirements.txt`: dipendenze Python (Flask).
 - `diagnostics.py`: script CLI che verifica ping, porta TCP e invio script “textmsg” (nessun movimento).
+- `rtde_teleop.py`: teleop di riferimento basato su `ur_rtde`, lo stesso backend usato dal driver ROS 2 ufficiale.
 
 ## Setup rapido
 
@@ -47,6 +48,20 @@ Lo script:
 - esegue (se possibile) un ping;
 - verifica l’apertura della porta TCP 30002;
 - invia un piccolo URScript con `textmsg()` per assicurarsi che la modalità External Control sia attiva.
+
+## Teleoperazione affidabile via RTDE
+
+Per integrazioni ROS 2 o per garantire compatibilità con lo stack ufficiale, si può usare la teleoperazione basata su RTDE:
+
+```bash
+source ~/.venvs/ur-remote/bin/activate
+python -m remote_ur_control.rtde_teleop --robot-ip 192.168.10.194 state
+python -m remote_ur_control.rtde_teleop --robot-ip 192.168.10.194 jog --joint 0 --delta 0.1
+python -m remote_ur_control.rtde_teleop --robot-ip 192.168.10.194 speed --speeds 0.2 0 0 0 0 0 --duration 0.4
+python -m remote_ur_control.rtde_teleop --robot-ip 192.168.10.194 halt
+```
+
+Il modulo si appoggia a `ur-rtde` e apre una sessione `RTDEControlInterface`, la stessa utilizzata da `Universal_Robots_ROS2_Driver`. In questo modo la teleoperazione resta allineata alle best practice UR e può essere richiamata da nodi ROS 2, pipeline MoveIt o servizi REST senza riscrivere la logica di basso livello.
 
 ## Note di sicurezza
 
