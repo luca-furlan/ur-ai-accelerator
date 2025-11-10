@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from typing import Iterable, Sequence
 
 DEFAULT_PORT = 30002
+DASHBOARD_PORT = 29999
 DEFAULT_TIMEOUT = 5.0
 
 LOG = logging.getLogger(__name__)
@@ -238,5 +239,37 @@ class RemoteURController:
         return "[" + ", ".join(f"{v:.5f}" for v in values) + "]"
 
 
-__all__ = ["RemoteURController", "MoveParameters"]
+class DashboardClient:
+    """Simple client for UR Dashboard server (port 29999)."""
+    
+    def __init__(self, robot_ip: str, port: int = DASHBOARD_PORT):
+        self.robot_ip = robot_ip
+        self.port = port
+        self._sock: socket.socket | None = None
+    
+    def connect(self) -> None:
+        """Connect to Dashboard server."""
+        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._sock.settimeout(DEFAULT_TIMEOUT)
+        self._sock.connect((self.robot_ip, self.port))
+        # Read welcome message
+        self._sock.recv(1024)
+    
+    def send_command(self, command: str) -> str:
+        """Send command and return response."""
+        if not self._sock:
+            self.connect()
+        assert self._sock is not None
+        self._sock.sendall((command + "\n").encode("utf-8"))
+        response = self._sock.recv(1024).decode("utf-8").strip()
+        return response
+    
+    def close(self) -> None:
+        """Close connection."""
+        if self._sock:
+            self._sock.close()
+            self._sock = None
+
+
+__all__ = ["RemoteURController", "MoveParameters", "DashboardClient"]
 
