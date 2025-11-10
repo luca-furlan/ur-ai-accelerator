@@ -4,7 +4,7 @@ set -euo pipefail
 
 MODEL_URL="https://github.com/ultralytics/yolov5/releases/download/v7.0/yolov5n.onnx"
 MODEL_FILE="yolov5n.onnx"
-CHECKSUM="cb86d51fdd8f04fbfdbb6c42fbaa2af9a1a247e790e6cd9ca520d05f6f1183d5"
+CHECKSUM="04f0e55c26f58d17145b36045780fe1250d5bd2187543e11568e5141d05b3262"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${script_dir}"
