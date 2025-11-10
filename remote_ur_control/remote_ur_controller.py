@@ -203,8 +203,8 @@ class RemoteURController:
         return [0.0] * 6  # Placeholder until RTDE available
 
     def stop(self) -> None:
-        """Send a stopj command to halt motion."""
-        script = "def remote_stop():\n  stopj(2.0)\nend\nremote_stop()\n"
+        """Send a stopl command to halt motion smoothly."""
+        script = "def remote_stop():\n  stopl(1.5)\nend\nremote_stop()\n"
         self._send_script(script, wait=False)
 
     # --------------------------------------------------------------------- #

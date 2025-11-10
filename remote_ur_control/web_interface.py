@@ -30,6 +30,7 @@ HTML_TEMPLATE = """
 <html lang="en">
   <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>UR Remote Control</title>
     <style>
       :root {
@@ -164,8 +165,13 @@ HTML_TEMPLATE = """
       .status-bar span.error { color: var(--danger); }
       .layout {
         display: grid;
-        grid-template-columns: 360px 1fr;
-        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 16px;
+      }
+      @media (min-width: 768px) {
+        .layout {
+          grid-template-columns: repeat(2, 1fr);
+        }
       }
       .joystick-panel {
         border: 1px solid var(--border);
@@ -566,7 +572,117 @@ HTML_TEMPLATE = """
       joystick.addEventListener("touchend", onJoystickEnd);
       joystick.addEventListener("touchcancel", onJoystickEnd);
 
-      stopJoystickBtn.addEventListener("click", resetJoystick);
+      stopJoystickBtn.addEventListener("click", () => {
+        resetJoystick();
+        resetJoystick2();
+      });
+
+      // --- Second Joystick (Z + Rotation) ------------------------------------
+      const joystick2 = document.getElementById("joystick2");
+      const handle2 = document.getElementById("joystick2-handle");
+      const joy2X = document.getElementById("joy2-x");
+      const joy2Y = document.getElementById("joy2-y");
+
+      let joystick2Active = false;
+      let joystick2Timer = null;
+      let joy2Vector = { x: 0, y: 0 };
+
+      function setHandle2Position(xNorm, yNorm) {
+        const radius = joystick2.clientWidth / 2 - handle2.clientWidth / 2;
+        const x = radius * xNorm;
+        const y = radius * yNorm;
+        handle2.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+        joy2X.textContent = xNorm.toFixed(2);
+        joy2Y.textContent = (-yNorm).toFixed(2);
+      }
+
+      function resetJoystick2() {
+        joy2Vector = { x: 0, y: 0 };
+        setHandle2Position(0, 0);
+        stopJointMotion();
+      }
+
+      function startJoystick2Loop() {
+        if (joystick2Timer) return;
+        joystick2Timer = setInterval(async () => {
+          const magnitude = Math.hypot(joy2Vector.x, joy2Vector.y);
+          if (magnitude < JOY_DEADZONE) return;
+
+          const cartesianMode = document.getElementById("cartesian-mode").checked;
+          if (!cartesianMode) return;
+
+          const delta = [
+            0, 0,
+            joy2Vector.y * JOY_CART_STEP * 2,  // dz 
+            0, 0,
+            joy2Vector.x * JOY_CART_STEP * 5,  // drz rotation
+          ];
+
+          try {
+            await fetch("/api/movel_relative", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ delta, acceleration: 0.2, velocity: 0.02, blend: 0.01 }),
+            });
+          } catch (err) {
+            console.error(err);
+          }
+        }, JOY_INTERVAL);
+      }
+
+      function stopJoystick2Loop() {
+        if (joystick2Timer) {
+          clearInterval(joystick2Timer);
+          joystick2Timer = null;
+        }
+      }
+
+      function onJoystick2Start(evt) {
+        joystick2Active = true;
+        startJoystick2Loop();
+      }
+
+      function onJoystick2Move(evt) {
+        if (!joystick2Active) return;
+        const rect = joystick2.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        let clientX, clientY;
+        if (evt.touches) {
+          clientX = evt.touches[0].clientX;
+          clientY = evt.touches[0].clientY;
+        } else {
+          clientX = evt.clientX;
+          clientY = evt.clientY;
+        }
+        const dx = clientX - cx;
+        const dy = clientY - cy;
+        const maxDist = rect.width / 2;
+        const dist = Math.hypot(dx, dy);
+        const limitedDist = Math.min(dist, maxDist);
+        const angle = Math.atan2(dy, dx);
+        const xNorm = (limitedDist / maxDist) * Math.cos(angle);
+        const yNorm = (limitedDist / maxDist) * Math.sin(angle);
+        joy2Vector = { x: clamp(xNorm, -1, 1), y: clamp(yNorm, -1, 1) };
+        setHandle2Position(joy2Vector.x, joy2Vector.y);
+      }
+
+      function onJoystick2End() {
+        joystick2Active = false;
+        stopJoystick2Loop();
+        resetJoystick2();
+      }
+
+      joystick2.addEventListener("mousedown", onJoystick2Start);
+      window.addEventListener("mousemove", (evt) => {
+        if (!joystick2Active) return;
+        onJoystick2Move(evt);
+      });
+      window.addEventListener("mouseup", onJoystick2End);
+      joystick2.addEventListener("touchstart", onJoystick2Start);
+      joystick2.addEventListener("touchmove", onJoystick2Move);
+      joystick2.addEventListener("touchend", onJoystick2End);
+      joystick2.addEventListener("touchcancel", onJoystick2End);
     </script>
   </body>
 </html>
