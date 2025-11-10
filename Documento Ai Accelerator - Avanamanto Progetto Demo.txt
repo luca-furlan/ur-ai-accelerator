@@ -107,6 +107,92 @@ Branch sbagliato Orbbec?
 
 
 ================================================================================
+INSTALLAZIONE CAMERA GEMINI 335LG (AI ACCELERATOR)
+================================================================================
+
+1. Accedi al Jetson (AI Accelerator)
+   ssh lab@192.168.10.191
+   password: easybot
+
+2. Prepara repository ROS 2 (HTTP per evitare errori SSL)
+   echo easybot | sudo -S apt update
+   echo easybot | sudo -S apt install -y curl gnupg2 lsb-release ca-certificates software-properties-common
+   echo easybot | sudo -S add-apt-repository -y universe
+   curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /tmp/ros.key
+   echo easybot | sudo -S install -m 0644 /tmp/ros.key /usr/share/keyrings/ros-archive-keyring.gpg
+   ARCH=$(dpkg --print-architecture)
+   CODENAME=$( . /etc/os-release && echo "$UBUNTU_CODENAME" )
+   echo "deb [arch=${ARCH} signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu ${CODENAME} main" | sudo tee /etc/apt/sources.list.d/ros2.list
+   echo easybot | sudo -S apt update
+
+3. Installa ROS 2 Humble + dipendenze Orbbec
+   echo easybot | sudo -S apt install -y \
+     ros-humble-ros-base \
+     python3-colcon-common-extensions \
+     ros-humble-cv-bridge \
+     ros-humble-image-transport \
+     ros-humble-camera-info-manager \
+     ros-humble-diagnostic-updater \
+     ros-humble-image-publisher \
+     ros-humble-image-tools \
+     ros-humble-backward-ros \
+     nlohmann-json3-dev
+
+4. Prepara workspace ROS
+   mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
+   git clone https://github.com/orbbec/OrbbecSDK_ROS2.git (se assente)
+   cd OrbbecSDK_ROS2 && git checkout v2-main
+   echo easybot | sudo -S bash orbbec_camera/scripts/install_udev_rules.sh
+
+5. Compila driver
+   source /opt/ros/humble/setup.bash
+   cd ~/ros2_ws
+   colcon build
+
+   * Avviso OpenCV (libopencv_*.so 4.5d vs 4.8) innocuo ma da monitorare
+   * Script: `scripts/setup_orbbec_camera.sh` automatizza i passaggi (eseguire da repo su Jetson)
+
+================================================================================
+AVVIO CAMERA E VISUALIZZAZIONE STREAM
+================================================================================
+
+1. Avvio driver
+   source /opt/ros/humble/setup.bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 launch orbbec_camera gemini_330_series.launch.py
+
+2. Verifica
+   ros2 topic list
+   ros2 topic echo /camera/color/image_raw (per debug rapido)
+
+3. Visualizza stream (richiede sessione grafica, es. VNC display :1)
+   DISPLAY=:1 ros2 run rqt_image_view rqt_image_view
+   DISPLAY=:1 ros2 run image_tools showimage --ros-args -r image:=/camera/color/image_raw
+
+4. Stop driver
+   Ctrl+C sul terminale o `pkill -f gemini_330_series.launch.py`
+
+================================================================================
+ACCESSO VNC AI ACCELERATOR
+================================================================================
+
+1. Imposta password (una tantum)
+   vncpasswd  # usare easybot
+
+2. Avvia sessione grafica
+   vncserver :1 -geometry 1920x1080 -depth 24
+   Log: ~/.vnc/ubuntu:1.log
+   PID: ~/.vnc/ubuntu:1.pid
+
+3. Connettiti da PC
+   Client VNC -> 192.168.10.191:5901, password easybot
+   (Opzionale) Tunnel: ssh -L 5901:localhost:5901 lab@192.168.10.191
+
+4. Manutenzione
+   vncserver -kill :1  # ferma la sessione
+   Se errore .Xauthority: rm -rf ~/.Xauthority && touch ~/.Xauthority && chmod 600 ~/.Xauthority
+
+================================================================================
 DOCUMENTAZIONE
 ================================================================================
 
