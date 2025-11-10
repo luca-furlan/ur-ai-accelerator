@@ -23,7 +23,10 @@ case "${VIEWER}" in
     exec env DISPLAY="${DISPLAY_VALUE}" ros2 run rqt_image_view rqt_image_view
     ;;
   showimage)
-    exec env DISPLAY="${DISPLAY_VALUE}" ros2 run image_tools showimage --ros-args -r image:="${IMAGE_TOPIC}"
+    exec env DISPLAY="${DISPLAY_VALUE}" ros2 run image_tools showimage \
+      --ros-args \
+      -r image:="${IMAGE_TOPIC}" \
+      --param reliability:=best_effort
     ;;
   *)
     echo "Viewer non supportato: ${VIEWER}. Usa 'rqt' o 'showimage'." >&2
