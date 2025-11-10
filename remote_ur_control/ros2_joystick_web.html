@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>UR ROS2 Joystick Control</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      touch-action: none;
+    }
+    .header {
+      padding: 15px;
+      background: rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    .header h1 { font-size: 24px; margin-bottom: 5px; }
+    .status { font-size: 14px; opacity: 0.9; }
+    .status.connected { color: #4ade80; }
+    .status.disconnected { color: #f87171; }
+    
+    .controls {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 20px;
+      overflow: hidden;
+    }
+    
+    @media (orientation: portrait) {
+      .controls { grid-template-columns: 1fr; }
+    }
+    
+    .joystick-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 20px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .joystick-container h2 {
+      font-size: 18px;
+      margin-bottom: 15px;
+      opacity: 0.9;
+    }
+    
+    .joystick {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+      border-radius: 50%;
+      border: 3px solid rgba(255,255,255,0.3);
+      touch-action: none;
+      user-select: none;
+    }
+    
+    .joystick-handle {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      background: radial-gradient(circle at 30% 30%, #fff, #a0a0ff);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      cursor: grab;
+      border: 2px solid rgba(255,255,255,0.5);
+    }
+    
+    .joystick-handle:active { cursor: grabbing; }
+    
+    .values {
+      margin-top: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      text-align: center;
+      opacity: 0.8;
+    }
+    
+    .emergency-stop {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 15px 40px;
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 50px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      box-shadow: 0 5px 20px rgba(239, 68, 68, 0.5);
+      z-index: 1000;
+    }
+    
+    .emergency-stop:active {
+      background: #dc2626;
+      transform: translateX(-50%) scale(0.95);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🤖 UR Robot ROS2 Control</h1>
+    <div class="status" id="status">Connecting to ROS2...</div>
+  </div>
+
+  <div class="controls">
+    <div class="joystick-container">
+      <h2>XY Movement</h2>
+      <div class="joystick" id="joystick1">
+        <div class="joystick-handle" id="handle1"></div>
+      </div>
+      <div class="values">
+        X: <span id="val1x">0.00</span> m/s<br>
+        Y: <span id="val1y">0.00</span> m/s
+      </div>
+    </div>
+
+    <div class="joystick-container">
+      <h2>Z + Rotation</h2>
+      <div class="joystick" id="joystick2">
+        <div class="joystick-handle" id="handle2"></div>
+      </div>
+      <div class="values">
+        Z: <span id="val2x">0.00</span> m/s<br>
+        Rz: <span id="val2y">0.00</span> rad/s
+      </div>
+    </div>
+  </div>
+
+  <button class="emergency-stop" id="estop">⛔ STOP</button>
+
+  <script src="https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.min.js"></script>
+  <script>
+    // ROS2 connection via rosbridge
+    const ros = new ROSLIB.Ros({
+      url: 'ws://192.168.10.191:9090'
+    });
+
+    const statusEl = document.getElementById('status');
+    
+    ros.on('connection', () => {
+      statusEl.textContent = '✅ Connected to ROS2';
+      statusEl.className = 'status connected';
+    });
+    
+    ros.on('error', (error) => {
+      statusEl.textContent = '❌ ROS2 Error: ' + error;
+      statusEl.className = 'status disconnected';
+    });
+    
+    ros.on('close', () => {
+      statusEl.textContent = '⚠️ Disconnected from ROS2';
+      statusEl.className = 'status disconnected';
+    });
+
+    // Twist publisher for servo control
+    const twistTopic = new ROSLIB.Topic({
+      ros: ros,
+      name: '/servo_node/delta_twist_cmds',
+      messageType: 'geometry_msgs/TwistStamped'
+    });
+
+    // Joystick control
+    const DEADZONE = 0.08;
+    const MAX_LINEAR = 0.1;  // 100mm/s
+    const MAX_ANGULAR = 0.5; // 0.5 rad/s
+    const PUBLISH_RATE = 50; // 50ms = 20Hz
+
+    let joy1 = { x: 0, y: 0 };
+    let joy2 = { x: 0, y: 0 };
+    let publishTimer = null;
+
+    function setupJoystick(joystickId, handleId, onMove) {
+      const joystick = document.getElementById(joystickId);
+      const handle = document.getElementById(handleId);
+      let active = false;
+
+      function updateHandle(clientX, clientY) {
+        const rect = joystick.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = clientX - cx;
+        const dy = clientY - cy;
+        const maxDist = rect.width / 2 - handle.offsetWidth / 2;
+        const dist = Math.min(Math.hypot(dx, dy), maxDist);
+        const angle = Math.atan2(dy, dx);
+        const x = (dist / maxDist) * Math.cos(angle);
+        const y = (dist / maxDist) * Math.sin(angle);
+        
+        handle.style.transform = `translate(calc(-50% + ${x * maxDist}px), calc(-50% + ${y * maxDist}px))`;
+        onMove(x, -y); // Invert Y for intuitive control
+      }
+
+      function reset() {
+        handle.style.transform = 'translate(-50%, -50%)';
+        onMove(0, 0);
+      }
+
+      // Mouse events
+      joystick.addEventListener('mousedown', () => { active = true; });
+      window.addEventListener('mousemove', (e) => {
+        if (active) updateHandle(e.clientX, e.clientY);
+      });
+      window.addEventListener('mouseup', () => {
+        if (active) { active = false; reset(); }
+      });
+
+      // Touch events
+      joystick.addEventListener('touchstart', (e) => {
+        active = true;
+        e.preventDefault();
+      }, { passive: false });
+      
+      joystick.addEventListener('touchmove', (e) => {
+        if (active) {
+          updateHandle(e.touches[0].clientX, e.touches[0].clientY);
+          e.preventDefault();
+        }
+      }, { passive: false });
+      
+      joystick.addEventListener('touchend', () => {
+        if (active) { active = false; reset(); }
+      });
+    }
+
+    setupJoystick('joystick1', 'handle1', (x, y) => {
+      joy1.x = Math.abs(x) < DEADZONE ? 0 : x;
+      joy1.y = Math.abs(y) < DEADZONE ? 0 : y;
+      document.getElementById('val1x').textContent = (joy1.x * MAX_LINEAR).toFixed(3);
+      document.getElementById('val1y').textContent = (joy1.y * MAX_LINEAR).toFixed(3);
+    });
+
+    setupJoystick('joystick2', 'handle2', (x, y) => {
+      joy2.x = Math.abs(x) < DEADZONE ? 0 : x;
+      joy2.y = Math.abs(y) < DEADZONE ? 0 : y;
+      document.getElementById('val2x').textContent = (joy2.y * MAX_LINEAR).toFixed(3);
+      document.getElementById('val2y').textContent = (joy2.x * MAX_ANGULAR).toFixed(3);
+    });
+
+    // Publish twist messages
+    function publishTwist() {
+      const twist = new ROSLIB.Message({
+        header: {
+          stamp: { sec: 0, nanosec: 0 },
+          frame_id: 'base'
+        },
+        twist: {
+          linear: {
+            x: joy1.y * MAX_LINEAR,
+            y: joy1.x * MAX_LINEAR,
+            z: joy2.y * MAX_LINEAR
+          },
+          angular: {
+            x: 0,
+            y: 0,
+            z: joy2.x * MAX_ANGULAR
+          }
+        }
+      });
+      
+      twistTopic.publish(twist);
+    }
+
+    // Start publishing
+    publishTimer = setInterval(publishTwist, PUBLISH_RATE);
+
+    // Emergency stop
+    document.getElementById('estop').addEventListener('click', () => {
+      joy1 = { x: 0, y: 0 };
+      joy2 = { x: 0, y: 0 };
+      publishTwist();
+      alert('🛑 EMERGENCY STOP ACTIVATED');
+    });
+  </script>
+</body>
+</html>
+
