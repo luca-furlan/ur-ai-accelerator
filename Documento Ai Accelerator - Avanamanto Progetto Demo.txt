@@ -121,8 +121,7 @@ Prerequisiti (Jetson AI Accelerator)
 
 Modelli YOLOV5
    cd ~/projects/ur-ai-accelerator-object-recognition/ros2/yolov5_detector/models
-   python3 -m pip install --user onnx onnxruntime   # una tantum, per convertire FP16 -> FP32
-   ./download_yolov5n_onnx.sh      # ~8 MB, genera anche yolov5n_fp32.onnx
+   ./download_yolov5n_onnx.sh      # ~7.5 MB, modello FP32 già compatibile OpenCV
    # opzionale: sostituisci con il tuo modello ONNX e aggiorna weights_path
 
 Aggancia il package al workspace ROS2
