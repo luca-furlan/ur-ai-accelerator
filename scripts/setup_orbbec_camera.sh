@@ -55,7 +55,10 @@ sudo bash orbbec_camera/scripts/install_udev_rules.sh
 cd "${HOME}/ros2_ws"
 
 if [ -f /opt/ros/humble/setup.bash ]; then
+  set +u
+  # shellcheck disable=SC1091
   source /opt/ros/humble/setup.bash
+  set -u
 fi
 
 colcon build

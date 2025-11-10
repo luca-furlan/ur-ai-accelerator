@@ -15,12 +15,16 @@ if [ ! -f /opt/ros/humble/setup.bash ]; then
   exit 1
 fi
 
+set +u
 # shellcheck disable=SC1091
 source /opt/ros/humble/setup.bash
+set -u
 
 if [ -f "${HOME}/ros2_ws/install/setup.bash" ]; then
+  set +u
   # shellcheck disable=SC1091
   source "${HOME}/ros2_ws/install/setup.bash"
+  set -u
 else
   echo "Attenzione: ~/ros2_ws/install/setup.bash non trovato. Assicurarsi di aver compilato il workspace." >&2
 fi
@@ -36,4 +40,4 @@ case "${VIEWER}" in
     echo "Viewer non supportato: ${VIEWER}. Usa 'rqt' o 'showimage'." >&2
     exit 1
     ;;
- esac
+esac
