@@ -168,6 +168,7 @@ AVVIO CAMERA E VISUALIZZAZIONE STREAM
 3. Visualizza stream (richiede sessione grafica, es. VNC display :1)
    DISPLAY=:1 ros2 run rqt_image_view rqt_image_view
    DISPLAY=:1 ros2 run image_tools showimage --ros-args -r image:=/camera/color/image_raw
+   Oppure script: ~/projects/ur-ai-accelerator/scripts/view_orbbec_camera.sh [topic] [rqt|showimage]
 
 4. Stop driver
    Ctrl+C sul terminale o `pkill -f gemini_330_series.launch.py`

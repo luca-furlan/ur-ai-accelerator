@@ -17,4 +17,5 @@ Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_
 - `scripts/setup_orbbec_camera.sh` - Script per preparare il Jetson (AI Accelerator) con ROS 2 Humble e driver Orbbec Gemini 335Lg
 - Dettagli su dipendenze, comandi `ros2 launch` e visualizzazione dello stream sono descritti in `Documento Ai Accelerator - Avanamanto Progetto Demo.txt`
 - Accesso alla GUI del Jetson via VNC (porta `5901`, password `easybot`, display `:1`) documentato nello stesso file
+- Utilizza `scripts/view_orbbec_camera.sh` per lanciare rapidamente `rqt_image_view` (default) o `image_tools showimage` sul topic desiderato (`DISPLAY` di default `:1`)
 
