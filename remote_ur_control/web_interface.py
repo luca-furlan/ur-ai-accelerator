@@ -547,7 +547,18 @@ def load_config() -> ControllerConfig:
     return ControllerConfig(robot_ip=robot_ip, port=port)
 
 
-def parse_joints(payload: Dict[str, str]) -> List[float]:
+def parse_joints(payload) -> List[float]:
+    """
+    Accept either a mapping {joint0: val, ...} or a flat sequence of 6 elements.
+    """
+    if payload is None:
+        raise ValueError("Missing joint payload")
+
+    if isinstance(payload, (list, tuple)):
+        if len(payload) != 6:
+            raise ValueError("Joint sequence must have 6 elements")
+        return [float(value) for value in payload]
+
     joints = []
     for idx in range(6):
         key = f"joint{idx}"
