@@ -407,7 +407,8 @@ HTML_TEMPLATE = """
 
       const JOY_MAX = 1.0;      // max linear velocity scaling (rad/s)
       const JOY_DEADZONE = 0.08;
-      const JOY_INTERVAL = 150; // ms
+      const JOY_CART_STEP = 0.003; // 3mm incremental step for cartesian
+      const JOY_INTERVAL = 500; // ms - reduced frequency to avoid command saturation
 
       let joystickActive = false;
       let joystickTimer = null;
@@ -443,16 +444,16 @@ HTML_TEMPLATE = """
           let endpoint;
 
           if (cartesianMode) {
-            // Cartesian: X forward/back, Y left/right
+            // Cartesian: incremental movements
             speeds = [
-              joyVector.y * JOY_MAX * 0.1,  // vx (m/s)
-              joyVector.x * JOY_MAX * 0.1,  // vy (m/s)
-              0,                             // vz
-              0,                             // wx
-              0,                             // wy
-              0,                             // wz
+              joyVector.y * JOY_CART_STEP,  // dx (m)
+              joyVector.x * JOY_CART_STEP,  // dy (m)
+              0,                             // dz
+              0,                             // drx
+              0,                             // dry
+              0,                             // drz
             ];
-            endpoint = "/api/speedl";
+            endpoint = "/api/movel_relative";
           } else {
             // Joint space
             speeds = [
@@ -467,16 +468,16 @@ HTML_TEMPLATE = """
           }
 
           try {
+            const payload = cartesianMode 
+              ? { delta: speeds, acceleration: 0.5, velocity: 0.05 }
+              : { speeds, duration: JOY_INTERVAL / 1000.0 + 0.05, acceleration: 1.0 };
+            
             await fetch(endpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                speeds,
-                duration: JOY_INTERVAL / 1000.0 + 0.05,
-                acceleration: cartesianMode ? 0.5 : 1.0,
-              }),
+              body: JSON.stringify(payload),
             });
-            setStatus("Joystick speed command sent", true);
+            setStatus("Joystick command sent", true);
           } catch (err) {
             console.error(err);
             setStatus("Joystick error: " + err, false);
@@ -644,6 +645,20 @@ def api_speedl():
         acceleration=float(payload.get("acceleration", 0.5)),
     )
     return jsonify({"status": "ok", "message": "SpeedL command sent"})
+
+
+@app.route("/api/movel_relative", methods=["POST"])
+def api_movel_relative():
+    """Cartesian incremental movement endpoint."""
+    payload = request.get_json(force=True)
+    controller = get_controller()
+    delta = parse_joints(payload.get("delta"))  # [dx,dy,dz,drx,dry,drz]
+    controller.movel_relative(
+        delta,
+        acceleration=float(payload.get("acceleration", 0.5)),
+        velocity=float(payload.get("velocity", 0.05)),
+    )
+    return jsonify({"status": "ok", "message": "MoveL relative command sent"})
 
 
 @app.route("/api/config", methods=["GET"])

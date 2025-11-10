@@ -156,6 +156,32 @@ class RemoteURController:
         )
         self._send_script(script, wait=True)
 
+    def movel_relative(
+        self,
+        delta_pose: list[float],
+        acceleration: float = 0.5,
+        velocity: float = 0.1,
+    ) -> None:
+        """Move tool by relative cartesian offset.
+        
+        Args:
+            delta_pose: [dx, dy, dz, drx, dry, drz] relative to current TCP
+            acceleration: acceleration in m/s²
+            velocity: velocity in m/s
+        """
+        if len(delta_pose) != 6:
+            raise ValueError("movel_relative expects 6 values [dx,dy,dz,drx,dry,drz]")
+
+        script = (
+            "def remote_movel_rel():\n"
+            "  current = get_actual_tcp_pose()\n"
+            f"  target = pose_add(current, p{self._format_list(delta_pose)})\n"
+            f"  movel(target, a={acceleration}, v={velocity})\n"
+            "end\n"
+            "remote_movel_rel()\n"
+        )
+        self._send_script(script, wait=False)
+
     def stop(self) -> None:
         """Send a stopj command to halt motion."""
         script = "def remote_stop():\n  stopj(2.0)\nend\nremote_stop()\n"
