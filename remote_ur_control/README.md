@@ -7,6 +7,7 @@ Script e interfaccia web da eseguire sull'AI Accelerator per comandare il robot 
 - `remote_ur_controller.py`: client socket minimale che invia comandi URScript (movej, speedj, stop).
 - `web_interface.py`: applicazione Flask con UI avanzata (frecce ±, step configurabile, joystick virtuale con `speedj`, stato live) per comandare il robot da browser.
 - `requirements.txt`: dipendenze Python (Flask).
+- `diagnostics.py`: script CLI che verifica ping, porta TCP e invio script “textmsg” (nessun movimento).
 
 ## Setup rapido
 
@@ -34,6 +35,18 @@ Script e interfaccia web da eseguire sull'AI Accelerator per comandare il robot 
    - impostare manualmente i valori target;
    - utilizzare il joystick circolare per inviare comandi `speedj` (joystick → joint velocity);
    - monitorare lo stato dei comandi (ready, sending, error).
+
+## Diagnostica rapida (senza muovere il robot)
+
+```bash
+source ~/.venvs/ur-remote/bin/activate
+python -m remote_ur_control.diagnostics --robot-ip 192.168.10.194
+```
+
+Lo script:
+- esegue (se possibile) un ping;
+- verifica l’apertura della porta TCP 30002;
+- invia un piccolo URScript con `textmsg()` per assicurarsi che la modalità External Control sia attiva.
 
 ## Note di sicurezza
 
