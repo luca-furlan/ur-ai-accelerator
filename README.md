@@ -25,7 +25,7 @@ Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_
     - `/camera/color/yolov5_annotated` (immagine con bounding box)
   - Configurazione via `config/params.yaml` o parametri launch.
 - Modelli
-  - Scaricare `yolov5n.onnx` eseguendo `ros2/yolov5_detector/models/download_yolov5n_onnx.sh` (richiede `python3 -m pip install onnx onnxruntime` per conversione FP32)
+  - Scaricare `yolov5n.onnx` eseguendo `ros2/yolov5_detector/models/download_yolov5n_onnx.sh` (installare prima `python3 -m pip install 'numpy<2.0' onnx onnxruntime`)
   - Classi COCO in `ros2/yolov5_detector/models/coco_labels.txt`
 - Lancio rapito (Jetson)
   ```bash

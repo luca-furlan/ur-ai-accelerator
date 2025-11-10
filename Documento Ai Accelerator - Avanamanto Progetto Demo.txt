@@ -117,6 +117,7 @@ Prerequisiti (Jetson AI Accelerator)
      ros-humble-cv-bridge \
      python3-opencv \
      python3-numpy
+   python3 -m pip install --user 'numpy<2.0'
 
 Modelli YOLOV5
    cd ~/projects/ur-ai-accelerator-object-recognition/ros2/yolov5_detector/models
