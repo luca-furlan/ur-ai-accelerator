@@ -32,7 +32,7 @@ Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_
   source /opt/ros/humble/setup.bash
   source ~/ros2_ws/install/setup.bash
   colcon build --packages-select yolov5_detector
-  ros2 launch yolov5_detector yolov5_detector.launch.py
+  ros2 launch yolov5_detector yolov5_detector.launch.py  # carica automaticamente config/params.yaml
   ```
 - Parametri principali
   - `image_topic`: topic camera (default `/camera/color/image_raw`)
