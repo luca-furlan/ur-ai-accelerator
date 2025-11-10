@@ -135,22 +135,23 @@ class RemoteURController:
     def speedl(
         self,
         cart_speeds: list[float],
-        acceleration: float = 0.25,
-        duration: float = 0.5,
+        acceleration: float = 0.5,
+        duration: float = 0.2,
     ) -> None:
-        """Send a speedl command for smooth cartesian velocity control.
+        """Send a speedl command for cartesian velocity control.
         
         Args:
             cart_speeds: [vx, vy, vz, wx, wy, wz] in m/s and rad/s
-            acceleration: acceleration in m/s² (low for smoothness)
+            acceleration: acceleration in m/s²
             duration: time buffer for command in seconds
         """
         if len(cart_speeds) != 6:
             raise ValueError("speedl expects 6 cartesian speeds [vx,vy,vz,wx,wy,wz]")
 
+        # Use servoc for smoother control at high frequency
         script = (
             "def remote_speedl():\n"
-            f"  speedl({self._format_list(cart_speeds)}, {acceleration}, {duration}, {acceleration})\n"
+            f"  speedl({self._format_list(cart_speeds)}, {acceleration}, {duration})\n"
             "end\n"
             "remote_speedl()\n"
         )

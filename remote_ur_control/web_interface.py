@@ -439,10 +439,10 @@ HTML_TEMPLATE = """
       const joyY = document.getElementById("joy-y");
       const stopJoystickBtn = document.getElementById("stop-joystick");
 
-      const JOY_MAX = 0.5;      // max joint velocity (rad/s) - ridotto per controllo smooth
-      const JOY_CART_VEL = 0.08; // max cartesian velocity (m/s) = 80mm/s
-      const JOY_DEADZONE = 0.05;
-      const JOY_INTERVAL = 100; // ms - alta frequenza per controllo fluido (10Hz)
+      const JOY_MAX = 0.3;      // max joint velocity (rad/s)
+      const JOY_CART_VEL = 0.05; // max cartesian velocity (m/s) = 50mm/s
+      const JOY_DEADZONE = 0.08;
+      const JOY_INTERVAL = 200; // ms - bilanciato per evitare buffer overflow
 
       let joystickActive = false;
       let joystickTimer = null;
@@ -504,8 +504,8 @@ HTML_TEMPLATE = """
           try {
             const payload = { 
               speeds, 
-              duration: JOY_INTERVAL / 1000.0 + 0.15, 
-              acceleration: 0.4
+              duration: JOY_INTERVAL / 1000.0 + 0.3, 
+              acceleration: 0.5
             };
             
             await fetch(endpoint, {
@@ -643,8 +643,8 @@ HTML_TEMPLATE = """
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
                 speeds, 
-                duration: JOY_INTERVAL / 1000.0 + 0.15, 
-                acceleration: 0.4
+                duration: JOY_INTERVAL / 1000.0 + 0.3, 
+                acceleration: 0.5
               }),
             });
             setStatus("Joystick Z/Rot command sent", true);
