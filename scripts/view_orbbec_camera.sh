@@ -20,13 +20,14 @@ set -u
 
 case "${VIEWER}" in
   rqt)
-    exec env DISPLAY="${DISPLAY_VALUE}" ros2 run rqt_image_view rqt_image_view
+    exec env DISPLAY="${DISPLAY_VALUE}" ros2 run rqt_image_view rqt_image_view --ros-args --param reliability:=best_effort
     ;;
   showimage)
     exec env DISPLAY="${DISPLAY_VALUE}" ros2 run image_tools showimage \
       --ros-args \
       -r image:="${IMAGE_TOPIC}" \
-      --param reliability:=best_effort
+      --param reliability:=best_effort \
+      --param nodiscard:=true
     ;;
   *)
     echo "Viewer non supportato: ${VIEWER}. Usa 'rqt' o 'showimage'." >&2
