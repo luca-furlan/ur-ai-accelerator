@@ -135,6 +135,7 @@ Avvio (Camera già attiva su /camera/color/image_raw)
    ros2 launch yolov5_detector yolov5_detector.launch.py \
      use_cuda:=true \
      publish_annotated_image:=true
+   # per evitare classi non utili, configurare class_allowlist e unknown_label in config/params.yaml
 
 Output
    Detections -> topic `detections` (vision_msgs/Detection2DArray)

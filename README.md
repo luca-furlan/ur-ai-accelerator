@@ -36,6 +36,8 @@ Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_
   ```
 - Parametri principali
   - `image_topic`: topic camera (default `/camera/color/image_raw`)
-  - `weights_path`: percorso ONNX (default share package)
-  - `use_cuda`: `true` per DNN backend CUDA sul Jetson
+  - `weights_path`: percorso ONNX (default share/yolov5_detector/models/yolov5n_fp32_sim.onnx)
+  - `use_cuda`: `true` per backend DNN CUDA (se OpenCV lo supporta)
+  - `class_allowlist`: elenco di label consentite (gli altri vengono scartati o rimappati)
+  - `unknown_label`: label da assegnare alle classi non consentite (default `unknown`)
 

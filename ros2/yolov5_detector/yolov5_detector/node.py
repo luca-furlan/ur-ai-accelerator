@@ -32,6 +32,8 @@ class YoloV5DetectorNode(Node):
         self.declare_parameter('use_cuda', False)
         self.declare_parameter('publish_annotated_image', True)
         self.declare_parameter('annotated_topic', '/camera/color/yolov5_annotated')
+        self.declare_parameter('class_allowlist', [])
+        self.declare_parameter('unknown_label', '')
 
         weights_path = self._resolve_share_path(
             self.get_parameter('weights_path').get_parameter_value().string_value,
@@ -44,6 +46,8 @@ class YoloV5DetectorNode(Node):
         conf_threshold = float(self.get_parameter('confidence_threshold').value)
         iou_threshold = float(self.get_parameter('iou_threshold').value)
         use_cuda = bool(self.get_parameter('use_cuda').value)
+        allowlist = set(self.get_parameter('class_allowlist').value)
+        unknown_label = str(self.get_parameter('unknown_label').value)
 
         if not Path(weights_path).exists():
             self.get_logger().error(f'Weights file not found: {weights_path}')
@@ -60,6 +64,8 @@ class YoloV5DetectorNode(Node):
             iou_threshold=iou_threshold,
             use_cuda=use_cuda,
         )
+        self.allowed_classes = allowlist
+        self.unknown_label = unknown_label.strip()
 
         self.bridge = CvBridge()
         image_topic = self.get_parameter('image_topic').value
@@ -104,6 +110,13 @@ class YoloV5DetectorNode(Node):
         detection_array.header = msg.header
 
         for det in detections:
+            if self.allowed_classes and det.class_name not in self.allowed_classes:
+                if self.unknown_label:
+                    det.class_name = self.unknown_label
+                    det.class_id = -1
+                else:
+                    continue
+
             detection_msg = Detection2D()
             detection_msg.header = msg.header
             detection_msg.bbox.center.position.x = float(det.center[0])

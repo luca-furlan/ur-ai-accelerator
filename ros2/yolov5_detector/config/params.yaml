@@ -8,3 +8,46 @@ yolov5_detector_node:
     use_cuda: false
     publish_annotated_image: true
     annotated_topic: /camera/color/yolov5_annotated
+    class_allowlist:
+      - person
+      - bottle
+      - cup
+      - bowl
+      - wine glass
+      - fork
+      - knife
+      - spoon
+      - bowl
+      - banana
+      - apple
+      - sandwich
+      - orange
+      - broccoli
+      - carrot
+      - hot dog
+      - pizza
+      - donut
+      - cake
+      - chair
+      - couch
+      - potted plant
+      - bed
+      - dining table
+      - toilet
+      - tv
+      - laptop
+      - mouse
+      - remote
+      - keyboard
+      - cell phone
+      - microwave
+      - oven
+      - toaster
+      - sink
+      - refrigerator
+      - book
+      - clock
+      - vase
+      - scissors
+      - toothbrush
+    unknown_label: unknown
