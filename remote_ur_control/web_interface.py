@@ -162,6 +162,80 @@ HTML_TEMPLATE = """
       }
       .status-bar span.ready { color: var(--accent); }
       .status-bar span.error { color: var(--danger); }
+      .layout {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 24px;
+      }
+      .joystick-panel {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 20px;
+        background: white;
+        box-shadow: inset 0 0 0 1px rgba(11, 83, 148, 0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        align-items: center;
+        justify-content: center;
+      }
+      .joystick-panel h2 {
+        margin: 0;
+        font-size: 20px;
+        color: var(--primary);
+      }
+      #joystick {
+        position: relative;
+        width: 220px;
+        height: 220px;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, #f5f8fd 0%, #d9e4f7 70%);
+        border: 2px solid rgba(11, 83, 148, 0.25);
+        box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.1);
+        touch-action: none;
+        user-select: none;
+      }
+      #joystick-base {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        background: rgba(11, 83, 148, 0.12);
+        border: 1px solid rgba(11, 83, 148, 0.2);
+      }
+      #joystick-handle {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 84px;
+        height: 84px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, #ffffff 0%, #7aa8d6 85%);
+        border: 1px solid rgba(11, 83, 148, 0.35);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        cursor: grab;
+      }
+      #joystick-handle:active {
+        cursor: grabbing;
+      }
+      .joystick-readout {
+        font-family: "Courier New", monospace;
+        font-size: 14px;
+        color: #333;
+        text-align: center;
+      }
+      @media (max-width: 940px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+        .joystick-panel {
+          order: 1;
+        }
+      }
       @media (max-width: 480px) {
         body { margin: 16px; }
         input[type="number"] { width: 100%; }
@@ -174,7 +248,21 @@ HTML_TEMPLATE = """
       Imposta le posizioni joint o usa le frecce per aumentare/diminuire. Premi <strong>MoveJ</strong> per inviare il comando.
     </p>
 
-    <form id="move-form">
+    <div class="layout">
+      <section class="joystick-panel">
+        <h2>Joystick Velocity</h2>
+        <div id="joystick">
+          <div id="joystick-base"></div>
+          <div id="joystick-handle"></div>
+        </div>
+        <div class="joystick-readout">
+          vx: <span id="joy-x">0.00</span> &nbsp;
+          vy: <span id="joy-y">0.00</span>
+        </div>
+        <button type="button" class="secondary-btn" id="stop-joystick">Stop via joystick</button>
+      </section>
+
+      <form id="move-form">
       <fieldset>
         <legend>Joint targets (radians)</legend>
         <div class="parameters">
@@ -220,6 +308,7 @@ HTML_TEMPLATE = """
         <button type="button" class="secondary-btn" onclick="sendStop()">Stop</button>
       </div>
     </form>
+    </div>
 
     <div id="status" class="status-bar">
       Stato: <span class="ready">Ready</span>
@@ -304,6 +393,141 @@ HTML_TEMPLATE = """
       jointInputs.forEach((input) => {
         input.addEventListener("focus", (event) => event.target.select());
       });
+
+      // --- Joystick logic -------------------------------------------------
+      const joystick = document.getElementById("joystick");
+      const handle = document.getElementById("joystick-handle");
+      const joyX = document.getElementById("joy-x");
+      const joyY = document.getElementById("joy-y");
+      const stopJoystickBtn = document.getElementById("stop-joystick");
+
+      const JOY_MAX = 1.0;      // max linear velocity scaling (rad/s)
+      const JOY_DEADZONE = 0.08;
+      const JOY_INTERVAL = 150; // ms
+
+      let joystickActive = false;
+      let joystickTimer = null;
+      let joyVector = { x: 0, y: 0 };
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function setHandlePosition(xNorm, yNorm) {
+        const radius = joystick.clientWidth / 2 - handle.clientWidth / 2;
+        const x = radius * xNorm;
+        const y = radius * yNorm;
+        handle.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+        joyX.textContent = xNorm.toFixed(2);
+        joyY.textContent = (-yNorm).toFixed(2);
+      }
+
+      function resetJoystick() {
+        joyVector = { x: 0, y: 0 };
+        setHandlePosition(0, 0);
+        stopJointMotion();
+      }
+
+      function startJoystickLoop() {
+        if (joystickTimer) return;
+        joystickTimer = setInterval(async () => {
+          const magnitude = Math.hypot(joyVector.x, joyVector.y);
+          if (magnitude < JOY_DEADZONE) return;
+
+          const speeds = [
+            joyVector.y * JOY_MAX,
+            joyVector.x * JOY_MAX,
+            0,
+            0,
+            0,
+            0,
+          ];
+
+          try {
+            await fetch("/api/speedj", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                speeds,
+                duration: JOY_INTERVAL / 1000.0 + 0.05,
+                acceleration: 1.0,
+              }),
+            });
+            setStatus("Joystick speed command sent", true);
+          } catch (err) {
+            console.error(err);
+            setStatus("Joystick error: " + err, false);
+          }
+        }, JOY_INTERVAL);
+      }
+
+      function stopJoystickLoop() {
+        if (joystickTimer) {
+          clearInterval(joystickTimer);
+          joystickTimer = null;
+        }
+      }
+
+      async function stopJointMotion() {
+        stopJoystickLoop();
+        joyX.textContent = "0.00";
+        joyY.textContent = "0.00";
+        try {
+          await fetch("/api/stop", { method: "POST" });
+          setStatus("Stop command sent", true);
+        } catch (err) {
+          setStatus("Stop error: " + err, false);
+        }
+      }
+
+      function onJoystickStart(evt) {
+        joystickActive = true;
+        startJoystickLoop();
+        onJoystickMove(evt);
+      }
+
+      function onJoystickMove(evt) {
+        if (!joystickActive) return;
+        const rect = joystick.getBoundingClientRect();
+        const point = evt.changedTouches ? evt.changedTouches[0] : evt;
+        const x = point.clientX - rect.left - rect.width / 2;
+        const y = point.clientY - rect.top - rect.height / 2;
+        const radius = rect.width / 2 - handle.clientWidth / 2;
+        const length = Math.hypot(x, y);
+        const clampedLength = clamp(length, 0, radius);
+        const angle = Math.atan2(y, x);
+        const norm = clampedLength / radius;
+
+        const xNorm = Math.cos(angle) * norm;
+        const yNorm = Math.sin(angle) * norm;
+        joyVector = { x: xNorm, y: yNorm };
+        setHandlePosition(xNorm, yNorm);
+      }
+
+      function onJoystickEnd() {
+        joystickActive = false;
+        resetJoystick();
+      }
+
+      joystick.addEventListener("mousedown", onJoystickStart);
+      window.addEventListener("mousemove", (evt) => {
+        if (!joystickActive) return;
+        onJoystickMove(evt);
+      });
+      window.addEventListener("mouseup", onJoystickEnd);
+
+      joystick.addEventListener("touchstart", (evt) => {
+        evt.preventDefault();
+        onJoystickStart(evt);
+      }, { passive: false });
+      joystick.addEventListener("touchmove", (evt) => {
+        evt.preventDefault();
+        onJoystickMove(evt);
+      }, { passive: false });
+      joystick.addEventListener("touchend", onJoystickEnd);
+      joystick.addEventListener("touchcancel", onJoystickEnd);
+
+      stopJoystickBtn.addEventListener("click", resetJoystick);
     </script>
   </body>
 </html>
@@ -359,6 +583,19 @@ def api_stop():
     controller = get_controller()
     controller.stop()
     return jsonify({"status": "ok", "message": "Stop command sent"})
+
+
+@app.route("/api/speedj", methods=["POST"])
+def api_speedj():
+    payload = request.get_json(force=True)
+    controller = get_controller()
+    speeds = parse_joints(payload.get("speeds"))
+    controller.speedj(
+        speeds,
+        duration=float(payload.get("duration", 0.3)),
+        acceleration=float(payload.get("acceleration", 1.0)),
+    )
+    return jsonify({"status": "ok", "message": "SpeedJ command sent"})
 
 
 @app.route("/api/config", methods=["GET"])
