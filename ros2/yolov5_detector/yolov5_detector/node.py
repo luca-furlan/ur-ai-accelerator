@@ -46,10 +46,10 @@ class YoloV5DetectorNode(Node):
         use_cuda = bool(self.get_parameter('use_cuda').value)
 
         if not Path(weights_path).exists():
-            self.get_logger().error('Weights file not found: %s', weights_path)
+            self.get_logger().error(f'Weights file not found: {weights_path}')
             raise FileNotFoundError(weights_path)
         if not Path(class_names_path).exists():
-            self.get_logger().error('Class labels file not found: %s', class_names_path)
+            self.get_logger().error(f'Class labels file not found: {class_names_path}')
             raise FileNotFoundError(class_names_path)
 
         class_names = load_class_names(Path(class_names_path))
@@ -84,8 +84,8 @@ class YoloV5DetectorNode(Node):
             image_topic,
             detections_topic,
         )
-        self.get_logger().info('Weights: %s', weights_path)
-        self.get_logger().info('CUDA enabled: %s', use_cuda)
+        self.get_logger().info(f'Weights: {weights_path}')
+        self.get_logger().info(f'CUDA enabled: {use_cuda}')
 
     def _resolve_share_path(self, configured_path: str, default_relative: str) -> str:
         if configured_path:
@@ -97,7 +97,7 @@ class YoloV5DetectorNode(Node):
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         except Exception as exc:  # pylint: disable=broad-except
-            self.get_logger().error('Failed to convert image: %s', exc)
+            self.get_logger().error(f'Failed to convert image: {exc}')
             return
 
         detections = self.detector.infer(frame)
