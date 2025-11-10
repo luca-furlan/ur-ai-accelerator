@@ -451,7 +451,7 @@ HTML_TEMPLATE = """
       function resetJoystick() {
         joyVector = { x: 0, y: 0 };
         setHandlePosition(0, 0);
-        stopJointMotion();
+        // Non chiamare stop qui, viene già fermato dal loop
       }
 
       function startJoystickLoop() {
@@ -576,6 +576,7 @@ HTML_TEMPLATE = """
       joystick.addEventListener("touchcancel", onJoystickEnd);
 
       stopJoystickBtn.addEventListener("click", () => {
+        stopJointMotion();
         resetJoystick();
         resetJoystick2();
       });
@@ -602,7 +603,7 @@ HTML_TEMPLATE = """
       function resetJoystick2() {
         joy2Vector = { x: 0, y: 0 };
         setHandle2Position(0, 0);
-        stopJointMotion();
+        // Non chiamare stop qui, viene già fermato dal loop
       }
 
       function startJoystick2Loop() {
