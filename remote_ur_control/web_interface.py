@@ -165,12 +165,25 @@ HTML_TEMPLATE = """
       .status-bar span.error { color: var(--danger); }
       .layout {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 16px;
+        grid-template-columns: 1fr;
+        gap: 12px;
       }
       @media (min-width: 768px) {
         .layout {
           grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (orientation: landscape) and (max-height: 600px) {
+        .layout {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+        }
+        .joystick-panel {
+          padding: 12px;
+        }
+        #joystick, #joystick2 {
+          width: 180px;
+          height: 180px;
         }
       }
       .joystick-panel {
@@ -426,10 +439,10 @@ HTML_TEMPLATE = """
       const joyY = document.getElementById("joy-y");
       const stopJoystickBtn = document.getElementById("stop-joystick");
 
-      const JOY_MAX = 1.0;      // max linear velocity scaling (rad/s)
-      const JOY_DEADZONE = 0.08;
-      const JOY_CART_STEP = 0.0005; // 0.5mm - molto più lento e preciso
-      const JOY_INTERVAL = 200; // ms - più frequente per fluidità
+      const JOY_MAX = 0.5;      // max joint velocity (rad/s) - ridotto per controllo smooth
+      const JOY_CART_VEL = 0.08; // max cartesian velocity (m/s) = 80mm/s
+      const JOY_DEADZONE = 0.05;
+      const JOY_INTERVAL = 100; // ms - alta frequenza per controllo fluido (10Hz)
 
       let joystickActive = false;
       let joystickTimer = null;
@@ -466,14 +479,13 @@ HTML_TEMPLATE = """
 
           if (cartesianMode) {
             // Cartesian: continuous velocity control (speedl)
-            const velScale = 0.05; // 50mm/s max
             speeds = [
-              joyVector.y * velScale,   // vx (m/s)
-              joyVector.x * velScale,   // vy (m/s)
-              0,                        // vz
-              0,                        // wrx (rad/s)
-              0,                        // wry
-              0,                        // wrz
+              joyVector.y * JOY_CART_VEL,   // vx (m/s)
+              joyVector.x * JOY_CART_VEL,   // vy (m/s)
+              0,                            // vz
+              0,                            // wrx (rad/s)
+              0,                            // wry
+              0,                            // wrz
             ];
             endpoint = "/api/speedl";
           } else {
@@ -492,8 +504,8 @@ HTML_TEMPLATE = """
           try {
             const payload = { 
               speeds, 
-              duration: JOY_INTERVAL / 1000.0 + 0.1, 
-              acceleration: 0.25
+              duration: JOY_INTERVAL / 1000.0 + 0.15, 
+              acceleration: 0.4
             };
             
             await fetch(endpoint, {
@@ -616,15 +628,13 @@ HTML_TEMPLATE = """
           if (!cartesianMode) return;
 
           // Secondo joystick: Y = Z (su/giù), X = Rotazione Z
-          const velScale = 0.05; // 50mm/s max linear
-          const rotScale = 0.3;  // rad/s max rotation
           const speeds = [
-            0,                              // vx
-            0,                              // vy
-            -joy2Vector.y * velScale,       // vz (su=+, giù=-)
-            0,                              // wrx
-            0,                              // wry
-            joy2Vector.x * rotScale,        // wrz (rotazione)
+            0,                                  // vx
+            0,                                  // vy
+            -joy2Vector.y * JOY_CART_VEL,      // vz (su=+, giù=-)
+            0,                                  // wrx
+            0,                                  // wry
+            joy2Vector.x * 0.5,                // wrz (rotazione, 0.5 rad/s max)
           ];
 
           try {
@@ -633,8 +643,8 @@ HTML_TEMPLATE = """
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
                 speeds, 
-                duration: JOY_INTERVAL / 1000.0 + 0.1, 
-                acceleration: 0.25
+                duration: JOY_INTERVAL / 1000.0 + 0.15, 
+                acceleration: 0.4
               }),
             });
             setStatus("Joystick Z/Rot command sent", true);
