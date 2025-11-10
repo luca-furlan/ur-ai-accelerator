@@ -159,15 +159,17 @@ class RemoteURController:
     def movel_relative(
         self,
         delta_pose: list[float],
-        acceleration: float = 0.5,
-        velocity: float = 0.1,
+        acceleration: float = 0.3,
+        velocity: float = 0.05,
+        blend: float = 0.01,
     ) -> None:
-        """Move tool by relative cartesian offset.
+        """Move tool by relative cartesian offset with blending.
         
         Args:
             delta_pose: [dx, dy, dz, drx, dry, drz] relative to current TCP
             acceleration: acceleration in m/s²
             velocity: velocity in m/s
+            blend: blend radius for smooth path (m)
         """
         if len(delta_pose) != 6:
             raise ValueError("movel_relative expects 6 values [dx,dy,dz,drx,dry,drz]")
@@ -176,11 +178,29 @@ class RemoteURController:
             "def remote_movel_rel():\n"
             "  current = get_actual_tcp_pose()\n"
             f"  target = pose_add(current, p{self._format_list(delta_pose)})\n"
-            f"  movel(target, a={acceleration}, v={velocity})\n"
+            f"  movel(target, a={acceleration}, v={velocity}, r={blend})\n"
             "end\n"
             "remote_movel_rel()\n"
         )
         self._send_script(script, wait=False)
+    
+    def get_tcp_pose(self) -> list[float]:
+        """Read current TCP pose via URScript feedback.
+        
+        Returns:
+            [x, y, z, rx, ry, rz] pose of tool center point
+        """
+        script = (
+            "def get_pose():\n"
+            "  pose = get_actual_tcp_pose()\n"
+            "  textmsg(pose)\n"
+            "end\n"
+            "get_pose()\n"
+        )
+        # Note: this sends the pose to the log, not back via socket
+        # For real feedback use RTDE or Dashboard
+        self._send_script(script, wait=False)
+        return [0.0] * 6  # Placeholder until RTDE available
 
     def stop(self) -> None:
         """Send a stopj command to halt motion."""

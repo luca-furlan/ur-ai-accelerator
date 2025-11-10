@@ -184,7 +184,7 @@ HTML_TEMPLATE = """
         font-size: 20px;
         color: var(--primary);
       }
-      #joystick {
+      #joystick, #joystick2 {
         position: relative;
         width: 220px;
         height: 220px;
@@ -195,7 +195,7 @@ HTML_TEMPLATE = """
         touch-action: none;
         user-select: none;
       }
-      #joystick-base {
+      #joystick-base, #joystick2-base {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -206,7 +206,7 @@ HTML_TEMPLATE = """
         background: rgba(11, 83, 148, 0.12);
         border: 1px solid rgba(11, 83, 148, 0.2);
       }
-      #joystick-handle {
+      #joystick-handle, #joystick2-handle {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -250,17 +250,32 @@ HTML_TEMPLATE = """
 
     <div class="layout">
       <section class="joystick-panel">
-        <h2>Joystick Velocity</h2>
+        <h2>Joystick XY</h2>
         <div id="joystick">
           <div id="joystick-base"></div>
           <div id="joystick-handle"></div>
         </div>
         <div class="joystick-readout">
-          vx: <span id="joy-x">0.00</span> &nbsp;
-          vy: <span id="joy-y">0.00</span>
+          X: <span id="joy-x">0.00</span> &nbsp;
+          Y: <span id="joy-y">0.00</span>
         </div>
-        <button type="button" class="secondary-btn" id="stop-joystick">Stop via joystick</button>
       </section>
+
+      <section class="joystick-panel">
+        <h2>Joystick Z / Rotation</h2>
+        <div id="joystick2">
+          <div id="joystick2-base"></div>
+          <div id="joystick2-handle"></div>
+        </div>
+        <div class="joystick-readout">
+          Z: <span id="joy2-x">0.00</span> &nbsp;
+          Rz: <span id="joy2-y">0.00</span>
+        </div>
+      </section>
+
+      <div style="grid-column: 1 / -1; text-align: center;">
+        <button type="button" class="secondary-btn" id="stop-joystick">Emergency Stop</button>
+      </div>
 
       <form id="move-form">
       <fieldset>
@@ -407,8 +422,8 @@ HTML_TEMPLATE = """
 
       const JOY_MAX = 1.0;      // max linear velocity scaling (rad/s)
       const JOY_DEADZONE = 0.08;
-      const JOY_CART_STEP = 0.003; // 3mm incremental step for cartesian
-      const JOY_INTERVAL = 500; // ms - reduced frequency to avoid command saturation
+      const JOY_CART_STEP = 0.001; // 1mm incremental step for smoother cartesian
+      const JOY_INTERVAL = 300; // ms - balanced frequency
 
       let joystickActive = false;
       let joystickTimer = null;
@@ -469,7 +484,7 @@ HTML_TEMPLATE = """
 
           try {
             const payload = cartesianMode 
-              ? { delta: speeds, acceleration: 0.5, velocity: 0.05 }
+              ? { delta: speeds, acceleration: 0.3, velocity: 0.03, blend: 0.01 }
               : { speeds, duration: JOY_INTERVAL / 1000.0 + 0.05, acceleration: 1.0 };
             
             await fetch(endpoint, {
@@ -655,8 +670,9 @@ def api_movel_relative():
     delta = parse_joints(payload.get("delta"))  # [dx,dy,dz,drx,dry,drz]
     controller.movel_relative(
         delta,
-        acceleration=float(payload.get("acceleration", 0.5)),
-        velocity=float(payload.get("velocity", 0.05)),
+        acceleration=float(payload.get("acceleration", 0.3)),
+        velocity=float(payload.get("velocity", 0.03)),
+        blend=float(payload.get("blend", 0.01)),
     )
     return jsonify({"status": "ok", "message": "MoveL relative command sent"})
 
