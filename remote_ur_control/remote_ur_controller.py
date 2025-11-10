@@ -142,16 +142,24 @@ class RemoteURController:
     # --------------------------------------------------------------------- #
     def _send_script(self, script: str, wait: bool) -> None:
         """Send raw URScript ensuring connection is open."""
-        if not self._sock:
-            self.connect()
-        assert self._sock is not None
+        for attempt in range(2):
+            try:
+                if not self._sock:
+                    self.connect()
+                assert self._sock is not None
+                LOG.debug("Sending URScript (attempt %d):\n%s", attempt + 1, script)
+                self._sock.sendall(script.encode("utf-8"))
 
-        LOG.debug("Sending URScript:\n%s", script)
-        self._sock.sendall(script.encode("utf-8"))
-
-        # Give robot a moment to accept the command before closing.
-        if wait:
-            time.sleep(0.1)
+                if wait:
+                    time.sleep(0.1)
+                return
+            except (socket.timeout, OSError) as exc:
+                LOG.warning("URScript send failed (%s), reconnecting...", exc)
+                self.close()
+                if attempt == 1:
+                    raise
+                time.sleep(0.05)
+        raise RuntimeError("Failed to send URScript after retries")
 
     @staticmethod
     def _format_list(values: Iterable[float]) -> str:
