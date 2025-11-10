@@ -5,7 +5,7 @@ Script e interfaccia web da eseguire sull'AI Accelerator per comandare il robot 
 ## Contenuto
 
 - `remote_ur_controller.py`: client socket minimale che invia comandi URScript (movej, speedj, stop).
-- `web_interface.py`: applicazione Flask con pagina HTML per impostare joint target e comandare il robot da browser.
+- `web_interface.py`: applicazione Flask con pagina HTML arricchita (frecce ±, step configurabile, stato live) per comandare il robot da browser.
 - `requirements.txt`: dipendenze Python (Flask).
 
 ## Setup rapido
@@ -29,7 +29,10 @@ Script e interfaccia web da eseguire sull'AI Accelerator per comandare il robot 
    ```
 
 4. **Aprire il browser remoto**
-   Visitare `http://<AI_ACCELERATOR_IP>:8080` dalla propria postazione per inviare comandi MoveJ o Stop.
+   Visitare `http://<AI_ACCELERATOR_IP>:8080` dalla propria postazione per inviare comandi MoveJ o Stop. La UI permette di:
+   - regolare ogni joint con pulsanti ± basati sullo step configurato;
+   - impostare manualmente i valori target;
+   - monitorare lo stato dei comandi (ready, sending, error).
 
 ## Note di sicurezza
 

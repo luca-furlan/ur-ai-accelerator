@@ -32,57 +32,204 @@ HTML_TEMPLATE = """
     <meta charset="utf-8">
     <title>UR Remote Control</title>
     <style>
-      body { font-family: Arial, sans-serif; margin: 40px; }
-      h1 { color: #0b5394; }
-      label { display: block; margin-top: 12px; }
-      input[type="number"] { width: 120px; padding: 4px; }
-      .row { margin-bottom: 6px; }
-      .actions { margin-top: 20px; }
-      button { padding: 10px 18px; margin-right: 12px; }
-      #status { margin-top: 20px; font-weight: bold; }
+      :root {
+        color-scheme: light dark;
+        --primary: #0b5394;
+        --accent: #38761d;
+        --danger: #990000;
+        --border: rgba(0, 0, 0, 0.2);
+        --bg: rgba(0, 0, 0, 0.03);
+      }
+      body {
+        font-family: Arial, sans-serif;
+        margin: 32px;
+        max-width: 960px;
+      }
+      h1 {
+        color: var(--primary);
+        margin-bottom: 4px;
+      }
+      p.lead {
+        margin-top: 0;
+        color: #555;
+      }
+      fieldset {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-top: 20px;
+        background: var(--bg);
+      }
+      legend {
+        padding: 0 8px;
+        font-weight: bold;
+        color: var(--primary);
+      }
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+      input[type="number"] {
+        width: 120px;
+        padding: 6px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        font-size: 15px;
+      }
+      .joint-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 16px;
+        margin-top: 12px;
+      }
+      .joint-card {
+        background: white;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        padding: 12px 14px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      }
+      .joint-card h3 {
+        margin: 0 0 8px 0;
+        font-size: 16px;
+        color: var(--primary);
+      }
+      .joint-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .joint-controls button {
+        width: 42px;
+        height: 42px;
+        font-size: 20px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: white;
+        cursor: pointer;
+        transition: transform 0.1s ease, background 0.2s ease;
+      }
+      .joint-controls button:active {
+        transform: translateY(1px);
+      }
+      .joint-controls button:hover {
+        background: #e6f4ff;
+        border-color: var(--primary);
+      }
+      .parameters {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .actions {
+        margin-top: 24px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .primary-btn,
+      .secondary-btn {
+        padding: 12px 22px;
+        border-radius: 6px;
+        border: 1px solid transparent;
+        font-size: 16px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .primary-btn {
+        background: var(--accent);
+        color: white;
+      }
+      .primary-btn:hover {
+        background: #2c6e14;
+      }
+      .secondary-btn {
+        background: white;
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+      .secondary-btn:hover {
+        background: #ffe5e5;
+      }
+      .status-bar {
+        margin-top: 24px;
+        padding: 12px 16px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: white;
+        font-weight: 600;
+      }
+      .status-bar span.ready { color: var(--accent); }
+      .status-bar span.error { color: var(--danger); }
+      @media (max-width: 480px) {
+        body { margin: 16px; }
+        input[type="number"] { width: 100%; }
+      }
     </style>
   </head>
   <body>
     <h1>UR Remote Control</h1>
+    <p class="lead">
+      Imposta le posizioni joint o usa le frecce per aumentare/diminuire. Premi <strong>MoveJ</strong> per inviare il comando.
+    </p>
+
     <form id="move-form">
       <fieldset>
         <legend>Joint targets (radians)</legend>
-        {% for idx in range(6) %}
-          <div class="row">
-            <label>Joint {{ idx + 1 }}:
-              <input type="number" step="0.01" name="joint{{ idx }}" value="0.0">
-            </label>
-          </div>
-        {% endfor %}
+        <div class="parameters">
+          <label>Step size (rad)
+            <input type="number" step="0.01" name="step" id="step-size" value="0.10">
+          </label>
+        </div>
+        <div class="joint-grid">
+          {% for idx in range(6) %}
+            <div class="joint-card">
+              <h3>Joint {{ idx + 1 }}</h3>
+              <div class="joint-controls">
+                <button type="button" class="joint-decrement" data-target="joint{{ idx }}">&larr;</button>
+                <input type="number" step="0.01" name="joint{{ idx }}" value="0.0">
+                <button type="button" class="joint-increment" data-target="joint{{ idx }}">&rarr;</button>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
       </fieldset>
 
       <fieldset>
         <legend>Motion parameters</legend>
-        <label>Acceleration:
-          <input type="number" step="0.1" name="acceleration" value="1.2">
-        </label>
-        <label>Velocity:
-          <input type="number" step="0.05" name="velocity" value="0.25">
-        </label>
-        <label>Blend radius:
-          <input type="number" step="0.01" name="blend_radius" value="0.0">
-        </label>
-        <label>
-          <input type="checkbox" name="async_move"> Non blocking
-        </label>
+        <div class="parameters">
+          <label>Acceleration
+            <input type="number" step="0.1" name="acceleration" value="1.2">
+          </label>
+          <label>Velocity
+            <input type="number" step="0.05" name="velocity" value="0.25">
+          </label>
+          <label>Blend radius
+            <input type="number" step="0.01" name="blend_radius" value="0.0">
+          </label>
+          <label>
+            <input type="checkbox" name="async_move">
+            Non blocking (no wait)
+          </label>
+        </div>
       </fieldset>
 
       <div class="actions">
-        <button type="submit">MoveJ</button>
-        <button type="button" onclick="sendStop()">Stop</button>
+        <button type="submit" class="primary-btn">MoveJ</button>
+        <button type="button" class="secondary-btn" onclick="sendStop()">Stop</button>
       </div>
     </form>
 
-    <div id="status">Ready</div>
+    <div id="status" class="status-bar">
+      Stato: <span class="ready">Ready</span>
+    </div>
 
     <script>
       const status = document.getElementById("status");
       const form = document.getElementById("move-form");
+      const stepInput = document.getElementById("step-size");
+      const jointInputs = Array.from(form.querySelectorAll("input[name^='joint']"));
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -95,12 +242,13 @@ HTML_TEMPLATE = """
           }
         }
 
-        payload["acceleration"] = parseFloat(formData.get("acceleration"));
-        payload["velocity"] = parseFloat(formData.get("velocity"));
-        payload["blend_radius"] = parseFloat(formData.get("blend_radius"));
-        payload["async_move"] = formData.get("async_move") === "on";
+        payload.acceleration = parseFloat(formData.get("acceleration"));
+        payload.velocity = parseFloat(formData.get("velocity"));
+        payload.blend_radius = parseFloat(formData.get("blend_radius"));
+        payload.async_move = formData.get("async_move") === "on";
+        payload.step = parseFloat(stepInput.value);
 
-        setStatus("Sending command…");
+        setStatus("Sending MoveJ command…");
         try {
           const response = await fetch("/api/movej", {
             method: "POST",
@@ -108,10 +256,10 @@ HTML_TEMPLATE = """
             body: JSON.stringify(payload)
           });
           const data = await response.json();
-          setStatus(data.message);
+          setStatus(data.message, true);
         } catch (err) {
           console.error(err);
-          setStatus("Error: " + err);
+          setStatus("Error: " + err, false);
         }
       });
 
@@ -120,16 +268,42 @@ HTML_TEMPLATE = """
         try {
           const response = await fetch("/api/stop", { method: "POST" });
           const data = await response.json();
-          setStatus(data.message);
+          setStatus(data.message, true);
         } catch (err) {
           console.error(err);
-          setStatus("Error: " + err);
+          setStatus("Error: " + err, false);
         }
       }
 
-      function setStatus(text) {
-        status.innerText = text;
+      function setStatus(text, ok = true) {
+        status.innerHTML = `Stato: <span class="${ok ? "ready" : "error"}">${text}</span>`;
       }
+
+      function updateJoint(targetName, delta) {
+        const input = form.querySelector(`input[name='${targetName}']`);
+        if (!input) return;
+        const current = parseFloat(input.value) || 0;
+        const next = current + delta;
+        input.value = next.toFixed(3);
+      }
+
+      function handleArrowButtons(event) {
+        const button = event.target.closest("button[data-target]");
+        if (!button) return;
+        event.preventDefault();
+        const step = parseFloat(stepInput.value) || 0.1;
+        const isIncrement = button.classList.contains("joint-increment");
+        const delta = isIncrement ? step : -step;
+        updateJoint(button.dataset.target, delta);
+      }
+
+      document.querySelectorAll(".joint-increment, .joint-decrement").forEach((btn) => {
+        btn.addEventListener("click", handleArrowButtons);
+      });
+
+      jointInputs.forEach((input) => {
+        input.addEventListener("focus", (event) => event.target.select());
+      });
     </script>
   </body>
 </html>
