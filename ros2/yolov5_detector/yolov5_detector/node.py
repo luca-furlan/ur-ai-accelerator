@@ -80,9 +80,7 @@ class YoloV5DetectorNode(Node):
             self.annotated_pub = None
 
         self.get_logger().info(
-            'YOLOv5 detector node ready. Subscribing to %s, detections on %s',
-            image_topic,
-            detections_topic,
+            f'YOLOv5 detector node ready. Subscribing to {image_topic}, detections on {detections_topic}'
         )
         self.get_logger().info(f'Weights: {weights_path}')
         self.get_logger().info(f'CUDA enabled: {use_cuda}')
