@@ -23,9 +23,11 @@ Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_
   - Sottoscrive `/camera/color/image_raw`, effettua inferenza YOLOv5 (OpenCV DNN) e pubblica
     - `detections` (`vision_msgs/Detection2DArray`)
     - `/camera/color/yolov5_annotated` (immagine con bounding box)
-  - Configurazione via `config/params.yaml` o parametri launch.
+    - `/camera/color/yolov5_center_offset` (`PointStamped`, offset pixel rispetto al centro)
+- Pacchetto ROS2 Python: `ros2/yolov5_xyz`
+  - Fonde `detections` con `depth` e `camera_info`, pubblica `detections_xyz` (`PoseArray`) con coordinate in metri nel frame camera
 - Modelli
-  - Scaricare `yolov5n.onnx` eseguendo `ros2/yolov5_detector/models/download_yolov5n_onnx.sh` (modello FP32 ottimizzato per OpenCV, checksum verificato)
+  - Scaricare `yolov5n.onnx` eseguendo `ros2/yolov5_detector/models/download_yolov5n_onnx.sh` (installare prima `python3 -m pip install 'numpy<2.0' onnx onnxruntime onnxsim`)
   - Classi COCO in `ros2/yolov5_detector/models/coco_labels.txt`
 - Lancio rapito (Jetson)
   ```bash

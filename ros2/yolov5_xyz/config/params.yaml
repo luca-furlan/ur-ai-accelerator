@@ -1,0 +1,9 @@
+yolov5_xyz_node:
+  ros__parameters:
+    detections_topic: detections
+    depth_topic: /camera/depth/image_rect
+    depth_qos_reliability: best_effort
+    camera_info_topic: /camera/depth/camera_info
+    output_topic: detections_xyz
+    max_depth: 3.0
+    min_depth: 0.2
