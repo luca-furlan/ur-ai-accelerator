@@ -465,18 +465,19 @@ HTML_TEMPLATE = """
           let endpoint;
 
           if (cartesianMode) {
-            // Cartesian: incremental movements
+            // Cartesian: continuous velocity control (speedl)
+            const velScale = 0.05; // 50mm/s max
             speeds = [
-              joyVector.y * JOY_CART_STEP,  // dx (m)
-              joyVector.x * JOY_CART_STEP,  // dy (m)
-              0,                             // dz
-              0,                             // drx
-              0,                             // dry
-              0,                             // drz
+              joyVector.y * velScale,   // vx (m/s)
+              joyVector.x * velScale,   // vy (m/s)
+              0,                        // vz
+              0,                        // wrx (rad/s)
+              0,                        // wry
+              0,                        // wrz
             ];
-            endpoint = "/api/movel_relative";
+            endpoint = "/api/speedl";
           } else {
-            // Joint space
+            // Joint space: continuous velocity control (speedj)
             speeds = [
               joyVector.y * JOY_MAX,
               joyVector.x * JOY_MAX,
@@ -489,9 +490,11 @@ HTML_TEMPLATE = """
           }
 
           try {
-            const payload = cartesianMode 
-              ? { delta: speeds, acceleration: 0.1, velocity: 0.015, blend: 0.03 }
-              : { speeds, duration: JOY_INTERVAL / 1000.0 + 0.05, acceleration: 1.0 };
+            const payload = { 
+              speeds, 
+              duration: JOY_INTERVAL / 1000.0 + 0.1, 
+              acceleration: 0.25
+            };
             
             await fetch(endpoint, {
               method: "POST",
@@ -612,24 +615,25 @@ HTML_TEMPLATE = """
           if (!cartesianMode) return;
 
           // Secondo joystick: Y = Z (su/giù), X = Rotazione Z
-          const delta = [
-            0,                                     // dx
-            0,                                     // dy
-            -joy2Vector.y * JOY_CART_STEP * 3,    // dz (invertito: su=+, giù=-)
-            0,                                     // drx
-            0,                                     // dry
-            joy2Vector.x * JOY_CART_STEP * 8,     // drz (rotazione)
+          const velScale = 0.05; // 50mm/s max linear
+          const rotScale = 0.3;  // rad/s max rotation
+          const speeds = [
+            0,                              // vx
+            0,                              // vy
+            -joy2Vector.y * velScale,       // vz (su=+, giù=-)
+            0,                              // wrx
+            0,                              // wry
+            joy2Vector.x * rotScale,        // wrz (rotazione)
           ];
 
           try {
-            await fetch("/api/movel_relative", {
+            await fetch("/api/speedl", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
-                delta, 
-                acceleration: 0.1, 
-                velocity: 0.015, 
-                blend: 0.03 
+                speeds, 
+                duration: JOY_INTERVAL / 1000.0 + 0.1, 
+                acceleration: 0.25
               }),
             });
             setStatus("Joystick Z/Rot command sent", true);

@@ -135,14 +135,14 @@ class RemoteURController:
     def speedl(
         self,
         cart_speeds: list[float],
-        acceleration: float = 1.0,
-        duration: float = 0.3,
+        acceleration: float = 0.25,
+        duration: float = 0.5,
     ) -> None:
-        """Send a speedl command for cartesian velocity control.
+        """Send a speedl command for smooth cartesian velocity control.
         
         Args:
             cart_speeds: [vx, vy, vz, wx, wy, wz] in m/s and rad/s
-            acceleration: acceleration in m/s²
+            acceleration: acceleration in m/s² (low for smoothness)
             duration: time buffer for command in seconds
         """
         if len(cart_speeds) != 6:
@@ -150,11 +150,11 @@ class RemoteURController:
 
         script = (
             "def remote_speedl():\n"
-            f"  speedl({self._format_list(cart_speeds)}, {acceleration}, {duration})\n"
+            f"  speedl({self._format_list(cart_speeds)}, {acceleration}, {duration}, {acceleration})\n"
             "end\n"
             "remote_speedl()\n"
         )
-        self._send_script(script, wait=True)
+        self._send_script(script, wait=False)
 
     def movel_relative(
         self,
