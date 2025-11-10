@@ -40,4 +40,8 @@ Le informazioni di rete e le credenziali SSH sono disponibili nel file `network_
   - `use_cuda`: `true` per backend DNN CUDA (se OpenCV lo supporta)
   - `class_allowlist`: elenco di label consentite (gli altri vengono scartati o rimappati)
   - `unknown_label`: label da assegnare alle classi non consentite (default `unknown`)
+- Output principali
+  - `detections`: `vision_msgs/Detection2DArray`
+  - `/camera/color/yolov5_annotated`: immagine BGR con bounding box
+  - `/camera/color/yolov5_center_offset`: `geometry_msgs/PointStamped`, offset del centro (px) rispetto all'immagine (x=dx, y=dy)
 

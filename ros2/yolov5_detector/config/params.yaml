@@ -8,6 +8,8 @@ yolov5_detector_node:
     use_cuda: false
     publish_annotated_image: true
     annotated_topic: /camera/color/yolov5_annotated
+    publish_center_offsets: true
+    center_topic: /camera/color/yolov5_center_offset
     class_allowlist:
       - person
       - bottle

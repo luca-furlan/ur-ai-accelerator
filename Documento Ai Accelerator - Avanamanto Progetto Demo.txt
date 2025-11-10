@@ -140,6 +140,7 @@ Avvio (Camera già attiva su /camera/color/image_raw)
 Output
    Detections -> topic `detections` (vision_msgs/Detection2DArray)
    Immagine annotata -> `/camera/color/yolov5_annotated`
+   Offset centro oggetto -> `/camera/color/yolov5_center_offset` (PointStamped, x/y in pixel rispetto al centro immagine)
    Visualizza: `rqt_image_view` oppure `image_tools showimage`
 
 Parametri utili

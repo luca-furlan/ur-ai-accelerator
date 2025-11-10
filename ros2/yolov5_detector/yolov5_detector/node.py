@@ -11,6 +11,7 @@ from ament_index_python.packages import get_package_share_directory
 from cv_bridge import CvBridge
 from sensor_msgs.msg import Image
 from vision_msgs.msg import Detection2DArray, Detection2D, ObjectHypothesisWithPose
+from geometry_msgs.msg import PointStamped
 
 from .detector import YoloV5Detector
 
@@ -34,6 +35,8 @@ class YoloV5DetectorNode(Node):
         self.declare_parameter('annotated_topic', '/camera/color/yolov5_annotated')
         self.declare_parameter('class_allowlist', [])
         self.declare_parameter('unknown_label', '')
+        self.declare_parameter('publish_center_offsets', True)
+        self.declare_parameter('center_topic', '/camera/color/yolov5_center_offset')
 
         weights_path = self._resolve_share_path(
             self.get_parameter('weights_path').get_parameter_value().string_value,
@@ -48,6 +51,8 @@ class YoloV5DetectorNode(Node):
         use_cuda = bool(self.get_parameter('use_cuda').value)
         allowlist = set(self.get_parameter('class_allowlist').value)
         unknown_label = str(self.get_parameter('unknown_label').value)
+        self.publish_center_offsets = bool(self.get_parameter('publish_center_offsets').value)
+        center_topic = self.get_parameter('center_topic').value
 
         if not Path(weights_path).exists():
             self.get_logger().error(f'Weights file not found: {weights_path}')
@@ -84,6 +89,11 @@ class YoloV5DetectorNode(Node):
             )
         else:
             self.annotated_pub = None
+
+        if self.publish_center_offsets:
+            self.center_pub = self.create_publisher(PointStamped, center_topic, 10)
+        else:
+            self.center_pub = None
 
         self.get_logger().info(
             f'YOLOv5 detector node ready. Subscribing to {image_topic}, detections on {detections_topic}'
@@ -140,6 +150,16 @@ class YoloV5DetectorNode(Node):
             out_msg = self.bridge.cv2_to_imgmsg(annotated, encoding='bgr8')
             out_msg.header = msg.header
             self.annotated_pub.publish(out_msg)
+
+        if self.publish_center_offsets and self.center_pub:
+            frame_height, frame_width = frame.shape[:2]
+            offset_msg = PointStamped()
+            offset_msg.header = msg.header
+            offset_msg.header.frame_id = det.class_name
+            offset_msg.point.x = float(det.center[0] - frame_width / 2.0)
+            offset_msg.point.y = float(det.center[1] - frame_height / 2.0)
+            offset_msg.point.z = 0.0
+            self.center_pub.publish(offset_msg)
 
     def destroy_node(self):
         self.get_logger().info('Shutting down YOLOv5 detector node.')
