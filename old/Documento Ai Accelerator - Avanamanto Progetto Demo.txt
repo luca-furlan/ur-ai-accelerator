@@ -1,0 +1,123 @@
+================================================================================
+                    GUIDA MINIMA UR AI ACCELERATOR
+================================================================================
+
+================================================================================
+3 REPOSITORY PRINCIPALI (In ordine di importanza)
+================================================================================
+
+1. Universal_Robots_ROS2_Driver - 610+ stars
+   URL: https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver
+   Perché: Driver ufficiale UR - DEVI usare questo
+   Ultimo update: Settembre 2025
+
+   # Installazione
+   mkdir -p ~/ur_ws/src && cd ~/ur_ws/src
+   git clone https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver.git
+   cd ~/ur_ws
+   rosdep install --from-paths src --ignore-src -y
+   colcon build
+   source install/setup.bash
+
+   # Avvia robot
+   ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.1.10
+
+
+2. OrbbecSDK_ROS2 - 207+ stars
+   URL: https://github.com/orbbec/OrbbecSDK_ROS2
+   Perché: Driver per la tua camera Gemini 335Lg
+   
+   IMPORTANTE: Usa branch v2-main (non main!)
+
+   # Installazione
+   mkdir -p ~/ros2_ws/src && cd ~/ros2_ws/src
+   git clone https://github.com/orbbec/OrbbecSDK_ROS2.git
+   cd OrbbecSDK_ROS2
+   git checkout v2-main
+   cd orbbec_camera/scripts && sudo bash install_udev_rules.sh
+   cd ~/ros2_ws
+   colcon build
+   source install/setup.bash
+
+   # Avvia camera
+   ros2 launch orbbec_camera gemini_330_series.launch.py
+
+
+3. isaac_ros_cumotion - 196+ stars
+   URL: https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_cumotion
+   Perché: Planning velocissimo con GPU (50x più veloce)
+   Ultimo update: Dicembre 2024
+
+   # Usa container Isaac ROS
+   cd ~/workspaces/isaac_ros-dev/src
+   git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common.git
+   ./isaac_ros_common/scripts/run_dev.sh
+
+
+================================================================================
+CONTAINER DOCKER (Scegli UNO)
+================================================================================
+
+Opzione A: Ufficiale NVIDIA (Per AI Accelerator)
+   mkdir -p ~/workspaces/isaac_ros-dev/src
+   cd ~/workspaces/isaac_ros-dev/src
+   git clone https://github.com/NVIDIA-ISAAC-ROS/isaac_ros_common.git
+   ./isaac_ros_common/scripts/run_dev.sh
+
+Opzione B: Community (Più semplice)
+   docker run --runtime nvidia -it --rm --network=host \
+     dustynv/ros:humble-desktop-l4t-r36.4.0
+
+
+================================================================================
+SETUP RAPIDO (2 ore)
+================================================================================
+
+1. Verifica Hardware
+   jtop                      # Vedi GPU e RAM
+   lsusb | grep Orbbec       # Vedi camera
+   ping 192.168.1.10         # Vedi robot (sostituisci IP)
+
+2. Avvia Tutto
+   # Terminale 1: Robot
+   ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.1.10
+
+   # Terminale 2: Camera
+   ros2 launch orbbec_camera gemini_330_series.launch.py
+
+   # Terminale 3: Verifica
+   ros2 topic list
+
+
+================================================================================
+PROBLEMI COMUNI
+================================================================================
+
+Camera non trovata?
+   sudo bash ~/ros2_ws/src/OrbbecSDK_ROS2/orbbec_camera/scripts/install_udev_rules.sh
+   sudo reboot
+
+Robot non connette?
+   * Sul teach pendant: Settings > System > URCaps > External Control
+   * Imposta IP del Jetson
+
+Branch sbagliato Orbbec?
+   cd ~/ros2_ws/src/OrbbecSDK_ROS2
+   git checkout v2-main
+
+
+================================================================================
+DOCUMENTAZIONE
+================================================================================
+
+* UR Driver: https://docs.universal-robots.com/Universal_Robots_ROS2_Documentation/
+* AI Accelerator: https://www.universal-robots.com/products/ai-accelerator/
+* Isaac ROS: https://nvidia-isaac-ros.github.io/
+
+
+================================================================================
+FATTO!
+================================================================================
+
+Questi 3 repository + 1 container = Sistema completo funzionante.
+Tutto verificato attivo 2024-2025.

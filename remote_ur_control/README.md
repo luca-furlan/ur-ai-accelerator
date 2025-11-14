@@ -46,7 +46,20 @@ Script e interfaccia web da eseguire sull'AI Accelerator per comandare il robot 
    - regolare ogni joint con pulsanti ± basati sullo step configurato;
    - impostare manualmente i valori target;
    - utilizzare il joystick circolare per inviare comandi `speedj` (joystick → joint velocity);
-   - monitorare lo stato dei comandi (ready, sending, error).
+   - monitorare lo stato dei comandi (ready, sending, error);
+   - verificare lo stato del bridge ROS 2 direttamente dalla pagina (polling automatico del monitor).
+
+## Monitor ROS2 integrato
+
+La pagina espone un riquadro “ROS2 Monitor” sempre visibile in alto. Ogni 3 secondi (o su click “Aggiorna stato”) vengono mostrati:
+
+- stato di inizializzazione del bridge (`ROS2 pronto` / `ROS2 non pronto`);
+- stato del loop di pubblicazione a 125 Hz (con eventuali errori catturati);
+- tempo trascorso dall’ultimo comando joystick e dall’ultima pubblicazione;
+- disponibilità dei publisher fondamentali (`/forward_velocity_controller/commands`, `stop`, ecc.);
+- variabili d’ambiente critiche (`ROS_DISTRO`, `LD_LIBRARY_PATH`, `PYTHONPATH`, host corrente).
+
+Aprendo il dettaglio JSON è possibile vedere lo stesso payload ritornato dall’endpoint REST `/api/status`, utile per integrazioni automatiche o per condividere diagnostic snapshot via Slack/Telegram.
 
 ## Diagnostica rapida (senza muovere il robot)
 

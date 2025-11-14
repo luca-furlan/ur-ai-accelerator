@@ -12,11 +12,31 @@ import os
 from dataclasses import asdict, dataclass
 from typing import Dict, List
 
+import threading
+import time
+
+import sys
+import os
+
+# Aggiungi path per ros2_bridge
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from flask import Flask, jsonify, render_template_string, request
 
 from .remote_ur_controller import MoveParameters, RemoteURController
 
+# ROS2 bridge (SOLUZIONE PRINCIPALE)
+try:
+    from ros2_bridge_fixed import ROS2Bridge
+    ROS2_AVAILABLE = True
+except ImportError:
+    ROS2_AVAILABLE = False
+    ROS2Bridge = None
+
 app = Flask(__name__)
+
+# ROS2 bridge singleton
+_ros2_bridge = None
 
 
 @dataclass
@@ -163,6 +183,110 @@ HTML_TEMPLATE = """
       }
       .status-bar span.ready { color: var(--accent); }
       .status-bar span.error { color: var(--danger); }
+      .monitor-panel {
+        margin-top: 24px;
+        padding: 16px 20px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+      }
+      .monitor-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .monitor-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+      }
+      .monitor-card {
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        background: var(--bg);
+      }
+      .monitor-card.wide {
+        grid-column: 1 / -1;
+      }
+      .monitor-label {
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #666;
+      }
+      .monitor-value {
+        margin-top: 6px;
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .badge-ok {
+        background: rgba(56,118,29,0.15);
+        color: var(--accent);
+      }
+      .badge-error {
+        background: rgba(153,0,0,0.12);
+        color: var(--danger);
+      }
+      .monitor-warning {
+        margin-top: 10px;
+        font-size: 14px;
+        color: var(--danger);
+        min-height: 18px;
+      }
+      .monitor-topics {
+        margin-top: 16px;
+      }
+      .topic-list {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .topic-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--border);
+        font-size: 14px;
+      }
+      .topic-row:last-child {
+        border-bottom: none;
+      }
+      .topic-row.ok {
+        background: rgba(56,118,29,0.05);
+      }
+      .topic-row.error {
+        background: rgba(153,0,0,0.04);
+      }
+      .monitor-json details {
+        margin-top: 16px;
+      }
+      .monitor-json pre {
+        background: #111;
+        color: #0f0;
+        padding: 12px;
+        border-radius: 6px;
+        overflow-x: auto;
+        max-height: 260px;
+      }
+      .status-timestamp {
+        font-size: 13px;
+        color: #666;
+      }
       .layout {
         display: grid;
         grid-template-columns: 1fr;
@@ -267,6 +391,54 @@ HTML_TEMPLATE = """
       Imposta le posizioni joint o usa le frecce per aumentare/diminuire. Premi <strong>MoveJ</strong> per inviare il comando.
     </p>
 
+    <section class="monitor-panel">
+      <div class="monitor-header">
+        <h2>ROS2 Monitor</h2>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <span id="status-timestamp" class="status-timestamp">Agg. —</span>
+          <button type="button" class="primary-btn" id="refresh-status">Aggiorna stato</button>
+        </div>
+      </div>
+      <div class="monitor-grid">
+        <div class="monitor-card">
+          <div class="monitor-label">Bridge</div>
+          <div id="ros-bridge-state" class="monitor-value badge">—</div>
+        </div>
+        <div class="monitor-card">
+          <div class="monitor-label">Loop publish</div>
+          <div id="ros-loop-state" class="monitor-value badge">—</div>
+        </div>
+        <div class="monitor-card">
+          <div class="monitor-label">Ultimo comando</div>
+          <div id="ros-last-command" class="monitor-value">—</div>
+        </div>
+        <div class="monitor-card">
+          <div class="monitor-label">Ultimo publish</div>
+          <div id="ros-last-publish" class="monitor-value">—</div>
+        </div>
+        <div class="monitor-card wide">
+          <div class="monitor-label">Env</div>
+          <div id="ros-env" class="monitor-value" style="font-size:14px;">—</div>
+        </div>
+      </div>
+      <div id="ros-warning" class="monitor-warning"></div>
+      <div class="monitor-topics">
+        <h3>Publisher / Topic</h3>
+        <div id="ros-topic-list" class="topic-list">
+          <div class="topic-row">
+            <span>—</span>
+            <span>—</span>
+          </div>
+        </div>
+      </div>
+      <div class="monitor-json">
+        <details>
+          <summary>Mostra JSON grezzo</summary>
+          <pre id="ros-status-json">{ "status": "pending" }</pre>
+        </details>
+      </div>
+    </section>
+
     <div class="layout">
       <section class="joystick-panel">
         <h2>Joystick XY</h2>
@@ -357,6 +529,16 @@ HTML_TEMPLATE = """
       const form = document.getElementById("move-form");
       const stepInput = document.getElementById("step-size");
       const jointInputs = Array.from(form.querySelectorAll("input[name^='joint']"));
+      const rosBridgeState = document.getElementById("ros-bridge-state");
+      const rosLoopState = document.getElementById("ros-loop-state");
+      const rosLastCommand = document.getElementById("ros-last-command");
+      const rosLastPublish = document.getElementById("ros-last-publish");
+      const rosEnv = document.getElementById("ros-env");
+      const rosTopicList = document.getElementById("ros-topic-list");
+      const rosStatusJson = document.getElementById("ros-status-json");
+      const rosWarning = document.getElementById("ros-warning");
+      const statusTimestamp = document.getElementById("status-timestamp");
+      const refreshStatusBtn = document.getElementById("refresh-status");
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -406,6 +588,82 @@ HTML_TEMPLATE = """
         status.innerHTML = `Stato: <span class="${ok ? "ready" : "error"}">${text}</span>`;
       }
 
+      function describeAge(ageSeconds, isoString) {
+        if (ageSeconds == null) return "—";
+        const rounded = ageSeconds > 60 ? `${(ageSeconds / 60).toFixed(1)} min` : `${ageSeconds.toFixed(2)} s`;
+        return isoString ? `${rounded} fa (${isoString})` : `${rounded} fa`;
+      }
+
+      function renderTopics(publishers) {
+        if (!publishers || Object.keys(publishers).length === 0) {
+          return "<div class='topic-row error'><span>Nessun publisher</span><span>offline</span></div>";
+        }
+        return Object.entries(publishers).map(([name, ok]) => {
+          const cls = ok ? "ok" : "error";
+          const label = ok ? "online" : "missing";
+          return `<div class="topic-row ${cls}"><span>${name}</span><span>${label}</span></div>`;
+        }).join("");
+      }
+
+      function renderRosStatus(payload) {
+        const bridge = payload && payload.ros2_bridge ? payload.ros2_bridge : null;
+        const rosReady = payload && payload.ros2_available && bridge && bridge.ros_initialized;
+        rosBridgeState.textContent = rosReady ? "ROS2 pronto" : "ROS2 non pronto";
+        rosBridgeState.className = `monitor-value badge ${rosReady ? "badge-ok" : "badge-error"}`;
+
+        const loopRunning = bridge && bridge.publish_loop_running;
+        const publishRate = bridge && typeof bridge.publish_rate_hz === "number"
+          ? bridge.publish_rate_hz.toFixed(0)
+          : "0";
+        rosLoopState.textContent = loopRunning ? `${publishRate} Hz` : "fermo";
+        rosLoopState.className = `monitor-value badge ${loopRunning ? "badge-ok" : "badge-error"}`;
+
+        rosLastCommand.textContent = describeAge(
+          bridge ? bridge.last_command_age_s : null,
+          bridge ? bridge.last_command_time : null
+        );
+        rosLastPublish.textContent = describeAge(
+          bridge ? bridge.last_publish_age_s : null,
+          bridge ? bridge.last_publish_time : null
+        );
+
+        const env = (bridge && bridge.env) || (payload && payload.env) || {};
+        rosEnv.textContent = [
+          env.ROS_DISTRO ? `ROS ${env.ROS_DISTRO}` : "ROS? n/d",
+          env.LD_LIBRARY_PATH ? "LD_LIB ✓" : "LD_LIB ✗",
+          env.PYTHONPATH ? "PYTHONPATH ✓" : "PYTHONPATH ✗",
+          env.HOSTNAME ? `Host: ${env.HOSTNAME}` : null,
+        ].filter(Boolean).join(" · ") || "n/d";
+
+        rosTopicList.innerHTML = renderTopics(bridge ? bridge.publishers : null);
+        rosWarning.textContent = bridge && bridge.last_error ? `Ultimo errore: ${bridge.last_error}` : "";
+
+        rosStatusJson.textContent = JSON.stringify(payload, null, 2);
+        statusTimestamp.textContent = `Agg. ${new Date().toLocaleTimeString()}`;
+      }
+
+      async function fetchSystemStatus(showToast = false) {
+        try {
+          const response = await fetch("/api/status");
+          const payload = await response.json();
+          if (payload.status === "ok") {
+            renderRosStatus(payload.data);
+            if (showToast) {
+              setStatus("Stato ROS2 aggiornato", true);
+            }
+          } else {
+            setStatus("Status API error", false);
+          }
+        } catch (err) {
+          console.error("Status fetch error", err);
+          setStatus("Impossibile leggere lo stato ROS2", false);
+        }
+      }
+
+      refreshStatusBtn.addEventListener("click", () => fetchSystemStatus(true));
+      fetchSystemStatus();
+      setInterval(fetchSystemStatus, 3000);
+
       function updateJoint(targetName, delta) {
         const input = form.querySelector(`input[name='${targetName}']`);
         if (!input) return;
@@ -439,17 +697,12 @@ HTML_TEMPLATE = """
       const joyY = document.getElementById("joy-y");
       const stopJoystickBtn = document.getElementById("stop-joystick");
 
-      const JOY_MAX = 0.15;      // max joint velocity (rad/s) - ridotto per fluidità
-      const JOY_CART_VEL = 0.03; // max cartesian velocity (m/s) = 30mm/s - ridotto
-      const JOY_DEADZONE = 0.1;  // aumentato per evitare micro-movimenti
-      const JOY_INTERVAL = 50;   // ms - 20Hz per controllo più fluido (era 200ms)
+      const JOY_MAX = 0.1;       // max joint velocity (rad/s)
+      const JOY_CART_VEL = 0.02;  // max cartesian velocity (m/s) = 20mm/s
+      const JOY_DEADZONE = 0.15;  // deadzone per evitare micro-movimenti
 
       let joystickActive = false;
-      let joystickTimer = null;
       let joyVector = { x: 0, y: 0 };
-      let lastCommandTime = 0;
-      let pendingCommand = null;
-      let commandInFlight = false;
 
       function clamp(value, min, max) {
         return Math.min(Math.max(value, min), max);
@@ -467,108 +720,49 @@ HTML_TEMPLATE = """
       function resetJoystick() {
         joyVector = { x: 0, y: 0 };
         setHandlePosition(0, 0);
-        // Non chiamare stop qui, viene già fermato dal loop
+        // Update speeds to zero (bridge publishes continuously at 125Hz)
+        updateSpeeds();
       }
 
-      function startJoystickLoop() {
-        if (joystickTimer) return;
-        joystickTimer = setInterval(async () => {
-          const magnitude = Math.hypot(joyVector.x, joyVector.y);
-          if (magnitude < JOY_DEADZONE) {
-            // Se joystick rilasciato, invia stop e reset
-            if (lastCommandTime > 0) {
-              try {
-                await fetch("/api/stop", { method: "POST" });
-                lastCommandTime = 0;
-              } catch (err) {
-                console.error("Stop error:", err);
-              }
-            }
-            return;
-          }
-
-          const now = Date.now();
-          // Throttle: minimo 50ms tra comandi (ma non bloccare se nessun comando in volo)
-          if (commandInFlight && (now - lastCommandTime < 50)) {
-            return;
-          }
-          
-          // Se c'è un comando in volo da troppo tempo, reset
-          if (commandInFlight && (now - lastCommandTime > 200)) {
-            commandInFlight = false;
-          }
-
+      function updateSpeeds() {
+        // Calculate speeds from joystick positions
+        const magnitude = Math.hypot(joyVector.x, joyVector.y);
+        const magnitude2 = Math.hypot(joy2Vector.x, joy2Vector.y);
+        
+        let speeds;
+        if (magnitude < JOY_DEADZONE && magnitude2 < JOY_DEADZONE) {
+          speeds = [0, 0, 0, 0, 0, 0];
+        } else {
           const cartesianMode = document.getElementById("cartesian-mode").checked;
-          let speeds;
-          let endpoint;
-
           if (cartesianMode) {
-            // Cartesian: per ora usa speedl (servoj cartesiano richiede calcoli più complessi)
             speeds = [
-              joyVector.y * JOY_CART_VEL,   // vx (m/s)
-              joyVector.x * JOY_CART_VEL,   // vy (m/s)
-              0,                            // vz
-              0,                            // wrx (rad/s)
-              0,                            // wry
-              0,                            // wrz
+              joyVector.y * JOY_CART_VEL,
+              joyVector.x * JOY_CART_VEL,
+              -joy2Vector.y * JOY_CART_VEL,
+              0, 0,
+              joy2Vector.x * 0.2
             ];
-            endpoint = "/api/speedl";
           } else {
-            // Joint space: usa speedj per compatibilità (servoj può avere problemi)
-            speeds = [
-              joyVector.y * JOY_MAX,  // joint 0 velocity
-              joyVector.x * JOY_MAX,  // joint 1 velocity
-              0,
-              0,
-              0,
-              0,
-            ];
-            endpoint = "/api/speedj";  // Tornato a speedj per compatibilità
+            speeds = [joyVector.y * JOY_MAX, joyVector.x * JOY_MAX, 0, 0, 0, 0];
           }
-
-          commandInFlight = true;
-          try {
-            const payload = { 
-              speeds, 
-              duration: 0.1,  // 100ms - più sicuro
-              acceleration: 0.3  // ridotto per movimenti più fluidi
-            };
-            
-            console.log("Sending command:", endpoint, speeds);
-            const response = await fetch(endpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(payload),
-            });
-            
-            if (response.ok) {
-              lastCommandTime = now;
-              setStatus("Joystick active", true);
-              console.log("Command sent successfully");
-            } else {
-              console.error("Response not OK:", response.status, response.statusText);
-              setStatus("Error: " + response.status, false);
-            }
-          } catch (err) {
-            console.error("Joystick error:", err);
-            setStatus("Joystick error: " + err, false);
-          } finally {
-            commandInFlight = false;
-          }
-        }, JOY_INTERVAL);
-      }
-
-      function stopJoystickLoop() {
-        if (joystickTimer) {
-          clearInterval(joystickTimer);
-          joystickTimer = null;
         }
+        
+        // Update speeds (bridge publishes continuously at 125Hz)
+        const cartesianMode = document.getElementById("cartesian-mode").checked;
+        fetch("/api/servo_loop_update", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ speeds, cartesian: cartesianMode }),
+        }).catch(err => console.error("Update error:", err));
       }
 
       async function stopJointMotion() {
-        stopJoystickLoop();
         joyX.textContent = "0.00";
         joyY.textContent = "0.00";
+        joyVector = { x: 0, y: 0 };
+        joy2Vector = { x: 0, y: 0 };
+        resetJoystick();
+        resetJoystick2();
         try {
           await fetch("/api/stop", { method: "POST" });
           setStatus("Stop command sent", true);
@@ -579,7 +773,6 @@ HTML_TEMPLATE = """
 
       function onJoystickStart(evt) {
         joystickActive = true;
-        startJoystickLoop();
         onJoystickMove(evt);
       }
 
@@ -599,6 +792,9 @@ HTML_TEMPLATE = """
         const yNorm = Math.sin(angle) * norm;
         joyVector = { x: xNorm, y: yNorm };
         setHandlePosition(xNorm, yNorm);
+        
+        // Update speeds immediately (bridge publishes continuously at 125Hz)
+        updateSpeeds();
       }
 
       function onJoystickEnd() {
@@ -637,10 +833,7 @@ HTML_TEMPLATE = """
       const joy2Y = document.getElementById("joy2-y");
 
       let joystick2Active = false;
-      let joystick2Timer = null;
       let joy2Vector = { x: 0, y: 0 };
-      let lastCommand2Time = 0;
-      let command2InFlight = false;
 
       function setHandle2Position(xNorm, yNorm) {
         const radius = joystick2.clientWidth / 2 - handle2.clientWidth / 2;
@@ -654,82 +847,13 @@ HTML_TEMPLATE = """
       function resetJoystick2() {
         joy2Vector = { x: 0, y: 0 };
         setHandle2Position(0, 0);
-        // Non chiamare stop qui, viene già fermato dal loop
-      }
-
-      function startJoystick2Loop() {
-        if (joystick2Timer) return;
-        joystick2Timer = setInterval(async () => {
-          const magnitude = Math.hypot(joy2Vector.x, joy2Vector.y);
-          if (magnitude < JOY_DEADZONE) {
-            if (lastCommand2Time > 0) {
-              try {
-                await fetch("/api/stop", { method: "POST" });
-                lastCommand2Time = 0;
-              } catch (err) {
-                console.error("Stop error:", err);
-              }
-            }
-            return;
-          }
-
-          const cartesianMode = document.getElementById("cartesian-mode").checked;
-          if (!cartesianMode) return;
-
-          const now = Date.now();
-          // Throttle più permissivo per joystick 2
-          if (command2InFlight && (now - lastCommand2Time < 50)) {
-            return;
-          }
-          
-          if (command2InFlight && (now - lastCommand2Time > 200)) {
-            command2InFlight = false;
-          }
-
-          // Secondo joystick: Y = Z (su/giù), X = Rotazione Z
-          const speeds = [
-            0,                                  // vx
-            0,                                  // vy
-            -joy2Vector.y * JOY_CART_VEL,      // vz (su=+, giù=-)
-            0,                                  // wrx
-            0,                                  // wry
-            joy2Vector.x * 0.3,                // wrz (rotazione ridotta)
-          ];
-
-          command2InFlight = true;
-          try {
-            const response = await fetch("/api/speedl", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ 
-                speeds, 
-                duration: 0.008, 
-                acceleration: 0.3
-              }),
-            });
-            if (response.ok) {
-              lastCommand2Time = now;
-              setStatus("Joystick Z/Rot active", true);
-            }
-          } catch (err) {
-            console.error(err);
-            setStatus("Joystick2 error: " + err, false);
-          } finally {
-            command2InFlight = false;
-          }
-        }, JOY_INTERVAL);
-      }
-
-      function stopJoystick2Loop() {
-        if (joystick2Timer) {
-          clearInterval(joystick2Timer);
-          joystick2Timer = null;
-        }
+        // Update speeds (bridge publishes continuously at 125Hz)
+        updateSpeeds();
       }
 
       function onJoystick2Start(evt) {
         joystick2Active = true;
-        startJoystick2Loop();
+        onJoystick2Move(evt);
       }
 
       function onJoystick2Move(evt) {
@@ -755,11 +879,13 @@ HTML_TEMPLATE = """
         const yNorm = (limitedDist / maxDist) * Math.sin(angle);
         joy2Vector = { x: clamp(xNorm, -1, 1), y: clamp(yNorm, -1, 1) };
         setHandle2Position(joy2Vector.x, joy2Vector.y);
+        
+        // Update speeds immediately (bridge publishes continuously at 125Hz)
+        updateSpeeds();
       }
 
       function onJoystick2End() {
         joystick2Active = false;
-        stopJoystick2Loop();
         resetJoystick2();
       }
 
@@ -782,6 +908,13 @@ HTML_TEMPLATE = """
 def get_controller() -> RemoteURController:
     config = load_config()
     return RemoteURController(config.robot_ip, config.port)
+
+def get_ros2_bridge():
+    """Ottiene il bridge ROS2 (fallback)."""
+    global _ros2_bridge
+    if ROS2_AVAILABLE and not _ros2_bridge:
+        _ros2_bridge = ROS2Bridge()
+    return _ros2_bridge
 
 
 def load_config() -> ControllerConfig:
@@ -883,22 +1016,105 @@ def api_movel_relative():
     return jsonify({"status": "ok", "message": "MoveL relative command sent"})
 
 
+@app.route("/api/servo_loop_start", methods=["POST"])
+def api_servo_loop_start():
+    """Inizializza ROS2 bridge (publishing starts automatically at 125Hz)."""
+    if ROS2_AVAILABLE:
+        bridge = get_ros2_bridge()
+        if bridge and bridge.ensure_ros():
+            return jsonify({"status": "ok", "message": "ROS2 bridge ready - publishing at 125Hz"})
+    return jsonify({"status": "ok", "message": "Using socket fallback"})
+
+
+@app.route("/api/servo_loop_update", methods=["POST"])
+def api_servo_loop_update():
+    """Aggiorna velocità via ROS2 servo node."""
+    try:
+        payload = request.get_json(force=True)
+        speeds = parse_joints(payload.get("speeds"))
+        cartesian_mode = payload.get("cartesian", False)
+        
+        # ROS2 (SOLUZIONE PRINCIPALE)
+        if ROS2_AVAILABLE:
+            bridge = get_ros2_bridge()
+            if bridge and bridge.ensure_ros():
+                if cartesian_mode:
+                    # Twist per controllo cartesiano - prova servo node, fallback a joint
+                    linear = [speeds[0], speeds[1], speeds[2]]
+                    angular = [speeds[3], speeds[4], speeds[5]]
+                    if bridge.publish_twist(linear, angular, use_servo_node=True):
+                        return jsonify({"status": "ok", "message": "ROS2 servo twist"})
+                    # Fallback: usa joint control se twist non disponibile
+                    # (il web interface invia già speeds come joint velocities)
+                
+                # SpeedJ per controllo joint (sempre disponibile)
+                if bridge.publish_speedj(speeds):
+                    return jsonify({"status": "ok", "message": "ROS2 speedj"})
+        
+        # FALLBACK: Socket URScript (se ROS2 non disponibile)
+        controller = get_controller()
+        if cartesian_mode:
+            controller.speedl(speeds, duration=0.1, acceleration=0.3)
+        else:
+            controller.speedj(speeds, duration=0.1, acceleration=0.3)
+        return jsonify({"status": "ok", "message": "Socket fallback (ROS2 not available)"})
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/servo_loop_stop", methods=["POST"])
+def api_servo_loop_stop():
+    """Ferma movimento (sets velocities to zero - bridge continues publishing at 125Hz)."""
+    try:
+        # ROS2 - set speeds to zero (bridge continues publishing)
+        if ROS2_AVAILABLE:
+            bridge = get_ros2_bridge()
+            if bridge:
+                bridge.publish_stop()
+                return jsonify({"status": "ok", "message": "ROS2 stop (velocities set to zero)"})
+        
+        # FALLBACK: Socket
+        controller = get_controller()
+        controller.stop()
+        return jsonify({"status": "ok", "message": "Socket stop"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/api/servoj", methods=["POST"])
 def api_servoj():
-    """ServoJ endpoint per controllo fluido real-time."""
+    """ServoJ endpoint per controllo fluido real-time (legacy)."""
     payload = request.get_json(force=True)
     controller = get_controller()
-    speeds = parse_joints(payload.get("speeds"))  # Velocità joint o cartesian
+    speeds = parse_joints(payload.get("speeds"))
     
-    # Per servoj serve posizione target, non velocità
-    # Usiamo servoj_velocity che calcola target = current + velocity * t
     controller.servoj_velocity(
         speeds,
-        t=float(payload.get("duration", 0.008)),  # 8ms per 125Hz
+        t=float(payload.get("duration", 0.008)),
         lookahead_time=float(payload.get("lookahead_time", 0.1)),
         gain=float(payload.get("gain", 300.0)),
     )
     return jsonify({"status": "ok", "message": "ServoJ command sent"})
+
+
+@app.route("/api/status", methods=["GET"])
+def api_status():
+    data: Dict[str, object] = {
+        "ros2_available": ROS2_AVAILABLE,
+        "env": {
+            "UR_ROBOT_IP": os.environ.get("UR_ROBOT_IP"),
+            "WEB_HOST": os.environ.get("WEB_HOST"),
+            "WEB_PORT": os.environ.get("WEB_PORT"),
+        },
+    }
+
+    if ROS2_AVAILABLE:
+        bridge = get_ros2_bridge()
+        if bridge:
+            data["ros2_bridge"] = bridge.get_status()
+
+    return jsonify({"status": "ok", "data": data})
 
 
 @app.route("/api/config", methods=["GET"])
@@ -909,9 +1125,21 @@ def api_config():
 
 def main() -> None:
     """Entry point for running the Flask development server."""
+    # Initialize ROS2 bridge automatically (starts 125Hz publishing loop)
+    if ROS2_AVAILABLE:
+        try:
+            bridge = get_ros2_bridge()
+            if bridge and bridge.ensure_ros():
+                print("✅ ROS2 bridge initialized - publishing at 125Hz")
+            else:
+                print("⚠️ ROS2 bridge initialization failed")
+        except Exception as e:
+            print(f"⚠️ Failed to initialize ROS2 bridge: {e}")
+    
     host = os.environ.get("WEB_HOST", "0.0.0.0")
     port = int(os.environ.get("WEB_PORT", 8080))
     debug = bool(int(os.environ.get("WEB_DEBUG", "0")))
+    print(f"🌐 Starting web interface on http://{host}:{port}")
     app.run(host=host, port=port, debug=debug)
 
 
