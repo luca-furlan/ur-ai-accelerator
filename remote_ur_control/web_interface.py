@@ -439,14 +439,17 @@ HTML_TEMPLATE = """
       const joyY = document.getElementById("joy-y");
       const stopJoystickBtn = document.getElementById("stop-joystick");
 
-      const JOY_MAX = 0.3;      // max joint velocity (rad/s)
-      const JOY_CART_VEL = 0.05; // max cartesian velocity (m/s) = 50mm/s
-      const JOY_DEADZONE = 0.08;
-      const JOY_INTERVAL = 200; // ms - bilanciato per evitare buffer overflow
+      const JOY_MAX = 0.15;      // max joint velocity (rad/s) - ridotto per fluidità
+      const JOY_CART_VEL = 0.03; // max cartesian velocity (m/s) = 30mm/s - ridotto
+      const JOY_DEADZONE = 0.1;  // aumentato per evitare micro-movimenti
+      const JOY_INTERVAL = 50;   // ms - 20Hz per controllo più fluido (era 200ms)
 
       let joystickActive = false;
       let joystickTimer = null;
       let joyVector = { x: 0, y: 0 };
+      let lastCommandTime = 0;
+      let pendingCommand = null;
+      let commandInFlight = false;
 
       function clamp(value, min, max) {
         return Math.min(Math.max(value, min), max);
@@ -471,14 +474,36 @@ HTML_TEMPLATE = """
         if (joystickTimer) return;
         joystickTimer = setInterval(async () => {
           const magnitude = Math.hypot(joyVector.x, joyVector.y);
-          if (magnitude < JOY_DEADZONE) return;
+          if (magnitude < JOY_DEADZONE) {
+            // Se joystick rilasciato, invia stop e reset
+            if (lastCommandTime > 0) {
+              try {
+                await fetch("/api/stop", { method: "POST" });
+                lastCommandTime = 0;
+              } catch (err) {
+                console.error("Stop error:", err);
+              }
+            }
+            return;
+          }
+
+          const now = Date.now();
+          // Throttle: minimo 50ms tra comandi (ma non bloccare se nessun comando in volo)
+          if (commandInFlight && (now - lastCommandTime < 50)) {
+            return;
+          }
+          
+          // Se c'è un comando in volo da troppo tempo, reset
+          if (commandInFlight && (now - lastCommandTime > 200)) {
+            commandInFlight = false;
+          }
 
           const cartesianMode = document.getElementById("cartesian-mode").checked;
           let speeds;
           let endpoint;
 
           if (cartesianMode) {
-            // Cartesian: continuous velocity control (speedl)
+            // Cartesian: per ora usa speedl (servoj cartesiano richiede calcoli più complessi)
             speeds = [
               joyVector.y * JOY_CART_VEL,   // vx (m/s)
               joyVector.x * JOY_CART_VEL,   // vy (m/s)
@@ -489,34 +514,46 @@ HTML_TEMPLATE = """
             ];
             endpoint = "/api/speedl";
           } else {
-            // Joint space: continuous velocity control (speedj)
+            // Joint space: usa speedj per compatibilità (servoj può avere problemi)
             speeds = [
-              joyVector.y * JOY_MAX,
-              joyVector.x * JOY_MAX,
+              joyVector.y * JOY_MAX,  // joint 0 velocity
+              joyVector.x * JOY_MAX,  // joint 1 velocity
               0,
               0,
               0,
               0,
             ];
-            endpoint = "/api/speedj";
+            endpoint = "/api/speedj";  // Tornato a speedj per compatibilità
           }
 
+          commandInFlight = true;
           try {
             const payload = { 
               speeds, 
-              duration: JOY_INTERVAL / 1000.0 + 0.3, 
-              acceleration: 0.5
+              duration: 0.1,  // 100ms - più sicuro
+              acceleration: 0.3  // ridotto per movimenti più fluidi
             };
             
-            await fetch(endpoint, {
+            console.log("Sending command:", endpoint, speeds);
+            const response = await fetch(endpoint, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
             });
-            setStatus("Joystick command sent", true);
+            
+            if (response.ok) {
+              lastCommandTime = now;
+              setStatus("Joystick active", true);
+              console.log("Command sent successfully");
+            } else {
+              console.error("Response not OK:", response.status, response.statusText);
+              setStatus("Error: " + response.status, false);
+            }
           } catch (err) {
-            console.error(err);
+            console.error("Joystick error:", err);
             setStatus("Joystick error: " + err, false);
+          } finally {
+            commandInFlight = false;
           }
         }, JOY_INTERVAL);
       }
@@ -602,6 +639,8 @@ HTML_TEMPLATE = """
       let joystick2Active = false;
       let joystick2Timer = null;
       let joy2Vector = { x: 0, y: 0 };
+      let lastCommand2Time = 0;
+      let command2InFlight = false;
 
       function setHandle2Position(xNorm, yNorm) {
         const radius = joystick2.clientWidth / 2 - handle2.clientWidth / 2;
@@ -622,10 +661,30 @@ HTML_TEMPLATE = """
         if (joystick2Timer) return;
         joystick2Timer = setInterval(async () => {
           const magnitude = Math.hypot(joy2Vector.x, joy2Vector.y);
-          if (magnitude < JOY_DEADZONE) return;
+          if (magnitude < JOY_DEADZONE) {
+            if (lastCommand2Time > 0) {
+              try {
+                await fetch("/api/stop", { method: "POST" });
+                lastCommand2Time = 0;
+              } catch (err) {
+                console.error("Stop error:", err);
+              }
+            }
+            return;
+          }
 
           const cartesianMode = document.getElementById("cartesian-mode").checked;
           if (!cartesianMode) return;
+
+          const now = Date.now();
+          // Throttle più permissivo per joystick 2
+          if (command2InFlight && (now - lastCommand2Time < 50)) {
+            return;
+          }
+          
+          if (command2InFlight && (now - lastCommand2Time > 200)) {
+            command2InFlight = false;
+          }
 
           // Secondo joystick: Y = Z (su/giù), X = Rotazione Z
           const speeds = [
@@ -634,23 +693,29 @@ HTML_TEMPLATE = """
             -joy2Vector.y * JOY_CART_VEL,      // vz (su=+, giù=-)
             0,                                  // wrx
             0,                                  // wry
-            joy2Vector.x * 0.5,                // wrz (rotazione, 0.5 rad/s max)
+            joy2Vector.x * 0.3,                // wrz (rotazione ridotta)
           ];
 
+          command2InFlight = true;
           try {
-            await fetch("/api/speedl", {
+            const response = await fetch("/api/speedl", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ 
                 speeds, 
-                duration: JOY_INTERVAL / 1000.0 + 0.3, 
-                acceleration: 0.5
+                duration: 0.008, 
+                acceleration: 0.3
               }),
             });
-            setStatus("Joystick Z/Rot command sent", true);
+            if (response.ok) {
+              lastCommand2Time = now;
+              setStatus("Joystick Z/Rot active", true);
+            }
           } catch (err) {
             console.error(err);
             setStatus("Joystick2 error: " + err, false);
+          } finally {
+            command2InFlight = false;
           }
         }, JOY_INTERVAL);
       }
@@ -816,6 +881,24 @@ def api_movel_relative():
         blend=float(payload.get("blend", 0.01)),
     )
     return jsonify({"status": "ok", "message": "MoveL relative command sent"})
+
+
+@app.route("/api/servoj", methods=["POST"])
+def api_servoj():
+    """ServoJ endpoint per controllo fluido real-time."""
+    payload = request.get_json(force=True)
+    controller = get_controller()
+    speeds = parse_joints(payload.get("speeds"))  # Velocità joint o cartesian
+    
+    # Per servoj serve posizione target, non velocità
+    # Usiamo servoj_velocity che calcola target = current + velocity * t
+    controller.servoj_velocity(
+        speeds,
+        t=float(payload.get("duration", 0.008)),  # 8ms per 125Hz
+        lookahead_time=float(payload.get("lookahead_time", 0.1)),
+        gain=float(payload.get("gain", 300.0)),
+    )
+    return jsonify({"status": "ok", "message": "ServoJ command sent"})
 
 
 @app.route("/api/config", methods=["GET"])

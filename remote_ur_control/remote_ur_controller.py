@@ -205,6 +205,66 @@ class RemoteURController:
         self._send_script(script, wait=False)
         return [0.0] * 6  # Placeholder until RTDE available
 
+    def servoj(
+        self,
+        target_joints: Sequence[float],
+        t: float = 0.008,
+        lookahead_time: float = 0.1,
+        gain: float = 300.0,
+    ) -> None:
+        """
+        Servo to joint position - per controllo fluido real-time.
+        
+        Args:
+            target_joints: target joint positions (radians) length 6.
+            t: time where the command is controlling the robot (seconds, tipicamente 0.008 per 125Hz)
+            lookahead_time: time [0.03,0.2] smoothens the trajectory with this lookahead time
+            gain: proportional gain for following target position [100,2000]
+        """
+        if len(target_joints) != 6:
+            raise ValueError("servoj expects 6 joint targets")
+        
+        # Calcola posizione target basata su velocità corrente
+        # Per servoj serve la posizione target, non la velocità
+        # Quindi calcoliamo: target = current + velocity * t
+        script = (
+            "def remote_servoj():\n"
+            "  current = get_actual_joint_positions()\n"
+            f"  target = {self._format_list(target_joints)}\n"
+            f"  servoj(target, t={t}, lookahead_time={lookahead_time}, gain={gain})\n"
+            "end\n"
+            "remote_servoj()\n"
+        )
+        self._send_script(script, wait=False)
+    
+    def servoj_velocity(
+        self,
+        joint_velocities: Sequence[float],
+        t: float = 0.008,
+        lookahead_time: float = 0.1,
+        gain: float = 300.0,
+    ) -> None:
+        """
+        Servo usando velocità - calcola target = current + velocity * t.
+        Per controllo fluido real-time.
+        """
+        if len(joint_velocities) != 6:
+            raise ValueError("servoj_velocity expects 6 joint velocities")
+        
+        script = (
+            "def remote_servoj_vel():\n"
+            f"  t = {t}\n"
+            "  current = get_actual_joint_positions()\n"
+            f"  velocities = {self._format_list(joint_velocities)}\n"
+            "  target = [current[0] + velocities[0]*t, current[1] + velocities[1]*t, "
+            "current[2] + velocities[2]*t, current[3] + velocities[3]*t, "
+            "current[4] + velocities[4]*t, current[5] + velocities[5]*t]\n"
+            f"  servoj(target, t={t}, lookahead_time={lookahead_time}, gain={gain})\n"
+            "end\n"
+            "remote_servoj_vel()\n"
+        )
+        self._send_script(script, wait=False)
+
     def stop(self) -> None:
         """Send a stopl command to halt motion smoothly."""
         script = "def remote_stop():\n  stopl(1.5)\nend\nremote_stop()\n"
