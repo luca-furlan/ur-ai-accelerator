@@ -25,10 +25,21 @@ Script e interfaccia web da eseguire sull'AI Accelerator per comandare il robot 
    export WEB_PORT=8080                # porta web (default 8080)
    ```
 
-3. **Avviare la web UI**
+3. **Avviare tutto con un unico comando (diagnostica + web UI)**
    ```bash
-   python -m remote_ur_control.web_interface
+   python -m remote_ur_control.launch_ur_control --robot-ip 192.168.10.194
    ```
+   Il comando:
+   - esegue la diagnostica di rete (`ping`, apertura porta 30002, invio `textmsg`);
+   - esporta automaticamente le variabili `UR_ROBOT_IP`, `WEB_HOST`, `WEB_PORT`;
+   - avvia il server Flask dell'interfaccia web.
+
+   Opzioni utili:
+   - `--skip-ping` se il ping ICMP è bloccato sulla rete;
+   - `--web-host 0.0.0.0` e `--web-port 8080` (default) per esporre nella LAN;
+   - `--web-debug 1` per attivare il reload automatico in sviluppo.
+
+   > Preferisci avviare manualmente solo la web UI? Usa `python -m remote_ur_control.web_interface`.
 
 4. **Aprire il browser remoto**
    Visitare `http://<AI_ACCELERATOR_IP>:8080` dalla propria postazione per inviare comandi MoveJ/Stop o pilotare il joystick virtuale. La UI permette di:
