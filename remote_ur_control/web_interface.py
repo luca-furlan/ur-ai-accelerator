@@ -539,6 +539,11 @@ HTML_TEMPLATE = """
       const rosWarning = document.getElementById("ros-warning");
       const statusTimestamp = document.getElementById("status-timestamp");
       const refreshStatusBtn = document.getElementById("refresh-status");
+      
+      // Safety check: se gli elementi del monitor non esistono, non fare nulla
+      const hasMonitor = rosBridgeState && rosLoopState && rosLastCommand && 
+                         rosLastPublish && rosEnv && rosTopicList && 
+                         rosStatusJson && rosWarning && statusTimestamp && refreshStatusBtn;
 
       form.addEventListener("submit", async (event) => {
         event.preventDefault();
@@ -606,40 +611,63 @@ HTML_TEMPLATE = """
       }
 
       function renderRosStatus(payload) {
+        if (!hasMonitor) {
+          console.warn("Monitor ROS2 elements not found in DOM");
+          return;
+        }
+        
         const bridge = payload && payload.ros2_bridge ? payload.ros2_bridge : null;
         const rosReady = payload && payload.ros2_available && bridge && bridge.ros_initialized;
-        rosBridgeState.textContent = rosReady ? "ROS2 pronto" : "ROS2 non pronto";
-        rosBridgeState.className = `monitor-value badge ${rosReady ? "badge-ok" : "badge-error"}`;
+        if (rosBridgeState) {
+          rosBridgeState.textContent = rosReady ? "ROS2 pronto" : "ROS2 non pronto";
+          rosBridgeState.className = `monitor-value badge ${rosReady ? "badge-ok" : "badge-error"}`;
+        }
 
         const loopRunning = bridge && bridge.publish_loop_running;
         const publishRate = bridge && typeof bridge.publish_rate_hz === "number"
           ? bridge.publish_rate_hz.toFixed(0)
           : "0";
-        rosLoopState.textContent = loopRunning ? `${publishRate} Hz` : "fermo";
-        rosLoopState.className = `monitor-value badge ${loopRunning ? "badge-ok" : "badge-error"}`;
+        if (rosLoopState) {
+          rosLoopState.textContent = loopRunning ? `${publishRate} Hz` : "fermo";
+          rosLoopState.className = `monitor-value badge ${loopRunning ? "badge-ok" : "badge-error"}`;
+        }
 
-        rosLastCommand.textContent = describeAge(
-          bridge ? bridge.last_command_age_s : null,
-          bridge ? bridge.last_command_time : null
-        );
-        rosLastPublish.textContent = describeAge(
-          bridge ? bridge.last_publish_age_s : null,
-          bridge ? bridge.last_publish_time : null
-        );
+        if (rosLastCommand) {
+          rosLastCommand.textContent = describeAge(
+            bridge ? bridge.last_command_age_s : null,
+            bridge ? bridge.last_command_time : null
+          );
+        }
+        if (rosLastPublish) {
+          rosLastPublish.textContent = describeAge(
+            bridge ? bridge.last_publish_age_s : null,
+            bridge ? bridge.last_publish_time : null
+          );
+        }
 
         const env = (bridge && bridge.env) || (payload && payload.env) || {};
-        rosEnv.textContent = [
-          env.ROS_DISTRO ? `ROS ${env.ROS_DISTRO}` : "ROS? n/d",
-          env.LD_LIBRARY_PATH ? "LD_LIB ✓" : "LD_LIB ✗",
-          env.PYTHONPATH ? "PYTHONPATH ✓" : "PYTHONPATH ✗",
-          env.HOSTNAME ? `Host: ${env.HOSTNAME}` : null,
-        ].filter(Boolean).join(" · ") || "n/d";
+        if (rosEnv) {
+          rosEnv.textContent = [
+            env.ROS_DISTRO ? `ROS ${env.ROS_DISTRO}` : "ROS? n/d",
+            env.LD_LIBRARY_PATH ? "LD_LIB ✓" : "LD_LIB ✗",
+            env.PYTHONPATH ? "PYTHONPATH ✓" : "PYTHONPATH ✗",
+            env.HOSTNAME ? `Host: ${env.HOSTNAME}` : null,
+          ].filter(Boolean).join(" · ") || "n/d";
+        }
 
-        rosTopicList.innerHTML = renderTopics(bridge ? bridge.publishers : null);
-        rosWarning.textContent = bridge && bridge.last_error ? `Ultimo errore: ${bridge.last_error}` : "";
+        if (rosTopicList) {
+          rosTopicList.innerHTML = renderTopics(bridge ? bridge.publishers : null);
+        }
+        if (rosWarning) {
+          rosWarning.textContent = bridge && bridge.last_error ? `Ultimo errore: ${bridge.last_error}` : "";
+        }
 
-        rosStatusJson.textContent = JSON.stringify(payload, null, 2);
-        statusTimestamp.textContent = `Agg. ${new Date().toLocaleTimeString()}`;
+        if (rosStatusJson) {
+          rosStatusJson.textContent = JSON.stringify(payload, null, 2);
+        }
+        if (statusTimestamp) {
+          statusTimestamp.textContent = `Agg. ${new Date().toLocaleTimeString()}`;
+        }
       }
 
       async function fetchSystemStatus(showToast = false) {
@@ -660,9 +688,13 @@ HTML_TEMPLATE = """
         }
       }
 
-      refreshStatusBtn.addEventListener("click", () => fetchSystemStatus(true));
-      fetchSystemStatus();
-      setInterval(fetchSystemStatus, 3000);
+      if (refreshStatusBtn) {
+        refreshStatusBtn.addEventListener("click", () => fetchSystemStatus(true));
+      }
+      if (hasMonitor) {
+        fetchSystemStatus();
+        setInterval(fetchSystemStatus, 3000);
+      }
 
       function updateJoint(targetName, delta) {
         const input = form.querySelector(`input[name='${targetName}']`);
