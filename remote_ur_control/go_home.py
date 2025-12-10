@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-from remote_ur_controller import RemoteURController, MoveParameters
+from .remote_ur_controller import RemoteURController, MoveParameters
 
 def main():
     robot_ip = os.environ.get("UR_ROBOT_IP", "192.168.10.194")

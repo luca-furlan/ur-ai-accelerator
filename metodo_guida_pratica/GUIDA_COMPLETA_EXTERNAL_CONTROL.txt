@@ -1,0 +1,224 @@
+================================================================================
+📘 GUIDA COMPLETA: CONFIGURAZIONE EXTERNAL CONTROL SUL TEACH PENDANT
+================================================================================
+
+Basata su Issue #31 e #37 di GitHub - Soluzione Definitiva
+
+================================================================================
+🎯 PREREQUISITI (VERIFICA PRIMA!)
+================================================================================
+
+1. ✅ Remote Control abilitato
+   - Sul Teach Pendant: Settings → System → Remote Control
+   - Deve essere "Enabled"
+
+2. ✅ EtherNet/IP DISABILITATO (IMPORTANTE!)
+   - Sul Teach Pendant: Installation → Fieldbus
+   - EtherNet/IP deve essere DISABILITATO ❌
+   - PROFINET deve essere DISABILITATO ❌
+   - Solo Ethernet normale può essere abilitato ✅
+
+3. ✅ External Control URCap installato
+   - Sul Teach Pendant: Installation → URCaps
+   - Verifica che "External Control" sia presente
+
+================================================================================
+🚀 PROCEDURA PASSO-PASSO
+================================================================================
+
+PASSO 1: CREA NUOVO PROGRAMMA
+------------------------------
+1. Sul Teach Pendant, premi "Program" (icona programma)
+2. Crea nuovo programma o apri programma esistente
+3. Assicurati che il programma sia vuoto o contenga solo External Control
+
+PASSO 2: AGGIUNGI NODO EXTERNAL CONTROL
+----------------------------------------
+1. Nel programma, premi "+" o "Add Instruction"
+2. Cerca "External Control" nella lista
+3. Seleziona "External Control" e aggiungilo al programma
+
+PASSO 3: CONFIGURA NODO EXTERNAL CONTROL
+-----------------------------------------
+1. Tocca il nodo "External Control" nel programma
+2. Si aprirà la schermata di configurazione
+
+CONFIGURAZIONE CORRETTA:
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ Host IP:     192.168.10.191         │ ← IP della MACCHINA REMOTA
+│ Host Name:   (LASCIA VUOTO)        │
+│ Port:        50002                   │ ← Porta standard
+│ Timeout:     20                      │ ← Default va bene
+└─────────────────────────────────────┘
+
+IMPORTANTE:
+- Host IP: 192.168.10.191 (IP della macchina remota dove gira ROS2)
+- Port: 50002 (porta standard per External Control)
+- Host Name: Lascia vuoto
+- Timeout: 20 (default va bene)
+
+PASSO 4: SALVA PROGRAMMA
+-------------------------
+1. Premi "Save" o "Salva"
+2. Assegna un nome al programma (es. "external_control")
+3. Conferma salvataggio
+
+PASSO 5: VERIFICA CONFIGURAZIONE
+---------------------------------
+Prima di avviare, verifica:
+- ✅ Remote Control è abilitato
+- ✅ EtherNet/IP è DISABILITATO
+- ✅ Host IP = 192.168.10.191
+- ✅ Port = 50002
+- ✅ Programma salvato
+
+PASSO 6: AVVIA DRIVER ROS2 PRIMA
+---------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+Aspetta che vedi: "Waiting for connection..." o messaggi ROS2 attivi
+
+PASSO 7: AVVIA PROGRAMMA SUL ROBOT
+-----------------------------------
+1. Sul Teach Pendant, assicurati che il programma sia selezionato
+2. Premi "STOP" se il programma è già in esecuzione
+3. Premi "PLAY" per avviare il programma
+4. Verifica che il programma sia in stato "PLAYING"
+
+PASSO 8: VERIFICA CONNESSIONE
+------------------------------
+Dalla macchina remota, verifica:
+ssh lab@192.168.10.191
+netstat -an | grep 50002
+
+Dovresti vedere una connessione da 192.168.10.194 (robot) a 192.168.10.191 (PC)
+
+Nel driver ROS2 dovresti vedere:
+[INFO] Robot requested program
+[INFO] Sent program to robot
+[INFO] Robot connected to reverse interface. Ready to receive control commands.
+
+================================================================================
+❌ ERRORI COMUNI E SOLUZIONI
+================================================================================
+
+ERRORE 1: "Connection refused"
+------------------------------
+CAUSA: Macchina remota non in ascolto o firewall blocca
+SOLUZIONE:
+1. Verifica driver ROS2 è avviato PRIMA del programma
+2. Verifica firewall: sudo ufw allow 50002
+3. Verifica macchina in ascolto: netstat -tuln | grep 50002
+
+ERRORE 2: "Variable 'speed_slider_mask' is currently controlled by another RTDE client"
+---------------------------------------------------------------------------------------
+CAUSA: EtherNet/IP o PROFINET abilitati (Issue #31)
+SOLUZIONE:
+1. Sul Teach Pendant: Installation → Fieldbus
+2. DISABILITA EtherNet/IP ❌
+3. DISABILITA PROFINET ❌
+4. Riavvia programma
+
+ERRORE 3: "Compile error: name 'null' is not defined"
+-----------------------------------------------------
+CAUSA: Configurazione External Control errata
+SOLUZIONE:
+1. Verifica Host IP è corretto (192.168.10.191)
+2. Verifica Port è 50002
+3. Verifica Host Name è vuoto
+4. Ricrea programma da zero
+
+ERRORE 4: Programma si ferma subito
+-----------------------------------
+CAUSA: Driver ROS2 non avviato o macchina non in ascolto
+SOLUZIONE:
+1. Avvia driver ROS2 PRIMA
+2. Verifica macchina in ascolto: netstat -tuln | grep 50002
+3. POI avvia programma sul robot
+
+ERRORE 5: "The connection to the remote PC at X.X.X.X:50002 could not be established"
+-------------------------------------------------------------------------------------
+CAUSA: IP errato o firewall blocca (Issue #37)
+SOLUZIONE:
+1. Verifica Host IP sul Teach Pendant = 192.168.10.191
+2. Verifica firewall PC remoto: sudo ufw allow 50002
+3. Verifica driver ROS2 è avviato
+
+================================================================================
+📋 CHECKLIST COMPLETA
+================================================================================
+
+PRIMA DI CONFIGURARE EXTERNAL CONTROL:
+[ ] Remote Control abilitato (Settings → System → Remote Control)
+[ ] EtherNet/IP DISABILITATO (Installation → Fieldbus)
+[ ] PROFINET DISABILITATO (Installation → Fieldbus)
+[ ] External Control URCap installato (Installation → URCaps)
+
+CONFIGURAZIONE EXTERNAL CONTROL:
+[ ] Programma creato
+[ ] Nodo External Control aggiunto
+[ ] Host IP = 192.168.10.191
+[ ] Port = 50002
+[ ] Host Name = vuoto
+[ ] Programma salvato
+
+PRIMA DI AVVIARE:
+[ ] Driver ROS2 avviato PRIMA (./START_RAPIDO.sh)
+[ ] Macchina remota in ascolto (netstat -tuln | grep 50002)
+[ ] Firewall configurato (porte 50001-50004 aperte)
+
+AVVIO:
+[ ] Programma selezionato sul Teach Pendant
+[ ] Programma in stato PLAYING
+[ ] Nessun errore sul Teach Pendant
+[ ] Driver ROS2 mostra "Robot connected"
+
+================================================================================
+🎯 ORDINE CORRETTO (CRITICO!)
+================================================================================
+
+1. ✅ Verifica EtherNet/IP DISABILITATO
+2. ✅ Verifica Remote Control abilitato
+3. ✅ Configura External Control: Host IP = 192.168.10.191, Port = 50002
+4. ✅ Salva programma
+5. ✅ Avvia driver ROS2 PRIMA (macchina remota)
+6. ✅ Verifica macchina in ascolto (netstat -tuln | grep 50002)
+7. ✅ Avvia programma sul robot (PLAY)
+8. ✅ Verifica connessione funziona
+
+================================================================================
+💡 NOTE IMPORTANTI
+================================================================================
+
+1. ORDINE È CRITICO:
+   - Driver ROS2 DEVE essere avviato PRIMA del programma sul robot
+   - Macchina remota DEVE essere in ascolto PRIMA
+
+2. EtherNet/IP È IL PROBLEMA PIÙ COMUNE:
+   - Se EtherNet/IP è abilitato, External Control NON funziona
+   - Disabilita EtherNet/IP prima di tutto (Issue #31)
+
+3. FIREWALL:
+   - Porte necessarie: 50001, 50002, 50003, 50004
+   - Verifica firewall con: sudo ufw status
+
+4. IP CORRETTO:
+   - Host IP sul Teach Pendant = IP della macchina remota (192.168.10.191)
+   - NON mettere IP del robot stesso!
+
+================================================================================
+🔗 RIFERIMENTI
+================================================================================
+
+Issue #31: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/31
+Issue #37: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/37
+
+Per problemi, vedi: ANALISI_ISSUE_GITHUB_COMPLETA.txt
+
+================================================================================
+

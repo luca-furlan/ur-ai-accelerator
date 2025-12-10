@@ -1,0 +1,25 @@
+================================================================================
+🚀 COMANDO RAPIDO - PORTA LIBERA
+================================================================================
+
+COPIA E INCOLLA QUESTO:
+
+fuser -k 8080/tcp 2>/dev/null; sleep 1; cd ~/MekoAiAccelerator && source /opt/ros/humble/setup.bash 2>/dev/null || true && export UR_ROBOT_IP=192.168.10.194 && export WEB_HOST=0.0.0.0 && export WEB_PORT=8081 && python3 -m remote_ur_control.web_interface
+
+OPPURE:
+
+pkill -f web_interface
+fuser -k 8080/tcp 2>/dev/null || true
+sleep 2
+cd ~/MekoAiAccelerator
+source /opt/ros/humble/setup.bash 2>/dev/null || true
+export UR_ROBOT_IP=192.168.10.194
+export WEB_HOST=0.0.0.0
+export WEB_PORT=8081
+python3 -m remote_ur_control.web_interface
+
+POI CONNETTITI A:
+http://192.168.10.191:8081
+
+================================================================================
+

@@ -1,0 +1,87 @@
+================================================================================
+📋 COMANDI UTILI PER VERIFICARE CONFIGURAZIONE ROBOT
+================================================================================
+
+Dopo esserti connesso al robot via SSH, usa questi comandi:
+
+================================================================================
+1. VERIFICA PORTE APERTE
+================================================================================
+
+netstat -tuln | grep -E "5000[1-4]|30001|30002|29999"
+
+Porte importanti:
+- 50002: External Control (deve essere aperta quando programma è in PLAYING)
+- 30001: Primary Interface
+- 30002: Secondary Interface  
+- 29999: Dashboard Server
+
+================================================================================
+2. VERIFICA PROCESSI ATTIVI
+================================================================================
+
+ps aux | grep -iE "urcap|external|control"
+
+Verifica se ci sono processi URCap o External Control attivi.
+
+================================================================================
+3. VERIFICA CONFIGURAZIONE RETE
+================================================================================
+
+# Interfacce di rete
+ip addr show
+
+# Routing
+ip route
+
+# Test connettività verso PC
+ping -c 3 192.168.10.191
+
+================================================================================
+4. VERIFICA PROGRAMMI
+================================================================================
+
+ls -la /programs/
+
+Lista i programmi disponibili sul robot.
+
+================================================================================
+5. VERIFICA LOG
+================================================================================
+
+# Log sistema
+dmesg | tail -20
+
+# Log applicazioni
+journalctl -n 50
+
+================================================================================
+6. VERIFICA STATO ROBOT
+================================================================================
+
+# Informazioni sistema
+uname -a
+hostname -I
+cat /etc/polyscope/version
+
+================================================================================
+7. TEST PORTA 50002 SU PC
+================================================================================
+
+# Se nc (netcat) è disponibile sul robot
+nc -zv 192.168.10.191 50002
+
+Questo verifica se il PC è in ascolto sulla porta 50002.
+
+================================================================================
+⚠️  NOTA IMPORTANTE
+================================================================================
+
+EtherNet/IP e PROFINET NON possono essere verificati via SSH.
+Devi controllare manualmente sul Teach Pendant:
+- Installation → Fieldbus
+- EtherNet/IP deve essere DISABILITATO
+- PROFINET deve essere DISABILITATO
+
+================================================================================
+

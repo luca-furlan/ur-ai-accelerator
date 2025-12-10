@@ -1,0 +1,65 @@
+================================================================================
+✅ IP CORRETTO DEL ROBOT TROVATO!
+================================================================================
+
+PROBLEMA RISOLTO:
+L'IP del robot NON è 192.168.10.50
+L'IP del robot È: 192.168.10.194
+
+================================================================================
+📋 CONFIGURAZIONE CORRETTA
+================================================================================
+
+ROBOT IP: 192.168.10.194  ← QUESTO È L'IP CORRETTO!
+
+MACCHINA REMOTA IP: 192.168.10.191
+
+================================================================================
+✅ CONFIGURAZIONE SUL TEACH PENDANT
+================================================================================
+
+Nel nodo "External Control" sul Teach Pendant:
+
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ Host IP:     192.168.10.191         │ ← IP MACCHINA REMOTA!
+│ Host Name:   (vuoto)                │
+│ Porta:       50002                   │
+│ Timeout:     20                      │
+└─────────────────────────────────────┘
+
+IMPORTANTE:
+- Host IP deve essere: 192.168.10.191 (IP della macchina remota)
+- NON l'IP del robot!
+- Il robot si connette ALLA macchina remota
+
+================================================================================
+🔧 VERIFICA CONNESSIONE CON IP CORRETTO
+================================================================================
+
+Ora verifica con l'IP corretto:
+
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./VERIFICA_CONNESSIONE.sh
+
+Dovresti vedere:
+✅ Robot raggiungibile su 192.168.10.194
+✅ Porta 50002 APERTA!
+
+================================================================================
+📋 RIEPILOGO
+================================================================================
+
+IP Robot:        192.168.10.194  ← CORRETTO!
+IP Macchina:     192.168.10.191
+Porta:           50002
+
+Sul Teach Pendant:
+- Host IP: 192.168.10.191 (IP macchina remota)
+- Porta: 50002
+
+================================================================================
+
+

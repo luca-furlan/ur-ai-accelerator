@@ -1,0 +1,107 @@
+================================================================================
+🎯 SOLUZIONE: PROXY SERVER PER GESTIRE CONNESSIONI
+================================================================================
+
+PROBLEMA IDENTIFICATO:
+- Il robot si connette al PC sulla porta 50002 (è un CLIENT)
+- Il PC deve essere un SERVER in ascolto sulla porta 50002
+- Il driver ROS2 dovrebbe essere il server, ma va in crash prima di mettersi in ascolto
+- Quindi il robot trova "Connection refused"
+
+================================================================================
+✅ SOLUZIONE: PROXY SERVER
+================================================================================
+
+Ho creato un PROXY SERVER che:
+1. Si mette in ascolto sulla porta 50002 PRIMA del driver ROS2
+2. Accetta connessioni dal robot
+3. Attende che il driver ROS2 sia pronto
+4. Fa da proxy tra robot e driver ROS2
+
+VANTAGGI:
+- Il robot può connettersi anche se il driver va in crash temporaneamente
+- Il proxy gestisce gli errori di connessione
+- Il proxy attende che il driver sia pronto prima di inoltrare i dati
+
+================================================================================
+📋 COME USARE IL PROXY SERVER
+================================================================================
+
+OPZIONE 1: Script automatico (consigliato)
+-------------------------------------------
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+
+./AVVIA_PROXY_E_DRIVER.sh
+
+Questo script:
+- Avvia il proxy server
+- Avvia il driver ROS2
+- Gestisce tutto automaticamente
+
+OPZIONE 2: Manuale
+-----------------
+# Terminale 1: Avvia proxy server
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+python3 external_control_proxy_server.py
+
+# Terminale 2: Avvia driver ROS2
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+================================================================================
+🔍 COME FUNZIONA IL PROXY
+================================================================================
+
+1. Il proxy server si mette in ascolto sulla porta 50002
+2. Il robot si connette al proxy (non trova più "Connection refused")
+3. Il proxy attende che il driver ROS2 sia in ascolto
+4. Quando il driver è pronto, il proxy fa da ponte tra robot e driver
+5. Se il driver va in crash, il proxy può aspettare che si riavvii
+
+================================================================================
+⚠️  NOTA IMPORTANTE
+================================================================================
+
+Il proxy server RISOLVE il problema "Connection refused", ma:
+- Se il driver ROS2 va in crash per EtherNet/IP, devi comunque disabilitarlo
+- Il proxy può aspettare che il driver sia pronto, ma se continua a crashare non risolve il problema
+
+QUINDI:
+1. Usa il proxy server per gestire le connessioni
+2. Ma risolvi anche il problema del crash del driver (EtherNet/IP disabilitato)
+
+================================================================================
+📋 FILE CREATI
+================================================================================
+
+1. external_control_proxy_server.py
+   - Server proxy Python che gestisce le connessioni
+   - Si mette in ascolto sulla porta 50002
+   - Attende che il driver ROS2 sia pronto
+   - Fa da proxy tra robot e driver
+
+2. AVVIA_PROXY_E_DRIVER.sh
+   - Script che avvia proxy e driver insieme
+   - Gestisce tutto automaticamente
+
+================================================================================
+🎯 ORDINE CORRETTO CON PROXY
+================================================================================
+
+1. SUL TEACH PENDANT:
+   - Disabilita EtherNet/IP (Installation → Fieldbus)
+   - Abilita Remote Control (Settings → System → Remote Control)
+   - Configura External Control: Host IP = 192.168.10.191, Port = 50002
+
+2. SULLA MACCHINA REMOTA:
+   - Avvia proxy e driver: ./AVVIA_PROXY_E_DRIVER.sh
+   - Verifica proxy in ascolto: netstat -tuln | grep 50002
+
+3. SUL TEACH PENDANT:
+   - Avvia programma (PLAY)
+   - Il robot si connetterà al proxy
+   - Il proxy passerà i dati al driver quando è pronto
+
+================================================================================
+

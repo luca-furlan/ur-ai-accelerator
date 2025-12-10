@@ -1,0 +1,115 @@
+================================================================================
+📋 CONFIGURAZIONE HOST IP E HOST NAME SUL TEACH PENDANT
+================================================================================
+
+================================================================================
+✅ CONFIGURAZIONE CORRETTA
+================================================================================
+
+Nel nodo "External Control" sul Teach Pendant:
+
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ Host IP:     192.168.10.191         │ ← INSERISCI QUESTO!
+│ Host Name:   (lascia VUOTO)         │ ← LASCIA VUOTO!
+│ Porta:       50002                   │ ← INSERISCI QUESTO!
+│ Timeout:     20                      │
+└─────────────────────────────────────┘
+
+================================================================================
+📝 DETTAGLI CAMPI
+================================================================================
+
+HOST IP (Host IP):
+------------------
+✅ INSERISCI: 192.168.10.191
+
+Questo è l'IP della macchina remota dove gira il driver ROS2.
+È l'IP che il robot deve usare per connettersi.
+
+⚠️ IMPORTANTE:
+- Deve essere ESATTAMENTE: 192.168.10.191
+- Con PUNTI (.) non con spazi
+- NO altri caratteri
+
+HOST NAME (Host Name):
+----------------------
+✅ LASCIA VUOTO oppure inserisci: (lascia vuoto)
+
+Il campo Host Name è opzionale. Puoi lasciarlo vuoto.
+Se vuoi inserirlo, puoi usare l'hostname della macchina remota,
+ma NON è necessario - basta l'IP!
+
+PORTA (Port):
+-------------
+✅ INSERISCI: 50002
+
+Questa è la porta su cui il robot ascolta per connessioni esterne.
+Deve essere 50002 (porta standard per External Control).
+
+TIMEOUT:
+--------
+✅ INSERISCI: 20 (o lascia default)
+
+Timeout in secondi per la connessione.
+
+================================================================================
+🎯 RIEPILOGO RAPIDO
+================================================================================
+
+Campo "Host IP":     192.168.10.191  ← INSERISCI QUESTO!
+Campo "Host Name":   (vuoto)         ← LASCIA VUOTO!
+Campo "Porta":       50002            ← INSERISCI QUESTO!
+
+================================================================================
+❌ ERRORI COMUNI DA EVITARE
+================================================================================
+
+SBAGLIATO:
+- Host IP: 192.168.56.1        ← IP sbagliato!
+- Host IP: 192 168 10 191      ← Spazi invece di punti!
+- Host IP: 192.168.10.191:50002 ← Porta insieme all'IP!
+- Host Name: 192.168.10.191    ← IP nel campo sbagliato!
+
+CORRETTO:
+- Host IP: 192.168.10.191      ← IP corretto!
+- Host Name: (vuoto)           ← Vuoto!
+- Porta: 50002                 ← Porta separata!
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Host IP inserito: 192.168.10.191 (con punti, no spazi)
+[ ] Host Name lasciato vuoto (o opzionale)
+[ ] Porta inserita: 50002 (in campo separato)
+[ ] Timeout: 20 (o default)
+[ ] Configurazione salvata
+[ ] Programma in PLAYING
+[ ] Nessun errore di connessione
+
+================================================================================
+✅ DOPO CONFIGURAZIONE
+================================================================================
+
+Dopo aver configurato correttamente:
+
+1. Salva il programma
+2. STOP il programma (se è in esecuzione)
+3. PLAY il programma
+4. Dovresti vedere: "Waiting for connection..."
+5. Nessun errore!
+
+Poi verifica dalla macchina remota:
+
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./VERIFICA_CONNESSIONE.sh
+
+Dovresti vedere:
+✅ Porta 50002 APERTA e in ascolto!
+
+================================================================================
+
+

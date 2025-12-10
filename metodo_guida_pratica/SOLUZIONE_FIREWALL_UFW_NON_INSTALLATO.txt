@@ -1,0 +1,106 @@
+================================================================================
+🔧 SOLUZIONE: UFW NON INSTALLATO
+================================================================================
+
+Hai provato: sudo ufw allow 50002
+Ma hai ricevuto: "ufw: command not found"
+
+================================================================================
+✅ SPIEGAZIONE
+================================================================================
+
+UFW (Uncomplicated Firewall) non è installato sul sistema.
+Questo significa che:
+- O non c'è firewall attivo (porta già accessibile)
+- O il sistema usa iptables direttamente
+- O il firewall è gestito diversamente
+
+================================================================================
+🔍 VERIFICA SE SERVE APRIRE PORTA
+================================================================================
+
+La cosa più importante NON è il firewall, ma verificare che:
+
+1. MACCHINA REMOTA È IN ASCOLTO SULLA PORTA 50002
+   -------------------------------------------------
+   Esegui:
+   netstat -tuln | grep 50002
+   
+   Dovresti vedere: "0.0.0.0:50002" in LISTEN
+   
+   Se NON vedi questo, il problema NON è il firewall!
+   Il problema è che la macchina remota NON è in ascolto.
+
+2. DRIVER ROS2 È IN ESECUZIONE
+   -----------------------------
+   Esegui:
+   ps aux | grep ur_robot_driver
+   
+   Se NON vedi processi ROS2, avvia il driver PRIMA!
+
+================================================================================
+🚀 SOLUZIONE CORRETTA
+================================================================================
+
+ORDINE CORRETTO:
+
+1. AVVIA DRIVER ROS2 PRIMA
+   ------------------------
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+   ./START_RAPIDO.sh
+   
+   Questo mette automaticamente la macchina in ascolto sulla 50002.
+
+2. VERIFICA MACCHINA IN ASCOLTO
+   -----------------------------
+   netstat -tuln | grep 50002
+   
+   Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+3. SE SERVE, APRI PORTA CON IPTABLES
+   ----------------------------------
+   Se hai iptables attivo (raramente necessario):
+   sudo iptables -A INPUT -p tcp --dport 50002 -j ACCEPT
+   sudo iptables-save
+
+4. CONFIGURA TEACH PENDANT
+   ------------------------
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+
+5. AVVIA PROGRAMMA SUL ROBOT
+   ---------------------------
+   Sul Teach Pendant, premi PLAY
+
+================================================================================
+📋 VERIFICA COMPLETA
+================================================================================
+
+Esegui questo script per verificare tutto:
+
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./APRI_PORTA_50002.sh
+
+Questo script:
+- Verifica se c'è firewall attivo
+- Verifica se macchina è in ascolto sulla 50002
+- Ti dice cosa fare se non è in ascolto
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+IL PROBLEMA NON È IL FIREWALL!
+
+Il problema più probabile è:
+- Macchina remota NON in ascolto sulla 50002
+- Driver ROS2 NON avviato
+
+SOLUZIONE:
+1. Avvia driver ROS2 PRIMA (mette macchina in ascolto)
+2. Verifica macchina in ascolto (netstat -tuln | grep 50002)
+3. Configura Teach Pendant: Host IP = 192.168.10.191, Porta = 50002
+4. Avvia programma sul robot
+
+================================================================================
+

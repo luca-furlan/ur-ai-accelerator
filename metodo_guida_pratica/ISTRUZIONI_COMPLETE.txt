@@ -1,0 +1,134 @@
+================================================================================
+ISTRUZIONI COMPLETE - Setup UR5e con ROS2
+================================================================================
+
+Questa cartella contiene TUTTO il necessario per controllare il robot UR5e con ROS2.
+
+================================================================================
+FILE NELLA CARTELLA
+================================================================================
+
+1. SETUP_COMPLETO.sh          - Setup completo passo-passo (USA QUESTO!)
+2. SCARICA_URCAP.sh            - Scarica automaticamente l'URCap
+3. VERIFICA_SETUP.sh           - Verifica che tutto sia configurato
+4. START_RAPIDO.sh             - Avvio rapido (se già configurato)
+5. TEST_MOVIMENTO.sh           - Test movimento robot
+6. FERMA_TUTTO.sh              - Ferma tutti i processi ROS2
+7. README.md                   - Documentazione completa
+8. REPOSITORY_GIUSTI.md        - Quali repository GitHub usare
+9. LINK_REPOSITORY.md          - Link diretti ai repository
+
+================================================================================
+QUICK START - PASSO 1
+================================================================================
+
+1. Vai nella cartella:
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+
+2. Verifica setup:
+   ./VERIFICA_SETUP.sh
+
+3. Se manca l'URCap, scaricalo:
+   ./SCARICA_URCAP.sh
+
+================================================================================
+QUICK START - PASSO 2 (TEACH PENDANT)
+================================================================================
+
+1. Copia externalcontrol-1.0.5.urcap su USB
+2. Inserisci USB nel Teach Pendant
+3. Installation → URCaps → '+' → Seleziona file → Riavvia robot
+
+4. Crea programma con nodo "External Control":
+   - IP Host: 192.168.10.191
+   - Porta: 50002
+   - (Opzionale) Script iniziale: movej([0, 0, 0, 0, 0, 0], a=1.0, v=1.0)
+
+5. Salva programma e avvia (PLAY)
+
+================================================================================
+QUICK START - PASSO 3 (AVVIA DRIVER)
+================================================================================
+
+Opzione A - Setup completo (prima volta):
+   ./SETUP_COMPLETO.sh
+
+Opzione B - Avvio rapido (se già configurato):
+   ./START_RAPIDO.sh
+
+================================================================================
+QUICK START - PASSO 4 (TEST MOVIMENTO)
+================================================================================
+
+In un altro terminale:
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+   ./TEST_MOVIMENTO.sh
+
+================================================================================
+COMANDI UTILI
+================================================================================
+
+Verifica tutto:
+   ./VERIFICA_SETUP.sh
+
+Ferma tutto:
+   ./FERMA_TUTTO.sh
+
+Verifica controller ROS2:
+   source /opt/ros/humble/setup.bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 control list_controllers
+
+Verifica topic ROS2:
+   ros2 topic list
+   ros2 topic echo /joint_states
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Problema: Porta 50002 chiusa
+Soluzione:
+  1. Verifica programma in PLAYING sul Teach Pendant
+  2. Verifica nodo External Control presente
+  3. Verifica IP: 192.168.10.191
+  4. Verifica porta: 50002
+  5. STOP e PLAY di nuovo
+
+Problema: Driver non si connette
+Soluzione:
+  1. Verifica Remote Control abilitato
+  2. Verifica connessione: ping 192.168.10.194
+  3. Verifica porta 50002: ./VERIFICA_SETUP.sh
+
+Problema: Robot non si muove
+Soluzione:
+  1. Verifica driver ROS2 in esecuzione
+  2. Verifica controller attivi: ros2 control list_controllers
+  3. Verifica programma in PLAYING
+  4. Controlla log driver
+
+================================================================================
+NOTE IMPORTANTI
+================================================================================
+
+- launch_rviz:=false evita conflitti di rete (secondo guida)
+- Programma DEVE essere in PLAYING prima di avviare driver
+- Remote Control DEVE essere abilitato sul Teach Pendant
+- Porta 50002 si apre solo quando programma External Control è in PLAYING
+
+================================================================================
+RIFERIMENTI
+================================================================================
+
+Guida originale:
+  https://gist.github.com/Shawn-Armstrong/bdbcd51e0d60a0a4e4b60d15c635d3db
+
+Repository GitHub:
+  - Driver ROS2: https://github.com/UniversalRobots/Universal_Robots_ROS2_Driver
+  - External Control: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap
+
+================================================================================
+
+
+

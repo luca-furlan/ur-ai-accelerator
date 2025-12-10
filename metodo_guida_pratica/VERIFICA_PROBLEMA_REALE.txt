@@ -1,0 +1,79 @@
+================================================================================
+🔍 VERIFICA PROBLEMA REALE
+================================================================================
+
+Dal log del driver ROS2 ho trovato il VERO problema:
+
+```
+[WARN] Failed to bind socket for port 50002 to address. 
+       Reason: Address already in use
+```
+
+================================================================================
+❌ PROBLEMA IDENTIFICATO
+================================================================================
+
+Il problema NON è EtherNet/IP!
+
+Il problema è:
+- Il proxy server è già in ascolto sulla porta 50002
+- Il driver ROS2 cerca di mettersi in ascolto sulla stessa porta 50002
+- Ma la porta è già occupata dal proxy server!
+
+QUINDI:
+- Il driver ROS2 NON può essere il server perché la porta è occupata
+- Il proxy server sta bloccando il driver ROS2
+
+================================================================================
+✅ SOLUZIONE CORRETTA
+================================================================================
+
+OPZIONE 1: Usa SOLO driver ROS2 (SENZA proxy)
+----------------------------------------------
+1. Ferma TUTTO (incluso proxy server)
+2. Assicurati porta 50002 libera
+3. Avvia SOLO driver ROS2
+4. Il driver ROS2 sarà il server sulla porta 50002
+
+OPZIONE 2: Se EtherNet/IP è necessario
+---------------------------------------
+Se EtherNet/IP è necessario per altre funzionalità:
+1. Verifica se EtherNet/IP occupa le variabili RTDE che il driver usa
+2. Se sì, configura EtherNet/IP per NON usare quelle variabili
+3. Oppure usa una versione del driver ROS2 che non usa quelle variabili
+
+================================================================================
+📋 COSA FARE ORA
+================================================================================
+
+1. FERMA PROXY SERVER:
+   pkill -f external_control_proxy
+
+2. VERIFICA PORTA LIBERA:
+   netstat -tuln | grep 50002
+   (Non deve esserci nulla)
+
+3. AVVIA SOLO DRIVER ROS2:
+   ./SOLUZIONE_DEFINITIVA_CORRETTA.sh
+
+4. VERIFICA DRIVER IN ASCOLTO:
+   netstat -tuln | grep 50002
+   (Dovresti vedere il driver ROS2 in ascolto)
+
+5. SUL TEACH PENDANT:
+   - Configura External Control: Host IP = 192.168.10.191, Port = 50002
+   - Avvia programma (PLAY)
+
+================================================================================
+⚠️  NOTA SU ETHERNET/IP
+================================================================================
+
+Se EtherNet/IP è necessario:
+- Verifica se occupa le variabili RTDE che il driver ROS2 usa
+- Le variabili problematiche sono: speed_slider_mask, etc.
+- Se EtherNet/IP non usa quelle variabili, può funzionare insieme
+
+Ma PRIMA risolvi il problema della porta 50002 occupata!
+
+================================================================================
+

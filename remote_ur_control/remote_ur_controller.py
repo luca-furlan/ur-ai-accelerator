@@ -329,6 +329,42 @@ class DashboardClient:
         if self._sock:
             self._sock.close()
             self._sock = None
+    
+    def get_robot_mode(self) -> str | None:
+        """Get robot mode."""
+        try:
+            return self.send_command("robotmode")
+        except Exception:
+            return None
+    
+    def get_safety_mode(self) -> str | None:
+        """Get safety mode."""
+        try:
+            return self.send_command("safetymode")
+        except Exception:
+            return None
+    
+    def get_program_state(self) -> str | None:
+        """Get program state."""
+        try:
+            return self.send_command("programState")
+        except Exception:
+            return None
+    
+    def is_in_remote_control(self) -> bool | None:
+        """Check if robot is in remote control."""
+        try:
+            response = self.send_command("is in remote control")
+            # La risposta può essere "true", "false", o "Remote control: true"
+            response_lower = response.lower().strip()
+            if "true" in response_lower or response_lower == "true":
+                return True
+            elif "false" in response_lower or response_lower == "false":
+                return False
+            else:
+                return None
+        except Exception:
+            return None
 
 
 __all__ = ["RemoteURController", "MoveParameters", "DashboardClient"]

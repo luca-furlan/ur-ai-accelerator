@@ -1,0 +1,137 @@
+================================================================================
+✅ CONFIGURAZIONE CORRETTA NODO EXTERNAL CONTROL
+================================================================================
+
+Se il programma contiene SOLO External Control e dà errore di compilazione,
+il problema è nella CONFIGURAZIONE del nodo stesso!
+
+================================================================================
+🔧 CONFIGURAZIONE CORRETTA SUL TEACH PENDANT
+================================================================================
+
+Nel nodo "External Control", verifica ESATTAMENTE questi campi:
+
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ Host IP:     192.168.10.191         │ ← DEVE ESSERE ESATTAMENTE QUESTO!
+│ Host Name:   (LASCIA VUOTO)         │ ← VUOTO!
+│ Porta:       50002                   │ ← SOLO NUMERO, NO ALTRI CARATTERI!
+│ Timeout:     20                      │ ← O lascia default
+└─────────────────────────────────────┘
+
+================================================================================
+❌ ERRORI COMUNI CHE CAUSANO ERRORE COMPILAZIONE
+================================================================================
+
+ERRORE 1: Host IP con spazi o caratteri sbagliati
+--------------------------------------------------
+❌ SBAGLIATO:
+   Host IP: 192 168 10 191        (spazi invece di punti)
+   Host IP: 192.168.10.191:50002 (porta insieme all'IP)
+   Host IP: 192.168.10.191.50002 (punto invece di due punti)
+
+✅ CORRETTO:
+   Host IP: 192.168.10.191        (solo IP, con punti)
+
+ERRORE 2: Porta con caratteri extra
+------------------------------------
+❌ SBAGLIATO:
+   Porta: 50002:                  (due punti)
+   Porta: :50002                  (due punti all'inizio)
+   Porta: 50002.                  (punto alla fine)
+
+✅ CORRETTO:
+   Porta: 50002                   (solo numero)
+
+ERRORE 3: Host Name con IP
+---------------------------
+❌ SBAGLIATO:
+   Host Name: 192.168.10.191      (IP nel campo sbagliato)
+
+✅ CORRETTO:
+   Host Name: (vuoto)             (lascia vuoto!)
+
+ERRORE 4: Campi invertiti
+-------------------------
+❌ SBAGLIATO:
+   Host IP: 50002                 (porta nel campo IP)
+   Porta: 192.168.10.191          (IP nel campo porta)
+
+✅ CORRETTO:
+   Host IP: 192.168.10.191
+   Porta: 50002
+
+================================================================================
+✅ PROCEDURA PER CORREGGERE
+================================================================================
+
+PASSO 1: APRI NODO EXTERNAL CONTROL
+------------------------------------
+1. Sul Teach Pendant, apri il programma
+2. Clicca sul nodo "External Control"
+3. Premi "Edit" o "Modify"
+
+PASSO 2: CANCELLA TUTTO E REINSERISCI
+--------------------------------------
+1. CANCELLA completamente il valore di Host IP
+2. INSERISCI ESATTAMENTE: 192.168.10.191
+   (carattere per carattere, verifica ogni punto)
+3. CANCELLA completamente il valore di Porta
+4. INSERISCI ESATTAMENTE: 50002
+   (solo numero, niente altro)
+5. Verifica che Host Name sia VUOTO
+6. Timeout: 20 (o lascia default)
+
+PASSO 3: SALVA E VERIFICA
+--------------------------
+1. Premi "OK" o "Save"
+2. Verifica che programma compili senza errori
+3. Se ancora errore, dimmi ESATTAMENTE quale errore vedi
+
+================================================================================
+🔍 SE ANCORA ERRORE DI COMPILAZIONE
+================================================================================
+
+Se dopo aver corretto la configurazione vedi ancora errore:
+
+1. SCRIVI ESATTAMENTE l'errore che vedi sul Teach Pendant
+   (es: "Invalid IP address", "Port out of range", etc.)
+
+2. VERIFICA che URCap sia installato correttamente:
+   - Teach Pendant → Installation → URCaps
+   - Dovresti vedere "External Control" nella lista
+   - Se non c'è, reinstalla URCap
+
+3. PROVA a creare programma NUOVO da zero:
+   - Crea nuovo programma
+   - Aggiungi SOLO nodo External Control
+   - Configura ESATTAMENTE come sopra
+   - Salva con nome diverso
+
+================================================================================
+📋 CHECKLIST CONFIGURAZIONE
+================================================================================
+
+[ ] Host IP: 192.168.10.191 (esattamente così, con punti, no spazi)
+[ ] Host Name: (vuoto)
+[ ] Porta: 50002 (solo numero, niente altro)
+[ ] Timeout: 20 (o default)
+[ ] Configurazione salvata
+[ ] Programma compila senza errori
+[ ] Nessun errore rosso sul Teach Pendant
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+CONFIGURAZIONE CORRETTA:
+- Host IP: 192.168.10.191 (IP macchina remota)
+- Host Name: (vuoto)
+- Porta: 50002 (solo numero)
+
+Se ancora errore, dimmi ESATTAMENTE quale errore vedi sul Teach Pendant!
+
+================================================================================
+
+

@@ -1,0 +1,117 @@
+================================================================================
+📋 COSA FARE ADESSO - DOPO AVER DISABILITATO ETHERNET/IP
+================================================================================
+
+Hai disabilitato EtherNet/IP sul robot. Ora segui questi passi:
+
+================================================================================
+PASSO 1: VERIFICA SUL TEACH PENDANT
+================================================================================
+
+✅ EtherNet/IP DISABILITATO (Installation → Fieldbus)
+✅ PROFINET DISABILITATO (Installation → Fieldbus)
+✅ Remote Control abilitato (Settings → System → Remote Control)
+
+IMPORTANTE: Dopo aver disabilitato EtherNet/IP, RIAVVIA il robot!
+- Power cycle del robot
+- Aspetta che si avvii completamente
+
+================================================================================
+PASSO 2: SULLA MACCHINA REMOTA - AVVIA DRIVER ROS2
+================================================================================
+
+Connettiti alla macchina remota:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+
+Esegui lo script di verifica e avvio:
+./VERIFICA_E_AVVIA_DOPO_ETHERNET_IP.sh
+
+OPPURE manualmente:
+
+# 1. Ferma tutto
+pkill -f 'ur_robot_driver|web_interface|external_control_proxy'
+
+# 2. Verifica porta 50002 libera
+netstat -tuln | grep 50002
+# Non deve esserci nulla
+
+# 3. Avvia driver ROS2
+source /opt/ros/humble/setup.bash
+source ~/ros2_ws/install/setup.bash
+
+ros2 launch ur_robot_driver ur_control.launch.py \
+    ur_type:=ur5e \
+    robot_ip:=192.168.10.194 \
+    launch_rviz:=false
+
+================================================================================
+PASSO 3: VERIFICA DRIVER FUNZIONA
+================================================================================
+
+Dovresti vedere nel log:
+✅ "System successfully started!"
+✅ "Robot connected to reverse interface"
+✅ Nessun "Pipeline producer overflowed!"
+✅ Nessun "Segmentation fault"
+
+In un altro terminale, verifica porta 50002:
+netstat -tuln | grep 50002
+# Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+================================================================================
+PASSO 4: SUL TEACH PENDANT - CONFIGURA EXTERNAL CONTROL
+================================================================================
+
+1. Crea programma con nodo External Control
+2. Configura:
+   - Host IP: 192.168.10.191
+   - Port: 50002
+   - Host Name: (vuoto)
+3. SALVA programma
+4. NON avviare ancora (lascia in STOP)
+
+================================================================================
+PASSO 5: AVVIA PROGRAMMA SUL ROBOT
+================================================================================
+
+SOLO DOPO che:
+✅ Driver ROS2 è avviato e funzionante
+✅ Porta 50002 è in ascolto
+✅ Nessun errore RTDE overflow
+
+Sul Teach Pendant:
+1. Verifica configurazione External Control corretta
+2. Premi PLAY
+3. Il robot dovrebbe connettersi al PC
+
+================================================================================
+⚠️  SE VEDI ANCORA RTDE OVERFLOW
+================================================================================
+
+1. Verifica EtherNet/IP è DISABILITATO sul robot
+2. RIAVVIA robot (power cycle) dopo aver disabilitato EtherNet/IP
+3. Verifica nessun altro processo RTDE attivo:
+   - Web interface fermata
+   - Altri URCap disabilitati
+4. Verifica log driver per errori specifici
+
+================================================================================
+📋 CHECKLIST FINALE
+================================================================================
+
+Sul Robot:
+[ ] EtherNet/IP DISABILITATO ✅
+[ ] PROFINET DISABILITATO ✅
+[ ] Robot RIAVVIATO dopo disabilitazione ✅
+[ ] Remote Control abilitato ✅
+[ ] External Control configurato (Host IP = 192.168.10.191, Port = 50002) ✅
+
+Sulla Macchina Remota:
+[ ] Driver ROS2 avviato ✅
+[ ] Porta 50002 in ascolto ✅
+[ ] Nessun errore RTDE overflow ✅
+[ ] Nessun segmentation fault ✅
+
+================================================================================
+

@@ -1,0 +1,138 @@
+================================================================================
+🔍 DIAGNOSI: PORTA 50002 NON IN ASCOLTO
+================================================================================
+
+PROBLEMA IDENTIFICATO:
+- Driver ROS2 è in esecuzione ✅
+- Ma macchina remota NON è in ascolto sulla porta 50002 ❌
+
+================================================================================
+🤔 PERCHÉ SUCCEDE QUESTO?
+================================================================================
+
+Il driver ROS2 ha DUE modalità di connessione:
+
+1. MODALITÀ CLIENT (robot si connette alla macchina)
+   - Macchina remota DEVE essere in ascolto sulla 50002
+   - Il robot si connette alla macchina
+   - Serve configurazione: Host IP = 192.168.10.191 sul Teach Pendant
+
+2. MODALITÀ SERVER (macchina si connette al robot)
+   - Robot apre porta 50002
+   - Macchina si connette al robot
+   - Serve configurazione: Host IP VUOTO sul Teach Pendant
+
+================================================================================
+✅ SOLUZIONE: VERIFICA CONFIGURAZIONE DRIVER
+================================================================================
+
+Il driver ROS2 potrebbe essere configurato per connettersi AL robot
+invece di aspettare che il robot si connetta.
+
+VERIFICA CONFIGURAZIONE ATTUALE:
+---------------------------------
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+cat START_RAPIDO.sh
+
+Cerca il parametro: robot_ip:=192.168.10.194
+
+Se vedi questo parametro, il driver cerca di connettersi AL robot.
+In questo caso:
+- Il robot DEVE aprire la porta 50002
+- Il robot DEVE essere in PLAYING
+- Host IP sul Teach Pendant DEVE essere VUOTO
+
+================================================================================
+🚀 DUE SOLUZIONI POSSIBILI
+================================================================================
+
+SOLUZIONE 1: Robot Si Connette alla Macchina (CONSIGLIATO)
+-----------------------------------------------------------
+
+1. FERMA driver ROS2 attuale:
+   pkill -f ur_robot_driver
+   pkill -f ur_control.launch
+
+2. AVVIA driver ROS2 in modalità SERVER (ascolta sulla 50002):
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+   source /opt/ros/humble/setup.bash
+   source ~/ros2_ws/install/setup.bash
+   
+   ros2 launch ur_robot_driver ur_control.launch.py \
+       ur_type:=ur5e \
+       robot_ip:=192.168.10.194 \
+       launch_rviz:=false \
+       headless_mode:=true
+   
+   Il parametro headless_mode:=true fa sì che il driver aspetti
+   che il robot si connetta invece di connettersi al robot.
+
+3. VERIFICA macchina in ascolto:
+   netstat -tuln | grep 50002
+   Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+4. CONFIGURA Teach Pendant:
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+
+5. AVVIA programma sul robot (PLAY)
+
+SOLUZIONE 2: Macchina Si Connette al Robot
+-------------------------------------------
+
+1. CONFIGURA Teach Pendant:
+   - Host IP: (LASCIA VUOTO o 0.0.0.0)
+   - Porta: 50002
+
+2. AVVIA programma sul robot (PLAY)
+
+3. VERIFICA robot ha porta aperta:
+   nc -zv 192.168.10.194 50002
+   Dovresti vedere: "Connection succeeded!"
+
+4. Il driver ROS2 si connetterà automaticamente al robot
+
+================================================================================
+📋 VERIFICA QUALE MODALITÀ È ATTIVA
+================================================================================
+
+Esegui questi comandi per capire quale modalità è attiva:
+
+1. Verifica se macchina è in ascolto:
+   netstat -tuln | grep 50002
+   
+   Se vedi "0.0.0.0:50002" → Macchina è SERVER (aspetta connessioni)
+   Se NON vedi nulla → Macchina è CLIENT (si connette al robot)
+
+2. Verifica se robot ha porta aperta:
+   nc -zv 192.168.10.194 50002
+   
+   Se vedi "Connection succeeded!" → Robot è SERVER (aspetta connessioni)
+   Se vedi "Connection refused" → Robot NON è in ascolto
+
+================================================================================
+🎯 RACCOMANDAZIONE
+================================================================================
+
+PROVA QUESTA CONFIGURAZIONE:
+
+1. FERMA tutto:
+   pkill -f ur_robot_driver
+
+2. CONFIGURA Teach Pendant:
+   - Host IP: (VUOTO)
+   - Porta: 50002
+
+3. AVVIA programma sul robot (PLAY)
+
+4. VERIFICA robot ha porta aperta:
+   nc -zv 192.168.10.194 50002
+
+5. SE robot ha porta aperta, AVVIA driver ROS2:
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+   ./START_RAPIDO.sh
+
+6. Il driver si connetterà automaticamente al robot!
+
+================================================================================
+

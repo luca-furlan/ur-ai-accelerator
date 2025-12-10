@@ -1,0 +1,16 @@
+{
+  "timestamp": "2025-12-09T15:01:01.491383",
+  "robot_ip": "192.168.10.194",
+  "web_url": "http://192.168.10.191:8081",
+  "problems": [
+    "Remote Control potrebbe non essere attivo: could not understand: 'isInRemoteControl'",
+    "Ultimo comando troppo vecchio: 67.9s fa"
+  ],
+  "solutions": [
+    "Verifica che Remote Control sia attivo sul teach pendant",
+    "Muovi il joystick nella web interface per inviare comandi"
+  ],
+  "robot_mode": "Robotmode: RUNNING",
+  "program_state": "PLAYING remote_control.urp",
+  "remote_control": "could not understand: 'isInRemoteControl'"
+}

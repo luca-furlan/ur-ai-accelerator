@@ -1,0 +1,92 @@
+================================================================================
+✅ SOLUZIONE FINALE BASATA SU ISSUE #37 GITHUB
+================================================================================
+
+Issue GitHub: #37 - "External Control URCap program throws connection error"
+Link: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/37
+
+PROBLEMA: "connection could not be established"
+
+================================================================================
+🔍 CAUSA DEL PROBLEMA
+================================================================================
+
+Secondo l'issue #37 e la documentazione:
+- Il robot si CONNETTE alla macchina remota sulla porta 50002
+- La macchina remota DEVE essere in ascolto PRIMA
+- Se la macchina remota non è in ascolto → "connection could not be established"
+
+================================================================================
+✅ SOLUZIONE DEFINITIVA
+================================================================================
+
+ORDINE CORRETTO (CRITICO!):
+
+1. AVVIA DRIVER ROS2 PRIMA
+   ------------------------
+   Dalla macchina remota:
+   ssh lab@192.168.10.191
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+   ros2 launch ur_robot_driver ur_control.launch.py \
+       ur_type:=ur5e \
+       robot_ip:=192.168.10.194 \
+       launch_rviz:=false
+   
+   Aspetta che vedi: "Waiting for connection..." o "Listening on port 50002"
+
+2. VERIFICA MACCHINA IN ASCOLTO
+   -----------------------------
+   Dalla macchina remota (in altro terminale):
+   netstat -tuln | grep 50002
+   
+   Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+3. POI AVVIA PROGRAMMA SUL ROBOT
+   ------------------------------
+   Sul Teach Pendant:
+   - Configura External Control:
+     * Host IP: 192.168.10.191
+     * Porta: 50002
+   - Premi PLAY
+   - Il robot si connetterà alla macchina remota
+
+================================================================================
+📋 CONFIGURAZIONE CORRETTA SUL TEACH PENDANT
+================================================================================
+
+Nel nodo "External Control":
+
+Host IP: 192.168.10.191  ← IP della MACCHINA REMOTA (dove gira ROS2)
+Porta: 50002             ← Porta su cui macchina remota ascolta
+
+IMPORTANTE:
+- Il robot si CONNETTE alla macchina remota
+- La macchina remota DEVE essere in ascolto PRIMA
+- Il driver ROS2 mette la macchina remota in ascolto
+
+================================================================================
+🔗 RIFERIMENTI GITHUB
+================================================================================
+
+Repository URCap:
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap
+
+Issue #37 (Connection Error):
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/37
+
+Issue #39 (Multiple URCaps):
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/39
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+1. Avvia driver ROS2 PRIMA (mette macchina in ascolto)
+2. Verifica macchina in ascolto (netstat -tuln | grep 50002)
+3. Configura Teach Pendant: Host IP = 192.168.10.191, Porta = 50002
+4. Avvia programma sul robot (PLAY)
+5. Robot si connette alla macchina remota
+
+================================================================================
+
+

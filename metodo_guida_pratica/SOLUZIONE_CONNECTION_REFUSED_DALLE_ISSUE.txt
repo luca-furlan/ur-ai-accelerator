@@ -1,0 +1,178 @@
+================================================================================
+🔧 SOLUZIONE "CONNECTION REFUSED" - BASATA SU ISSUE GITHUB
+================================================================================
+
+Issue GitHub #31: "Connection Refused" dopo configurazione normale
+Link: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/31
+
+================================================================================
+📋 CAUSE COMUNI DI "CONNECTION REFUSED"
+================================================================================
+
+1. MACCHINA REMOTA NON IN ASCOLTO
+   -------------------------------
+   - Il robot cerca di connettersi alla macchina remota
+   - Ma la macchina remota NON è in ascolto sulla porta 50002
+   - SOLUZIONE: Avvia driver ROS2 PRIMA (mette macchina in ascolto)
+
+2. FIREWALL BLOCCA PORTA
+   ----------------------
+   - Firewall sul PC blocca porta 50002
+   - SOLUZIONE: Apri porta 50002 nel firewall
+   - Comando: sudo ufw allow 50002
+
+3. IP CONFIGURATO ERRATO
+   ----------------------
+   - Host IP sul Teach Pendant non corrisponde all'IP della macchina remota
+   - SOLUZIONE: Verifica IP corretto (192.168.10.191)
+
+4. ROBOT NON IN REMOTE CONTROL MODE
+   ----------------------------------
+   - Robot deve essere in Remote Control mode
+   - SOLUZIONE: Abilita Remote Control sul Teach Pendant
+
+5. DOCKER SENZA --network=host
+   ----------------------------
+   - Se ROS2 gira in Docker, serve --network=host
+   - SOLUZIONE: Avvia Docker con --network=host
+
+6. PORTA GIÀ IN USO
+   -----------------
+   - Un altro processo usa già porta 50002
+   - SOLUZIONE: Chiudi altri processi che usano porta 50002
+
+================================================================================
+✅ SOLUZIONE PASSO-PASSO
+================================================================================
+
+PASSO 1: VERIFICA MACCHINA REMOTA IN ASCOLTO
+---------------------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+netstat -tuln | grep 50002
+
+Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+Se NON vedi questo:
+- Avvia driver ROS2 PRIMA:
+  cd ~/MekoAiAccelerator/metodo_guida_pratica
+  ./START_RAPIDO.sh
+
+PASSO 2: VERIFICA FIREWALL
+---------------------------
+Dalla macchina remota:
+sudo ufw status
+
+Se firewall attivo:
+sudo ufw allow 50002
+sudo ufw reload
+
+PASSO 3: VERIFICA IP CORRETTO
+------------------------------
+Sul Teach Pendant, nel nodo External Control:
+- Host IP: 192.168.10.191 (IP della MACCHINA REMOTA)
+- Porta: 50002
+
+PASSO 4: VERIFICA REMOTE CONTROL MODE
+-------------------------------------
+Sul Teach Pendant:
+- Settings → System → Remote Control
+- Deve essere "Enabled"
+
+PASSO 5: VERIFICA PORTA NON IN USO
+-----------------------------------
+Dalla macchina remota:
+sudo lsof -i :50002
+
+Se vedi altri processi:
+sudo kill -9 <PID>
+
+PASSO 6: AVVIA PROGRAMMA SUL ROBOT
+-----------------------------------
+Sul Teach Pendant:
+1. STOP programma (se è in esecuzione)
+2. Verifica configurazione External Control:
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+3. PLAY programma
+4. Il robot si connetterà alla macchina remota
+
+================================================================================
+🔍 VERIFICA COMPLETA
+================================================================================
+
+Esegui questo script per verificare tutto:
+
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./VERIFICA_CONNESSIONE.sh
+
+Dovresti vedere:
+✅ Macchina remota raggiungibile
+✅ Porta 50002 in ascolto
+✅ Nessun firewall che blocca
+✅ Driver ROS2 pronto
+
+================================================================================
+🚨 SE ANCORA NON FUNZIONA
+================================================================================
+
+PROVA CONFIGURAZIONE ALTERNATIVA:
+----------------------------------
+
+Sul Teach Pendant, prova con Host IP VUOTO:
+- Host IP: (LASCIA VUOTO o 0.0.0.0)
+- Porta: 50002
+
+Questa configurazione fa sì che:
+- Il robot ASPETTA connessioni invece di connettersi
+- Il driver ROS2 si connette AL robot
+
+Poi avvia programma sul robot e verifica porta aperta:
+ssh lab@192.168.10.191
+nc -zv 192.168.10.194 50002
+
+Se vedi "Connection succeeded!", funziona!
+
+================================================================================
+📋 CHECKLIST COMPLETA
+================================================================================
+
+[ ] Macchina remota in ascolto sulla 50002 (netstat -tuln | grep 50002)
+[ ] Firewall non blocca porta 50002 (sudo ufw allow 50002)
+[ ] IP corretto sul Teach Pendant (192.168.10.191)
+[ ] Porta corretta sul Teach Pendant (50002)
+[ ] Remote Control abilitato sul robot
+[ ] Nessun altro processo usa porta 50002 (sudo lsof -i :50002)
+[ ] Driver ROS2 avviato PRIMA del programma sul robot
+[ ] Programma sul robot in PLAYING
+
+================================================================================
+🔗 RIFERIMENTI
+================================================================================
+
+Issue GitHub #31:
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/31
+
+Issue GitHub #37:
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/37
+
+Forum Universal Robots:
+https://forum.universal-robots.com/t/external-control-connection-refused/21804
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+IL PROBLEMA PIÙ COMUNE:
+- Macchina remota NON in ascolto quando robot cerca di connettersi
+
+LA SOLUZIONE:
+1. Avvia driver ROS2 PRIMA (mette macchina in ascolto)
+2. Verifica macchina in ascolto (netstat -tuln | grep 50002)
+3. Verifica firewall (sudo ufw allow 50002)
+4. Configura Teach Pendant: Host IP = 192.168.10.191, Porta = 50002
+5. Avvia programma sul robot
+
+================================================================================
+

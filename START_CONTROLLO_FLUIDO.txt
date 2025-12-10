@@ -1,0 +1,55 @@
+================================================================================
+🚀 AVVIO RAPIDO - CONTROLLO FLUIDO ROBOT UR CON JOYSTICK SIMULATO
+================================================================================
+
+PASSO 1: Connettiti all'AI Accelerator
+---------------------------------------
+ssh lab@192.168.10.191
+Password: easybot
+
+
+PASSO 2: Avvia il controllo fluido
+-----------------------------------
+cd ~/MekoAiAccelerator
+
+# Source ROS2 (se disponibile)
+source /opt/ros/humble/setup.bash 2>/dev/null || true
+source ~/ros2_ws/install/setup.bash 2>/dev/null || true
+
+# Configura
+export UR_ROBOT_IP=192.168.10.194
+export WEB_HOST=0.0.0.0
+export WEB_PORT=8080
+
+# Avvia web interface con joystick
+python3 -m remote_ur_control.web_interface
+
+
+PASSO 3: Apri il browser
+-------------------------
+http://192.168.10.191:8080
+
+
+PASSO 4: Usa il joystick!
+-------------------------
+✅ Joystick XY - controlla joint 0 e 1
+✅ Joystick Z/Rotation - controlla movimento Z e rotazione
+✅ Pulsanti ± - per ogni joint
+✅ Emergency Stop - ferma tutto
+
+COME FUNZIONA:
+- Clicca e tieni premuto sul joystick
+- Muovi il mouse per controllare la direzione
+- Rilascia per fermare
+- Movimento fluido a 125Hz!
+
+
+SE QUALCOSA NON FUNZIONA:
+--------------------------
+1. Verifica che il robot sia acceso e in RUNNING
+2. Verifica connessione: ping 192.168.10.194
+3. Installa Flask se manca: pip3 install --user flask flask-cors
+
+
+================================================================================
+

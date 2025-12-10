@@ -1,0 +1,140 @@
+================================================================================
+✅ SOLUZIONE DEFINITIVA: COSA METTERE SUL TEACH PENDANT
+================================================================================
+
+HAI RAGIONE A ESSERE CONFUSO! Verifichiamo insieme.
+
+================================================================================
+🔍 COME FUNZIONA EXTERNAL CONTROL URCAP
+================================================================================
+
+Secondo la documentazione ufficiale Universal Robots:
+
+1. Il ROBOT apre un SERVER sulla porta 50002
+2. Il ROBOT ASPETTA connessioni dalla macchina remota
+3. La MACCHINA REMOTA si connette AL ROBOT sulla porta 50002
+
+QUINDI:
+- Robot (194) = SERVER (ascolta sulla porta 50002)
+- Macchina Remota (191) = CLIENT (si connette al robot)
+
+================================================================================
+❓ ALLORA PERCHÉ SUL TEACH PENDANT CHIEDONO "HOST IP"?
+================================================================================
+
+Il campo "Host IP" sul Teach Pendant potrebbe essere:
+- L'IP della macchina remota (191) - per qualche verifica o log
+- OPPURE
+- Un campo che non viene usato realmente
+
+MA LA CONNESSIONE FUNZIONA COSÌ:
+- Il robot ascolta sulla porta 50002
+- La macchina remota si connette al robot
+
+================================================================================
+✅ PROVA QUESTA CONFIGURAZIONE
+================================================================================
+
+OPZIONE 1: Host IP = IP Macchina Remota (191)
+---------------------------------------------
+Sul Teach Pendant:
+- Host IP: 192.168.10.191
+- Porta: 50002
+- Programma in PLAYING
+
+Poi verifica se il robot apre la porta 50002:
+ssh lab@192.168.10.191
+nc -zv 192.168.10.194 50002
+
+OPZIONE 2: Host IP = IP Robot (194) o vuoto
+--------------------------------------------
+Sul Teach Pendant:
+- Host IP: 192.168.10.194 (IP robot stesso)
+- OPPURE
+- Host IP: (vuoto)
+- Porta: 50002
+- Programma in PLAYING
+
+Poi verifica se il robot apre la porta 50002:
+ssh lab@192.168.10.191
+nc -zv 192.168.10.194 50002
+
+================================================================================
+🔧 SE IL ROBOT DICE "NON RIESCE A CONNETTERSI"
+================================================================================
+
+Se il robot dice che non riesce a connettersi a 191:50002, significa che:
+- Il robot STA PROVANDO a connettersi alla macchina remota
+- Ma la macchina remota NON è in ascolto sulla 50002
+
+SOLUZIONE:
+1. Avvia il driver ROS2 sulla macchina remota PRIMA
+2. Il driver ROS2 si metterà in ascolto sulla 50002
+3. POI avvia il programma sul robot
+
+OPPURE:
+
+1. Prova a mettere Host IP vuoto o IP robot (194)
+2. Il robot dovrebbe aspettare connessioni invece di provare a connettersi
+
+================================================================================
+🎯 PROCEDURA CONSIGLIATA
+================================================================================
+
+PASSO 1: Avvia Driver ROS2 sulla Macchina Remota
+------------------------------------------------
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+Questo metterà la macchina remota in ascolto sulla porta 50002.
+
+PASSO 2: Configura Teach Pendant
+---------------------------------
+Sul Teach Pendant:
+- Host IP: 192.168.10.191 (IP macchina remota)
+- Porta: 50002
+- Programma in PLAYING
+
+PASSO 3: Verifica Connessione
+------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+nc -zv 192.168.10.194 50002
+
+Se funziona, vedrai: "Connection succeeded!"
+
+================================================================================
+✅ ALTERNATIVA: Prova con Host IP Vuoto
+================================================================================
+
+Se con Host IP = 191 non funziona, prova:
+
+Sul Teach Pendant:
+- Host IP: (vuoto o 0.0.0.0)
+- Porta: 50002
+- Programma in PLAYING
+
+Poi verifica se il robot apre la porta 50002:
+ssh lab@192.168.10.191
+nc -zv 192.168.10.194 50002
+
+================================================================================
+📋 RIEPILOGO
+================================================================================
+
+IP Robot:           192.168.10.194
+IP Macchina Remota: 192.168.10.191
+
+CONFIGURAZIONE SUL TEACH PENDANT:
+- Host IP: 192.168.10.191 (prova questa prima)
+- Porta: 50002
+- Se non funziona, prova Host IP vuoto o 192.168.10.194
+
+IMPORTANTE:
+- Avvia il driver ROS2 PRIMA sul Teach Pendant
+- POI avvia il programma sul robot
+
+================================================================================
+
+

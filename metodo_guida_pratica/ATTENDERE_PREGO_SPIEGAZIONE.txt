@@ -1,0 +1,120 @@
+================================================================================
+📋 SPIEGAZIONE "ATTENDERE PREGO..."
+================================================================================
+
+Se vedi "ATTENDERE PREGO..." sul Teach Pendant, significa che:
+
+✅ External Control è configurato correttamente
+✅ Il programma sta cercando di connettersi
+⏳ Il programma è in attesa di completare la connessione
+
+================================================================================
+🔍 COSA VERIFICARE
+================================================================================
+
+1. VERIFICA CHE IL PROGRAMMA SIA IN PLAYING
+-------------------------------------------
+Sul Teach Pendant, verifica che il programma mostri:
+- "PLAYING" o "▶️" (non "STOPPED" o "PAUSED")
+
+Se è STOPPED:
+- Premi PLAY sul Teach Pendant
+- Il programma deve essere in PLAYING
+
+2. VERIFICA CHE MACCHINA REMOTA SIA IN ASCOLTO
+----------------------------------------------
+La macchina remota DEVE essere in ascolto sulla porta 50002 PRIMA
+che il robot provi a connettersi.
+
+Dalla macchina remota:
+ssh lab@192.168.10.191
+netstat -tuln | grep 50002
+
+Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+3. VERIFICA CONFIGURAZIONE EXTERNAL CONTROL
+-------------------------------------------
+Sul Teach Pendant, nel nodo External Control:
+- Host IP: 192.168.10.191 ✅
+- Porta: 50002 ✅
+- Programma in PLAYING ✅
+
+================================================================================
+🚀 SE IL PROGRAMMA È IN "ATTENDERE PREGO..."
+================================================================================
+
+OPZIONE 1: Il programma sta aspettando connessione
+----------------------------------------------------
+Se il programma è in PLAYING e mostra "ATTENDERE PREGO...":
+1. Verifica che macchina remota sia in ascolto sulla 50002
+2. Avvia driver ROS2 dalla macchina remota
+3. Il driver si connetterà al robot
+
+OPZIONE 2: Il programma non riesce a connettersi
+--------------------------------------------------
+Se il programma resta in "ATTENDERE PREGO..." per troppo tempo:
+1. STOP il programma
+2. Verifica che macchina remota sia in ascolto sulla 50002
+3. Avvia macchina remota in ascolto PRIMA
+4. Poi PLAY il programma sul robot
+
+================================================================================
+✅ PROCEDURA CORRETTA
+================================================================================
+
+PASSO 1: Avvia Macchina Remota in Ascolto PRIMA
+------------------------------------------------
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+Questo avvia il driver ROS2 che mette la macchina in ascolto.
+
+PASSO 2: Verifica Macchina in Ascolto
+--------------------------------------
+Dalla macchina remota:
+netstat -tuln | grep 50002
+
+Dovresti vedere la porta 50002 in LISTEN.
+
+PASSO 3: Avvia Programma sul Robot
+-----------------------------------
+Sul Teach Pendant:
+1. Verifica configurazione External Control:
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+2. Premi PLAY
+3. Il programma dovrebbe connettersi
+
+PASSO 4: Verifica Connessione
+------------------------------
+Dalla macchina remota:
+nc -zv 192.168.10.194 50002
+
+Se funziona: "Connection succeeded!" ✅
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Macchina remota in ascolto sulla 50002 (PRIMA di avviare programma)
+[ ] Teach Pendant: Host IP = 192.168.10.191
+[ ] Teach Pendant: Porta = 50002
+[ ] Programma in PLAYING (non STOPPED)
+[ ] "ATTENDERE PREGO..." → poi connessione completata
+[ ] Porta 50002 aperta (verifica con nc -zv)
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+"ATTENDERE PREGO..." significa che il robot sta cercando di connettersi.
+
+IMPORTANTE:
+- La macchina remota DEVE essere in ascolto PRIMA
+- Poi avvia il programma sul robot
+- Il robot si connetterà alla macchina remota
+
+================================================================================
+
+

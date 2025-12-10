@@ -1,0 +1,31 @@
+================================================================================
+🚀 COPIA E INCOLLA QUESTO COMANDO COMPLETO
+================================================================================
+
+Apri PowerShell o Git Bash e incolla questo comando:
+
+ssh lab@192.168.10.191 "pkill -f web_interface; sleep 2; cd ~/MekoAiAccelerator && source /opt/ros/humble/setup.bash 2>/dev/null || true && export UR_ROBOT_IP=192.168.10.194 && export WEB_HOST=0.0.0.0 && export WEB_PORT=8080 && nohup python3 -m remote_ur_control.web_interface > /tmp/web_interface.log 2>&1 & sleep 3 && echo '✅ AVVIATA! Connettiti a: http://192.168.10.191:8080'"
+
+================================================================================
+OPPURE CONNETTITI MANUALMENTE E COPIA QUESTO:
+================================================================================
+
+ssh lab@192.168.10.191
+
+Poi incolla questo:
+
+pkill -f web_interface
+sleep 2
+cd ~/MekoAiAccelerator
+source /opt/ros/humble/setup.bash 2>/dev/null || true
+export UR_ROBOT_IP=192.168.10.194
+export WEB_HOST=0.0.0.0
+export WEB_PORT=8080
+nohup python3 -m remote_ur_control.web_interface > /tmp/web_interface.log 2>&1 &
+sleep 3
+ps aux | grep web_interface | grep -v grep
+echo "✅ Se vedi il processo sopra, è avviata!"
+echo "🌐 Connettiti a: http://192.168.10.191:8080"
+
+================================================================================
+

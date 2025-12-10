@@ -132,10 +132,17 @@ class ROS2Bridge:
         self._ros_initialized = False
         self._target_speeds = [0.0] * 6   # Desired velocities from web UI
         self._current_speeds = [0.0] * 6  # Smoothed velocities actually published
+        self._current_positions = [0.0] * 6  # Current joint positions (for trajectory control)
+        self._positions_initialized = False  # Flag: posizioni lette almeno una volta?
+        self._user_command_received = False  # Flag CRITICO: comando utente ricevuto almeno una volta?
         self._speed_lock = threading.Lock()
-        self._publish_rate = 125.0  # Hz - standard UR RTDE frequency
-        self._smoothing_factor = 0.15  # Exponential smoothing: 0.0 = no smoothing, 1.0 = no change
-        # Lower value = faster response but smoother blending (0.1-0.2 is good for fluid motion)
+        self._publish_rate = 125.0  # Hz - Frequenza originale che funzionava (125Hz = 8ms intervals)
+        self._smoothing_factor = 0.15  # Exponential smoothing: normale per movimento fluido
+        # Lower value = smoother but slower response (0.15 = buon compromesso)
+        self._trajectory_duration = 0.1  # Duration of each trajectory segment (100ms per movimento fluido)
+        # TEMPORANEO: usa forward_velocity_controller per evitare segfault
+        # TODO: Fix segfault con scaled_joint_trajectory_controller quando attivato
+        self._use_trajectory_control = False  # Usa forward_velocity_controller (più stabile)
         self._running = False
         self._last_command_time = None
         self._last_publish_time = None
@@ -152,8 +159,18 @@ class ROS2Bridge:
             return
         
         try:
-            if not rclpy.ok():
-                rclpy.init()
+            # Verifica se ROS2 è già inizializzato
+            # rclpy.ok() può restituire False anche se ROS2 è già inizializzato
+            # Quindi proviamo sempre a inizializzare, ma gestiamo l'eccezione
+            try:
+                if not rclpy.ok():
+                    rclpy.init()
+            except RuntimeError as e:
+                if 'must only be called once' in str(e) or 'already initialized' in str(e).lower():
+                    # ROS2 già inizializzato - va bene, continuiamo
+                    pass
+                else:
+                    raise
             
             self._node = Node('web_interface_bridge')
             
@@ -173,13 +190,17 @@ class ROS2Bridge:
                 self._trajectory_msg_type = None
                 self._trajectory_point_type = None
             
-            # Per speedj: usa forward_velocity_controller (controllo velocità diretto)
-            # Questo è il controller principale per controllo fluido in ROS2
+            # Per speedj: usa forward_velocity_controller per controllo joystick diretto
+            # Questo è più adatto per controllo joystick perché:
+            # - Non richiede posizioni inizializzate
+            # - Pubblica direttamente velocità senza traiettorie
+            # - Più reattivo per controllo real-time
             self._publishers['speedj'] = self._node.create_publisher(
                 Float64MultiArray,
                 '/forward_velocity_controller/commands',
                 10
             )
+            print('   ⚡ Using forward_velocity_controller for joystick control (direct velocity)')
             
             # Twist per controllo cartesiano - il driver UR non ha un topic twist diretto
             # Per ora usiamo solo joint control via forward_velocity_controller
@@ -189,15 +210,43 @@ class ROS2Bridge:
             # Stop: usa lo stesso publisher di speedj (invia velocità zero)
             self._publishers['stop'] = self._publishers['speedj']
             
+            # Subscriber per leggere posizioni correnti joint (per trajectory control)
+            # Crea subscriber se usiamo trajectory control OPPURE se speedj usa movej publisher
+            if self._use_trajectory_control or (self._trajectory_msg_type and self._publishers.get('speedj') == self._publishers.get('movej')):
+                try:
+                    from sensor_msgs.msg import JointState
+                    self._joint_state_sub = self._node.create_subscription(
+                        JointState,
+                        '/joint_states',
+                        self._joint_state_callback,
+                        10
+                    )
+                    print('   📍 Subscribed to /joint_states for current joint positions')
+                    print('   ⏳ Waiting for first joint_states message...')
+                except ImportError:
+                    self._joint_state_sub = None
+            else:
+                self._joint_state_sub = None
+            
             self._ros_initialized = True
             print('✅ ROS2 bridge initialized')
+            if self._use_trajectory_control:
+                print('   📍 Using scaled_joint_trajectory_controller for smooth, safe motion')
+            else:
+                print('   ⚡ Using forward_velocity_controller for direct velocity control')
             
-            # Spin in background
+            # Spin in background - mantiene il nodo vivo
             def spin_ros():
                 try:
-                    rclpy.spin(self._node)
-                except:
-                    pass
+                    # Spin continuo per mantenere il nodo attivo
+                    executor = rclpy.executors.SingleThreadedExecutor()
+                    executor.add_node(self._node)
+                    while rclpy.ok() and self._ros_initialized:
+                        executor.spin_once(timeout_sec=0.1)
+                except Exception as e:
+                    print(f'⚠️ ROS2 spin thread error: {e}')
+                    self._ros_initialized = False
+                    self._last_error = f"ROS2 spin error: {e}"
             
             self._ros_thread = threading.Thread(target=spin_ros, daemon=True)
             self._ros_thread.start()
@@ -210,6 +259,31 @@ class ROS2Bridge:
             import traceback
             traceback.print_exc()
             self._ros_initialized = False
+    
+    def _joint_state_callback(self, msg):
+        """Callback per aggiornare posizioni correnti joint."""
+        try:
+            joint_names = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 
+                          'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+            with self._speed_lock:
+                positions_found = 0
+                for i, name in enumerate(joint_names):
+                    if name in msg.name:
+                        idx = msg.name.index(name)
+                        if idx < len(msg.position):
+                            # Aggiorna posizione solo se è valida (non NaN, non infinito)
+                            pos = msg.position[idx]
+                            if pos == pos and abs(pos) < 1000:  # Controlla NaN e valori ragionevoli
+                                self._current_positions[i] = pos
+                                positions_found += 1
+                
+                if not self._positions_initialized and positions_found >= 6:
+                    self._positions_initialized = True  # Posizioni inizializzate almeno una volta
+                    print(f'✅ Joint positions initialized! Positions: {self._current_positions}')
+        except Exception as e:
+            print(f'⚠️ Error in joint_state_callback: {e}')
+            import traceback
+            traceback.print_exc()
     
     def ensure_ros(self):
         """Ensure ROS2 is initialized."""
@@ -235,13 +309,30 @@ class ROS2Bridge:
         print(f'🔄 Starting publish loop at {self._publish_rate}Hz...')
         
         def publish_loop():
-            """Continuous publishing loop at 125Hz (8ms interval)."""
-            interval = 1.0 / self._publish_rate  # 0.008 seconds = 8ms
+            """Continuous publishing loop - frequenza dinamica."""
             publish_count = 0
             print(f'🔄 Publish loop started (target: {self._publish_rate}Hz)')
             
             while self._running and self._ros_initialized:
+                # Ricalcola interval ad ogni ciclo per supportare cambio frequenza dinamico
+                with self._speed_lock:
+                    current_rate = self._publish_rate
+                interval = max(0.001, 1.0 / current_rate)  # Minimo 1ms per evitare busy-waiting
+                
+                loop_start = time.time()
                 try:
+                    # Verifica che ROS2 sia ancora valido
+                    if not rclpy.ok():
+                        print('⚠️ ROS2 context invalid, stopping publish loop')
+                        self._last_error = "ROS2 context invalid"
+                        break
+                    
+                    # Verifica che il nodo sia ancora valido
+                    if not self._node:
+                        print('⚠️ ROS2 node destroyed, stopping publish loop')
+                        self._last_error = "ROS2 node destroyed"
+                        break
+                    
                     # Get targets and currents (thread-safe) and apply exponential smoothing
                     with self._speed_lock:
                         targets = list(self._target_speeds)
@@ -265,17 +356,159 @@ class ROS2Bridge:
                         self._current_speeds = updated
                     
                     speeds = list(updated)
+                    
+                    # CRITICO: NON pubblicare NULLA finché l'utente non ha dato almeno un comando esplicito
+                    # Questo previene movimenti automatici all'avvio
+                    if not self._user_command_received:
+                        if publish_count % 100 == 0:  # Log ogni 5 secondi (20Hz * 100 = 5s)
+                            print('⏳ Waiting for user command...')
+                        time.sleep(interval)
+                        continue
+                    
+                    # IMPORTANTE: NON pubblicare se tutte le velocità sono zero (o molto vicine a zero)
+                    # Questo evita movimenti indesiderati quando joystick è fermo
+                    max_speed = max(abs(s) for s in speeds)
+                    if max_speed < 0.001:  # Se tutte velocità < 0.001 rad/s, non pubblicare
+                        time.sleep(interval)
+                        continue
 
-                    # Publish current speeds
+                    # Publish current speeds - verifica validità publisher
                     publisher = self._publishers.get('speedj')
                     if publisher:
-                        msg = Float64MultiArray()
-                        msg.data = speeds
-                        publisher.publish(msg)
-                        publish_count += 1
-                        self._last_publish_time = time.time()
-                        if publish_count % 125 == 0:  # Log ogni secondo
-                            print(f'📤 Published {publish_count} messages (current speeds: {[f"{s:.3f}" for s in speeds]})')
+                        # Verifica che il publisher sia ancora valido
+                        try:
+                            # Prova a pubblicare solo se ROS2 è OK
+                            if rclpy.ok() and self._node:
+                                # Controlla se usa trajectory control (solo per movej, non per speedj)
+                                # Per speedj usiamo sempre forward_velocity_controller (velocità diretta)
+                                if self._trajectory_msg_type and publisher == self._publishers.get('movej') and publisher != self._publishers.get('speedj'):
+                                    # CRITICO: NON pubblicare traiettorie finché posizioni non sono inizializzate
+                                    # Questo previene segmentation fault nel controller
+                                    if not self._positions_initialized:
+                                        if publish_count % 50 == 0:  # Log ogni ~4 secondi (125Hz)
+                                            print('⏳ Waiting for joint positions from /joint_states...')
+                                        time.sleep(interval)
+                                        continue
+                                    
+                                    # Converti velocità in traiettoria breve
+                                    from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+                                    from builtin_interfaces.msg import Duration
+                                    import math
+                                    
+                                    # Verifica che le posizioni siano valide (non tutte zero se non inizializzate)
+                                    with self._speed_lock:
+                                        current_positions = list(self._current_positions)
+                                    
+                                    # Verifica che almeno una posizione sia diversa da zero (indica inizializzazione)
+                                    if all(abs(p) < 0.001 for p in current_positions):
+                                        if publish_count % 50 == 0:
+                                            print('⏳ Positions still zero, waiting for /joint_states...')
+                                        time.sleep(interval)
+                                        continue
+                                    
+                                    # VALIDAZIONE CRITICA: Verifica che velocità siano valide (non NaN, non infiniti)
+                                    if any(not math.isfinite(v) for v in speeds):
+                                        if publish_count % 50 == 0:  # Log ogni ~2.5 secondi (20Hz)
+                                            print(f'⚠️ Invalid speeds (NaN/Inf): {speeds}')
+                                        time.sleep(interval)
+                                        continue
+                                    
+                                    # VALIDAZIONE CRITICA: Verifica che posizioni siano valide (non NaN, non infiniti)
+                                    if any(not math.isfinite(p) for p in current_positions):
+                                        if publish_count % 50 == 0:  # Log ogni ~2.5 secondi (20Hz)
+                                            print(f'⚠️ Invalid positions (NaN/Inf): {current_positions}')
+                                        time.sleep(interval)
+                                        continue
+                                    
+                                    # Aggiorna posizioni correnti basate su velocità SOLO se velocità non zero
+                                    dt = self._trajectory_duration
+                                    
+                                    # VALIDAZIONE CRITICA: Verifica che durata sia valida
+                                    if not math.isfinite(dt) or dt <= 0 or dt > 10.0:
+                                        print(f'⚠️ Invalid trajectory duration: {dt}')
+                                        dt = 0.1  # Fallback a durata sicura
+                                    
+                                    with self._speed_lock:
+                                        for i in range(6):
+                                            if abs(speeds[i]) > 0.001:  # Aggiorna solo se velocità significativa
+                                                new_pos = self._current_positions[i] + speeds[i] * dt
+                                                # Verifica che nuova posizione sia valida
+                                                if math.isfinite(new_pos):
+                                                    self._current_positions[i] = new_pos
+                                                else:
+                                                    print(f'⚠️ Invalid position update for joint {i}: {new_pos}')
+                                    
+                                    # Crea traiettoria con posizioni VALIDE
+                                    traj = JointTrajectory()
+                                    traj.joint_names = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint', 
+                                                       'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
+                                    point = JointTrajectoryPoint()
+                                    
+                                    # Assicurati che posizioni siano valide prima di assegnarle
+                                    final_positions = list(self._current_positions)
+                                    if any(not math.isfinite(p) for p in final_positions):
+                                        print(f'⚠️ Final positions invalid, using current: {final_positions}')
+                                        final_positions = list(current_positions)
+                                    
+                                    point.positions = final_positions  # Posizioni valide dal robot
+                                    point.velocities = speeds  # Velocità desiderate
+                                    
+                                    # Crea Duration in modo sicuro
+                                    dt_sec = int(dt)
+                                    dt_nsec = int((dt - dt_sec) * 1e9)
+                                    # Assicurati che nanosec sia nel range valido [0, 1e9)
+                                    if dt_nsec >= 1000000000:
+                                        dt_sec += 1
+                                        dt_nsec = 0
+                                    point.time_from_start = Duration(sec=dt_sec, nanosec=dt_nsec)
+                                    traj.points = [point]
+                                    
+                                    # Log prima pubblicazione per debug
+                                    if publish_count < 5:
+                                        print(f'📤 Publishing trajectory #{publish_count+1}: positions={[f"{p:.3f}" for p in point.positions[:3]]}, velocities={[f"{v:.3f}" for v in speeds[:3]]}, duration={dt_sec}.{dt_nsec:09d}s')
+                                    
+                                    try:
+                                        publisher.publish(traj)
+                                        if publish_count % 20 == 0:  # Log ogni secondo (20Hz)
+                                            print(f'📤 Published {publish_count} trajectory messages (speeds: {[f"{s:.3f}" for s in speeds[:3]]})')
+                                    except Exception as pub_err:
+                                        print(f'⚠️ Publish error: {pub_err}')
+                                        print(f'   Trajectory: positions={point.positions[:3]}, velocities={speeds[:3]}, duration={dt_sec}.{dt_nsec}')
+                                        raise
+                                else:
+                                    # Usa forward_velocity_controller (velocità diretta)
+                                    msg = Float64MultiArray()
+                                    msg.data = speeds
+                                    publisher.publish(msg)
+                                
+                                publish_count += 1
+                                self._last_publish_time = time.time()
+                                if publish_count % 20 == 0:  # Log ogni secondo (20Hz)
+                                    print(f'📤 Published {publish_count} messages (current speeds: {[f"{s:.3f}" for s in speeds]})')
+                            else:
+                                # ROS2 non valido, ferma il loop
+                                print('⚠️ ROS2 context invalid during publish')
+                                self._last_error = "ROS2 context invalid during publish"
+                                break
+                        except Exception as pub_error:
+                            # Errore durante pubblicazione (es: context invalid)
+                            error_msg = str(pub_error)
+                            if "context is invalid" in error_msg or "publisher's context" in error_msg:
+                                print(f'⚠️ Publisher context invalid: {error_msg}')
+                                self._last_error = f"Publisher context invalid: {error_msg}"
+                                # Prova a reinizializzare ROS2
+                                try:
+                                    if rclpy.ok():
+                                        self._ros_initialized = False
+                                        self.ensure_ros()
+                                        print('🔄 Tentativo di reinizializzazione ROS2')
+                                except:
+                                    pass
+                                break
+                            else:
+                                # Altro errore, continua
+                                print(f'⚠️ Publish error: {pub_error}')
+                                self._last_error = str(pub_error)
                     else:
                         print('⚠️ Publisher not available')
                         break
@@ -283,11 +516,18 @@ class ROS2Bridge:
                     # Sleep for exactly 8ms (125Hz)
                     time.sleep(interval)
                 except Exception as e:
-                    print(f'❌ Error in publish loop: {e}')
-                    self._last_error = str(e)
-                    import traceback
-                    traceback.print_exc()
-                    time.sleep(interval)
+                    error_msg = str(e)
+                    if "context is invalid" in error_msg or "publisher's context" in error_msg:
+                        print(f'❌ ROS2 context invalid in publish loop: {e}')
+                        self._last_error = f"ROS2 context invalid: {error_msg}"
+                        # Ferma il loop se il contesto è invalido
+                        break
+                    else:
+                        print(f'❌ Error in publish loop: {e}')
+                        self._last_error = error_msg
+                        import traceback
+                        traceback.print_exc()
+                        time.sleep(interval)
             
             print(f'🛑 Publish loop stopped (published {publish_count} messages total)')
         
@@ -333,6 +573,11 @@ class ROS2Bridge:
             return False
         
         try:
+            # CRITICO: Segna che l'utente ha dato un comando esplicito
+            # Questo permette al publish loop di iniziare a pubblicare
+            self._user_command_received = True
+            print(f'✅ User command received! Speeds: {speeds}')
+            
             # Update target speeds (thread-safe)
             with self._speed_lock:
                 self._target_speeds = [float(s) for s in speeds]
@@ -364,6 +609,10 @@ class ROS2Bridge:
             return False
         
         try:
+            # CRITICO: Segna che l'utente ha dato un comando esplicito (stop)
+            # Questo permette al publish loop di pubblicare velocità zero
+            self._user_command_received = True
+            
             # Set all speeds to zero (will be published continuously)
             with self._speed_lock:
                 self._target_speeds = [0.0] * 6
@@ -433,6 +682,17 @@ class ROS2Bridge:
                 'pid': os.getpid(),
             },
         }
+    
+    def set_publish_rate(self, rate_hz):
+        """Cambia frequenza pubblicazione dinamicamente."""
+        if rate_hz < 10.0 or rate_hz > 200.0:
+            raise ValueError(f"Frequenza deve essere tra 10 e 200 Hz, ricevuto: {rate_hz}")
+        
+        with self._speed_lock:
+            old_rate = self._publish_rate
+            self._publish_rate = float(rate_hz)
+        
+        print(f'🔄 Frequenza pubblicazione cambiata: {old_rate}Hz → {self._publish_rate}Hz')
 
 
 

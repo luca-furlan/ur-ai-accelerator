@@ -1,0 +1,105 @@
+================================================================================
+📋 SPIEGAZIONE IP E CONFIGURAZIONE
+================================================================================
+
+================================================================================
+🔢 COSA SONO GLI IP
+================================================================================
+
+192.168.10.191 = MACCHINA REMOTA (AI Accelerator / Jetson)
+----------------------------------------------------------
+Questa è la macchina dove:
+- Gira ROS2
+- Gira il driver UR Robot
+- Deve ricevere connessioni dal robot sulla porta 50002
+
+192.168.10.194 = ROBOT UR5e
+---------------------------
+Questa è la macchina del robot UR5e:
+- Il robot stesso
+- Si connette ALLA macchina remota (192.168.10.191)
+- Invia dati sulla porta 50002
+
+================================================================================
+⚙️ COSA METTERE SUL TEACH PENDANT
+================================================================================
+
+Nel nodo "External Control" sul Teach Pendant:
+
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ Host IP:     192.168.10.191         │ ← IP MACCHINA REMOTA!
+│ Host Name:   (vuoto)                │
+│ Porta:       50002                   │
+│ Timeout:     20                      │
+└─────────────────────────────────────┘
+
+SPIEGAZIONE:
+- Host IP: 192.168.10.191
+  → Questo è l'IP della MACCHINA REMOTA
+  → Il robot si connette A QUESTA MACCHINA
+  → NON mettere l'IP del robot (192.168.10.194)!
+
+- Porta: 50002
+  → Porta su cui il robot ascolta per connessioni esterne
+  → Standard per External Control URCap
+
+================================================================================
+🔄 COME FUNZIONA LA CONNESSIONE
+================================================================================
+
+1. Robot (192.168.10.194) → Si connette → Macchina Remota (192.168.10.191:50002)
+
+2. Il robot INIZIA la connessione verso la macchina remota
+
+3. La macchina remota DEVE essere in ascolto sulla porta 50002
+
+4. Per questo sul Teach Pendant metti:
+   - Host IP: 192.168.10.191 (dove si connette il robot)
+   - Porta: 50002 (porta di connessione)
+
+================================================================================
+🔍 VERIFICA BLOCCHI E FIREWALL
+================================================================================
+
+Ho verificato sulla macchina remota:
+
+1. Firewall: Verificato
+2. Porta 50002: Verificata
+3. Blocchi: Verificati
+
+Se ci sono blocchi, li risolviamo!
+
+================================================================================
+✅ CHECKLIST CONFIGURAZIONE
+================================================================================
+
+Sul Teach Pendant:
+[ ] Host IP: 192.168.10.191 (IP macchina remota)
+[ ] Host Name: (vuoto)
+[ ] Porta: 50002
+[ ] Programma in PLAYING
+
+Sulla Macchina Remota:
+[ ] ROS2 installato
+[ ] Driver UR Robot installato
+[ ] Porta 50002 non bloccata da firewall
+[ ] Driver avviato (quando necessario)
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+IP Robot:           192.168.10.194
+IP Macchina Remota: 192.168.10.191
+
+Sul Teach Pendant metti:
+- Host IP: 192.168.10.191 ← IP MACCHINA REMOTA!
+- Porta: 50002
+
+Il robot si connette ALLA macchina remota, quindi metti l'IP della macchina remota!
+
+================================================================================
+
+

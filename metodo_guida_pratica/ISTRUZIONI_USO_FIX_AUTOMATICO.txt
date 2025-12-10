@@ -1,0 +1,120 @@
+================================================================================
+📖 ISTRUZIONI: COME USARE FIX_COMPLETO_AUTOMATICO.sh
+================================================================================
+
+Questo script verifica e sistema automaticamente i problemi più comuni
+basati sulle Issue #31 e #37 di GitHub.
+
+================================================================================
+🚀 COME USARLO
+================================================================================
+
+1. Connettiti alla macchina remota:
+   ssh lab@192.168.10.191
+
+2. Vai nella directory:
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+
+3. Esegui lo script:
+   ./FIX_COMPLETO_AUTOMATICO.sh
+
+Lo script:
+- Verifica connettività di rete
+- Verifica e sistema firewall (apre porte 50001-50004)
+- Verifica macchina in ascolto sulla 50002
+- Verifica driver ROS2 in esecuzione
+- Verifica robot ha porta aperta
+- Verifica conflitti RTDE
+- Fornisce istruzioni per problemi sul Teach Pendant
+
+================================================================================
+✅ COSA FA AUTOMATICAMENTE
+================================================================================
+
+1. APRE PORTE NEL FIREWALL
+   - Se UFW è attivo, apre automaticamente porte 50001-50004
+   - Se iptables è usato, fornisce istruzioni
+
+2. VERIFICA CONFIGURAZIONE
+   - Controlla se macchina è in ascolto
+   - Controlla se driver ROS2 è attivo
+   - Controlla se robot ha porta aperta
+
+3. IDENTIFICA PROBLEMI
+   - Conflitti RTDE
+   - Processi che occupano porta 50002
+   - Problemi di connettività
+
+================================================================================
+⚠️  COSA RICHIEDE INTERVENTO MANUALE
+================================================================================
+
+Lo script NON può sistemare automaticamente:
+
+1. EtherNet/IP o PROFINET abilitati sul robot
+   - Devi andare sul Teach Pendant
+   - Installation → Fieldbus
+   - DISABILITARE EtherNet/IP e PROFINET
+
+2. Remote Control non abilitato
+   - Sul Teach Pendant: Settings → System → Remote Control
+   - Abilitare Remote Control
+
+3. Programma non in PLAYING
+   - Sul Teach Pendant: Avviare programma con PLAY
+
+4. Configurazione External Control errata
+   - Sul Teach Pendant: Verificare Host IP e Porta
+
+================================================================================
+📋 OUTPUT DELLO SCRIPT
+================================================================================
+
+Lo script mostra:
+
+✅ = OK, tutto a posto
+⚠️  = Avviso, verifica manualmente
+❌ = Errore, risolvi prima di procedere
+🔧 = Problema risolto automaticamente
+
+Alla fine mostra un riepilogo con:
+- Problemi risolti automaticamente
+- Avvisi trovati
+- Errori trovati
+
+================================================================================
+🎯 DOPO AVER ESEGUITO LO SCRIPT
+================================================================================
+
+1. Leggi il riepilogo finale
+2. Se ci sono avvisi, segui le istruzioni
+3. Verifica sul Teach Pendant:
+   - EtherNet/IP disabilitato (IMPORTANTE!)
+   - PROFINET disabilitato
+   - Remote Control abilitato
+   - Programma in PLAYING
+4. Se tutto OK, prova a connettere
+
+================================================================================
+💡 PROBLEMA PIÙ COMUNE
+================================================================================
+
+Secondo Issue #31 di GitHub, il problema più comune è:
+- EtherNet/IP abilitato sul robot
+
+Questo occupa RTDE e impedisce al driver ROS2 di funzionare.
+
+SOLUZIONE:
+Sul Teach Pendant: Installation → Fieldbus → DISABILITA EtherNet/IP
+
+================================================================================
+🔗 RIFERIMENTI
+================================================================================
+
+Issue #31: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/31
+Issue #37: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/37
+
+Per dettagli completi: ANALISI_ISSUE_GITHUB_COMPLETA.txt
+
+================================================================================
+

@@ -1,0 +1,97 @@
+================================================================================
+🔍 SOLUZIONE ONLINE PER RTDE OVERFLOW
+================================================================================
+
+Dalle ricerche online ho trovato:
+
+================================================================================
+✅ SOLUZIONE 1: DISABILITARE ETHERNET/IP (CONFERMATO ONLINE)
+================================================================================
+
+Fonti:
+- Robotiq Blog: "RTDE error si verifica quando EtherNet/IP è attivo"
+- Issue GitHub: EtherNet/IP occupa variabili RTDE
+- Documentazione Universal Robots: EtherNet/IP può causare conflitti RTDE
+
+SOLUZIONE:
+1. Sul Teach Pendant: Installation → Fieldbus
+2. DISABILITARE EtherNet/IP ❌
+3. DISABILITARE PROFINET ❌
+4. Riavvia robot
+
+================================================================================
+✅ SOLUZIONE 2: RIDURRE FREQUENZA RTDE
+================================================================================
+
+Se EtherNet/IP è necessario, prova a ridurre la frequenza RTDE:
+
+Nel file di configurazione ROS2:
+- Cerca: ur5e_update_rate.yaml
+- Modifica frequenza RTDE da 500 Hz a 125 Hz o meno
+
+Questo può ridurre l'overflow del buffer RTDE.
+
+================================================================================
+✅ SOLUZIONE 3: VERIFICARE ALTRI PROCESSI RTDE
+================================================================================
+
+Assicurati che:
+- Nessun altro processo RTDE sia attivo
+- Web interface NON usi RTDE quando driver ROS2 è attivo
+- Nessun altro URCap usi RTDE contemporaneamente
+
+================================================================================
+✅ SOLUZIONE 4: AGGIORNARE DRIVER ROS2
+================================================================================
+
+Verifica di usare l'ultima versione del driver ROS2:
+- Potrebbero esserci fix per RTDE overflow nelle versioni recenti
+- Consulta changelog: https://docs.ros.org/en/humble/p/ur_robot_driver/__CHANGELOG.html
+
+================================================================================
+⚠️  PROBLEMA SPECIFICO: ETHERNET/IP NECESSARIO
+================================================================================
+
+Se EtherNet/IP è NECESSARIO per altre funzionalità:
+
+OPZIONE A: Configura EtherNet/IP per NON usare variabili RTDE
+- EtherNet/IP può essere configurato per non occupare tutte le variabili RTDE
+- Verifica configurazione EtherNet/IP sul Teach Pendant
+- Disabilita solo le variabili RTDE che il driver ROS2 usa
+
+OPZIONE B: Usa frequenza RTDE più bassa
+- Riduci frequenza RTDE da 500 Hz a 125 Hz
+- Questo può permettere a EtherNet/IP e ROS2 di coesistere
+
+OPZIONE C: Usa versione diversa del driver ROS2
+- Alcune versioni potrebbero gestire meglio EtherNet/IP
+- Consulta issue GitHub per versioni compatibili
+
+================================================================================
+📋 PROCEDURA RACCOMANDATA
+================================================================================
+
+1. PRIMA: Prova a disabilitare EtherNet/IP temporaneamente
+   - Se funziona → EtherNet/IP è il problema
+   - Se non funziona → Problema diverso
+
+2. POI: Se EtherNet/IP è necessario
+   - Riduci frequenza RTDE a 125 Hz
+   - Verifica configurazione EtherNet/IP
+   - Aggiorna driver ROS2 all'ultima versione
+
+3. VERIFICA: Nessun altro processo RTDE attivo
+   - Web interface fermata
+   - Altri URCap disabilitati
+   - Solo driver ROS2 usa RTDE
+
+================================================================================
+🔗 RIFERIMENTI ONLINE
+================================================================================
+
+- Robotiq Blog: RTDE error con EtherNet/IP
+- GitHub Issues: Universal_Robots_ROS2_Driver
+- Documentazione Universal Robots: RTDE e EtherNet/IP
+
+================================================================================
+

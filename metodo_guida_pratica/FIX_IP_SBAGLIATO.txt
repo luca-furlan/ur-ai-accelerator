@@ -1,0 +1,143 @@
+================================================================================
+🔧 FIX IP SBAGLIATO - 192.168.56.1 NON È CORRETTO!
+================================================================================
+
+PROBLEMA:
+L'URCap sta cercando di connettersi a: 192.168.56.1.50002
+Questo IP è SBAGLIATO!
+
+IP CORRETTO DEVE ESSERE: 192.168.10.191
+
+================================================================================
+❌ PERCHÉ VEDI 192.168.56.1?
+================================================================================
+
+L'IP 192.168.56.1 è tipicamente:
+- IP di una VM VirtualBox (interfaccia NAT)
+- IP di una rete virtuale
+- NON è l'IP della macchina remota reale!
+
+La macchina remota ha IP: 192.168.10.191
+NON 192.168.56.1!
+
+================================================================================
+✅ SOLUZIONE: CORREGGI IP SUL TEACH PENDANT
+================================================================================
+
+PASSO 1: APRI PROGRAMMA SUL TEACH PENDANT
+-----------------------------------------
+1. Sul Teach Pendant, apri il programma con External Control
+2. Seleziona il nodo "External Control"
+3. Premi "Edit" o "Modify"
+
+PASSO 2: CANCELLA IP SBAGLIATO
+-------------------------------
+1. Trova il campo "IP Host" o "Host IP"
+2. CANCELLA COMPLETAMENTE il valore attuale
+   (probabilmente vedi: 192.168.56.1 o simile)
+
+PASSO 3: INSERISCI IP CORRETTO
+-------------------------------
+1. INSERISCI ESATTAMENTE:
+   192.168.10.191
+   
+   ⚠️ IMPORTANTE:
+   - Deve essere ESATTAMENTE: 192.168.10.191
+   - Con PUNTI (.) non con altri caratteri
+   - NO spazi, NO altri numeri
+
+PASSO 4: VERIFICA PORTA SEPARATA
+--------------------------------
+1. Verifica che Porta sia in campo SEPARATO
+2. Porta deve essere: 50002
+3. NON deve essere insieme all'IP!
+
+PASSO 5: SALVA E RIAVVIA
+-------------------------
+1. Premi "OK" o "Save"
+2. STOP il programma (se è in esecuzione)
+3. PLAY il programma di nuovo
+4. Dovresti vedere: "Waiting for connection..."
+5. NESSUN errore con IP sbagliato!
+
+================================================================================
+📋 CONFIGURAZIONE CORRETTA
+================================================================================
+
+Sul Teach Pendant, External Control deve avere:
+
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ IP Host:    192.168.10.191          │ ← CORRETTO!
+│ Porta:      50002                    │ ← SEPARATA!
+│ Timeout:    20                       │
+└─────────────────────────────────────┘
+
+❌ SBAGLIATO (quello che vedi):
+   IP Host: 192.168.56.1.50002
+   OPPURE
+   IP Host: 192.168.56.1
+   Porta: (vuota o insieme all'IP)
+
+✅ CORRETTO:
+   IP Host: 192.168.10.191
+   Porta: 50002
+   (separati, IP corretto)
+
+================================================================================
+🔍 VERIFICA IP MACCHINA REMOTA
+================================================================================
+
+Per verificare quale IP ha effettivamente la macchina remota:
+
+ssh lab@192.168.10.191
+hostname -I
+
+Dovresti vedere: 192.168.10.191
+
+Se vedi altri IP (come 192.168.56.1), sono interfacce virtuali o VM,
+NON usare quelli!
+
+================================================================================
+❓ PERCHÉ È STATO INSERITO 192.168.56.1?
+================================================================================
+
+Possibili cause:
+1. IP inserito automaticamente da qualche configurazione errata
+2. IP di una VM o interfaccia virtuale rilevata automaticamente
+3. Configurazione di default errata
+4. Copia-incolla da fonte sbagliata
+
+SOLUZIONE:
+Inserisci MANUALMENTE: 192.168.10.191
+Verifica carattere per carattere!
+
+================================================================================
+✅ CHECKLIST
+================================================================================
+
+[ ] Programma aperto sul Teach Pendant
+[ ] Nodo External Control selezionato
+[ ] IP Host VECCHIO cancellato completamente
+[ ] IP Host NUOVO inserito: 192.168.10.191 (con punti!)
+[ ] Porta verificata: 50002 (separata dall'IP!)
+[ ] Configurazione salvata
+[ ] Programma STOPPED
+[ ] Programma PLAYED di nuovo
+[ ] Nessun errore con IP sbagliato
+[ ] Messaggio: "Waiting for connection..."
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+1. IP SBAGLIATO: 192.168.56.1 ← NON USARE!
+2. IP CORRETTO: 192.168.10.191 ← USA QUESTO!
+3. Correggi sul Teach Pendant
+4. Salva e riavvia programma
+5. Verifica connessione
+
+================================================================================
+
+

@@ -1,0 +1,35 @@
+================================================================================
+🔧 COMANDI RAPIDI - FIX WEB APP
+================================================================================
+
+CONNETTITI E ESEGUI:
+---------------------
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator
+bash fix_web_interface.sh
+
+OPPURE MANUALMENTE:
+-------------------
+ssh lab@192.168.10.191
+pkill -f web_interface
+cd ~/MekoAiAccelerator
+source /opt/ros/humble/setup.bash 2>/dev/null || true
+export UR_ROBOT_IP=192.168.10.194
+export WEB_HOST=0.0.0.0
+export WEB_PORT=8080
+python3 -m remote_ur_control.web_interface
+
+VERIFICA ERRORI:
+----------------
+tail -f /tmp/web_interface.log
+
+TEST CONNESSIONE:
+-----------------
+curl http://localhost:8080/api/config
+
+URL FINALE:
+-----------
+http://192.168.10.191:8080
+
+================================================================================
+

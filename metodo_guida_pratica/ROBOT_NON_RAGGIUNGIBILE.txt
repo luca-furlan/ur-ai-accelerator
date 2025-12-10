@@ -1,0 +1,110 @@
+================================================================================
+❌ ROBOT NON RAGGIUNGIBILE - Cosa Fare
+================================================================================
+
+PROBLEMA:
+Il robot su IP 192.168.10.50 NON è raggiungibile dalla macchina remota.
+
+================================================================================
+🔍 VERIFICA SUL TEACH PENDANT
+================================================================================
+
+PASSO 1: VERIFICA CHE IL ROBOT SIA ACCESO
+------------------------------------------
+1. Sul Teach Pendant, verifica che il robot sia acceso
+2. Dovresti vedere lo schermo attivo
+3. Se è spento, accendilo
+
+PASSO 2: VERIFICA IP DEL ROBOT
+-------------------------------
+1. Sul Teach Pendant: Menu → About → Network
+2. Controlla l'IP del robot
+3. Dovrebbe essere: 192.168.10.50
+4. Se è diverso, nota quale IP è
+
+PASSO 3: VERIFICA CHE IL PROGRAMMA SIA IN PLAYING
+--------------------------------------------------
+1. Sul Teach Pendant, verifica che il programma sia in PLAYING
+2. Dovresti vedere "PLAYING" o "▶️"
+3. Se è STOPPED, premi PLAY
+
+PASSO 4: VERIFICA CONFIGURAZIONE EXTERNAL CONTROL
+--------------------------------------------------
+1. Apri il programma sul Teach Pendant
+2. Controlla nodo "External Control"
+3. Verifica:
+   - Host IP: 192.168.10.191 ✅
+   - Host Name: (vuoto) ✅
+   - Porta: 50002 ✅
+4. Se qualcosa è sbagliato, correggilo e salva
+
+================================================================================
+🔧 POSSIBILI CAUSE
+================================================================================
+
+1. **Robot spento**
+   → Accendi il robot
+
+2. **Robot non sulla stessa rete**
+   → Verifica che robot e macchina remota siano sulla stessa rete
+   → Robot: 192.168.10.50
+   → Macchina remota: 192.168.10.191
+   → Devono essere entrambi su 192.168.10.x
+
+3. **IP robot cambiato**
+   → Verifica IP sul Teach Pendant: About → Network
+   → Se è diverso da 192.168.10.50, dimmi quale IP è
+
+4. **Programma non in PLAYING**
+   → Avvia programma sul Teach Pendant (PLAY)
+
+5. **Configurazione External Control errata**
+   → Verifica Host IP: 192.168.10.191
+   → Verifica Porta: 50002
+
+================================================================================
+✅ COSA FARE ORA
+================================================================================
+
+1. **Verifica sul Teach Pendant:**
+   - Robot acceso? ✅
+   - IP robot: 192.168.10.50? ✅
+   - Programma in PLAYING? ✅
+   - External Control configurato correttamente? ✅
+
+2. **Se tutto è OK sul Teach Pendant:**
+   - Verifica che robot e macchina remota siano sulla stessa rete
+   - Prova a pingare il robot dalla macchina remota
+
+3. **Se IP robot è diverso:**
+   - Dimmi quale IP è
+   - Aggiorneremo la configurazione
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Robot acceso e Teach Pendant attivo
+[ ] IP robot verificato: About → Network
+[ ] IP robot è: 192.168.10.50 (o altro?)
+[ ] Robot e macchina remota sulla stessa rete (192.168.10.x)
+[ ] Programma in PLAYING sul Teach Pendant
+[ ] External Control configurato:
+    [ ] Host IP: 192.168.10.191
+    [ ] Host Name: (vuoto)
+    [ ] Porta: 50002
+[ ] Nessun errore sul Teach Pendant
+
+================================================================================
+🎯 PROSSIMI PASSI
+================================================================================
+
+Dopo aver verificato tutto sul Teach Pendant:
+
+1. Se robot è raggiungibile → Avvia driver ROS2
+2. Se robot NON è raggiungibile → Verifica rete/IP
+3. Se IP robot è diverso → Aggiorna configurazione
+
+================================================================================
+
+

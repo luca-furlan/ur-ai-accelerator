@@ -1,0 +1,130 @@
+================================================================================
+🔧 SOLUZIONE RTDE PIPELINE OVERFLOW + ERRORE COMPILAZIONE TEACH PENDANT
+================================================================================
+
+PROBLEMA 1: RTDE Pipeline Overflow
+-----------------------------------
+Errore: "Pipeline producer overflowed! <RTDE Data Pipeline>"
+
+CAUSA:
+Il robot invia dati troppo velocemente per il driver ROS2.
+
+SOLUZIONE:
+Ridurre la frequenza di aggiornamento RTDE o ottimizzare il sistema.
+
+PROBLEMA 2: Errore Compilazione Teach Pendant
+----------------------------------------------
+Se c'è un errore di compilazione sul Teach Pendant, il programma non può partire.
+
+SOLUZIONE:
+Correggere l'errore di compilazione nel programma.
+
+================================================================================
+✅ SOLUZIONE COMPLETA
+================================================================================
+
+PASSO 1: CORREGGI ERRORE COMPILAZIONE SUL TEACH PENDANT
+--------------------------------------------------------
+1. Sul Teach Pendant, verifica quale errore di compilazione vedi
+2. Errori comuni:
+   - Sintassi errata nello script
+   - Nodo External Control configurato male
+   - Variabili non definite
+3. Correggi l'errore
+4. Salva programma
+5. Verifica che programma compili senza errori
+
+PASSO 2: FERMA DRIVER ROS2
+---------------------------
+Dalla macchina remota:
+Premi CTRL+C nel terminale dove gira il driver
+
+OPPURE:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./FERMA_TUTTO_E_RIACCENDI.sh
+
+PASSO 3: RIDUCI FREQUENZA RTDE
+-------------------------------
+Il problema RTDE overflow può essere risolto riducendo la frequenza.
+
+Opzione A: Modifica configurazione RTDE
+----------------------------------------
+Cerca file di configurazione RTDE:
+find ~/ros2_ws -name '*rtde*.yaml' -o -name '*rtde*.txt'
+
+Riduci la frequenza di aggiornamento nei file di configurazione.
+
+Opzione B: Usa configurazione headless
+--------------------------------------
+Avvia driver con headless_mode per ridurre carico:
+ros2 launch ur_robot_driver ur_control.launch.py \
+    ur_type:=ur5e \
+    robot_ip:=192.168.10.194 \
+    launch_rviz:=false \
+    headless_mode:=true
+
+PASSO 4: RIAVVIA DRIVER
+------------------------
+Dopo aver corretto errore compilazione e ridotto frequenza RTDE:
+
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+PASSO 5: AVVIA PROGRAMMA SUL ROBOT
+-----------------------------------
+Sul Teach Pendant:
+1. Verifica che programma compili senza errori
+2. Verifica configurazione External Control:
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+3. Premi PLAY
+4. Programma dovrebbe rimanere in PLAYING
+
+================================================================================
+🔍 VERIFICA ERRORE COMPILAZIONE TEACH PENDANT
+================================================================================
+
+Errori comuni di compilazione:
+
+1. **Sintassi errata nello script**
+   - Verifica che tutti i comandi URScript siano corretti
+   - Controlla parentesi, virgolette, punti e virgola
+
+2. **Nodo External Control configurato male**
+   - Verifica che Host IP sia corretto: 192.168.10.191
+   - Verifica che Porta sia: 50002
+   - Verifica che nodo sia nella struttura corretta
+
+3. **Variabili non definite**
+   - Se usi variabili nello script, assicurati che siano definite
+
+4. **Programma troppo complesso**
+   - Prova a creare programma minimale solo con External Control
+   - Aggiungi altro codice dopo che funziona
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Errore compilazione Teach Pendant corretto
+[ ] Programma compila senza errori
+[ ] Driver ROS2 fermato
+[ ] Configurazione RTDE ottimizzata (opzionale)
+[ ] Driver ROS2 riavviato
+[ ] Programma sul robot in PLAYING
+[ ] Nessun errore RTDE overflow (o ridotto)
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+1. Correggi errore compilazione sul Teach Pendant
+2. Ferma driver ROS2
+3. (Opzionale) Riduci frequenza RTDE
+4. Riavvia driver ROS2
+5. Avvia programma sul robot
+
+================================================================================
+
+

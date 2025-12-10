@@ -1,0 +1,83 @@
+================================================================================
+🔄 CORREZIONE: DIREZIONE CONNESSIONE
+================================================================================
+
+HAI RAGIONE A ESSERE CONFUSO!
+
+Verifichiamo insieme come funziona realmente External Control URCap.
+
+================================================================================
+🤔 COME FUNZIONA EXTERNAL CONTROL URCAP
+================================================================================
+
+External Control URCap funziona così:
+
+1. Il ROBOT apre un server sulla porta 50002
+2. Il ROBOT aspetta connessioni
+3. La MACCHINA REMOTA si connette AL ROBOT sulla porta 50002
+
+QUINDI:
+- Robot (194) = SERVER (ascolta sulla porta 50002)
+- Macchina Remota (191) = CLIENT (si connette al robot)
+
+================================================================================
+❓ ALLORA COSA METTERE SUL TEACH PENDANT?
+================================================================================
+
+Sul Teach Pendant, il campo "Host IP" potrebbe essere:
+- L'IP della macchina remota (191) - se il robot si connette alla macchina
+- OPPURE
+- L'IP del robot stesso (194) - se il robot aspetta connessioni
+
+VERIFICHIAMO QUAL È LA CONFIGURAZIONE CORRETTA!
+
+================================================================================
+🔍 VERIFICA CONFIGURAZIONE CORRETTA
+================================================================================
+
+Se il robot STA ASPETTANDO connessioni sulla porta 50002:
+- Il robot è il SERVER
+- La macchina remota si connette AL robot
+- Sul Teach Pendant potresti dover mettere l'IP del robot stesso (194)
+
+Se il robot SI CONNETTE alla macchina remota:
+- Il robot è il CLIENT
+- La macchina remota è il SERVER
+- Sul Teach Pendant devi mettere l'IP della macchina remota (191)
+
+================================================================================
+✅ PROVA QUESTA CONFIGURAZIONE
+================================================================================
+
+PROVA 1: Robot come SERVER (aspetta connessioni)
+-------------------------------------------------
+Sul Teach Pendant:
+- Host IP: 192.168.10.194 (IP del robot stesso!)
+- Porta: 50002
+- Programma in PLAYING
+
+Poi dalla macchina remota:
+- Il driver si connette a 192.168.10.194:50002
+
+PROVA 2: Robot come CLIENT (si connette)
+----------------------------------------
+Sul Teach Pendant:
+- Host IP: 192.168.10.191 (IP macchina remota)
+- Porta: 50002
+- Programma in PLAYING
+
+Poi dalla macchina remota:
+- Il driver aspetta connessioni sulla 50002
+
+================================================================================
+🎯 VERIFICA QUALE FUNZIONA
+================================================================================
+
+1. Prova PRIMA con Host IP: 192.168.10.194 (IP robot)
+2. Se non funziona, prova con Host IP: 192.168.10.191 (IP macchina remota)
+
+Verifica quale configurazione funziona!
+
+================================================================================
+
+

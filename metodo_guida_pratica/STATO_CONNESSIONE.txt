@@ -1,0 +1,125 @@
+================================================================================
+📊 STATO CONNESSIONE ROBOT UR5e
+================================================================================
+
+Data verifica: $(date)
+
+================================================================================
+✅ COSA FUNZIONA
+================================================================================
+
+✅ Robot raggiungibile su rete
+   IP: 192.168.10.50
+   Ping: OK (tempo risposta ~2-4ms)
+
+✅ ROS2 installato e configurato
+   Topic disponibili: /joint_states, /robot_description, /tf, etc.
+
+✅ Workspace ROS2 presente
+   ~/ros2_ws/src/ contiene: remote_ur_control_ros2
+
+================================================================================
+❌ PROBLEMI TROVATI
+================================================================================
+
+❌ PORTA 50002 NON RAGGIUNGIBILE
+   - Il robot non sta ascoltando sulla porta 50002
+   - External Control potrebbe non essere configurato correttamente
+
+❌ DRIVER UR ROBOT NON ATTIVO
+   - Nessun processo ur_robot_driver in esecuzione
+   - Il driver deve essere avviato per controllare il robot
+
+================================================================================
+🔧 COSA FARE ORA
+================================================================================
+
+PASSO 1: VERIFICA SUL TEACH PENDANT
+-------------------------------------
+Sul Teach Pendant del robot, verifica:
+
+1. Programma è in PLAYING?
+   → Dovresti vedere "PLAYING" o "▶️" sul Teach Pendant
+   → Se è STOPPED, premi PLAY
+
+2. External Control è configurato correttamente?
+   → Apri il programma
+   → Controlla nodo "External Control"
+   → Verifica parametri:
+      • IP Host: 192.168.10.191 (IP della macchina remota)
+      • Porta: 50002
+      • Timeout: 20
+
+3. Messaggio sul Teach Pendant?
+   → Dovresti vedere: "Waiting for connection..."
+   → O: "Connected" se già connesso
+
+PASSO 2: VERIFICA IP MACCHINA REMOTA
+-------------------------------------
+Sulla macchina remota (192.168.10.191), verifica IP:
+
+ssh lab@192.168.10.191
+hostname -I
+
+L'IP deve essere: 192.168.10.191
+Se è diverso, aggiorna IP Host sul Teach Pendant.
+
+PASSO 3: AVVIA DRIVER ROS2
+----------------------------
+Una volta che porta 50002 è raggiungibile:
+
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+O se è la prima volta:
+./SETUP_COMPLETO.sh
+
+PASSO 4: VERIFICA CONNESSIONE
+------------------------------
+Dopo aver avviato il driver:
+
+./VERIFICA_CONNESSIONE.sh
+
+Dovresti vedere:
+✅ Porta 50002 APERTA
+✅ Driver UR Robot attivo
+✅ Topic ROS2 disponibili
+
+================================================================================
+🔍 DIAGNOSTICA
+================================================================================
+
+Se porta 50002 ancora non raggiungibile:
+
+1. Sul Teach Pendant:
+   - STOP programma
+   - Riapri programma
+   - Verifica configurazione External Control
+   - PLAY programma
+
+2. Verifica rete:
+   - Robot e macchina remota sulla stessa rete?
+   - Firewall blocca porta 50002?
+
+3. Prova riavvio robot:
+   - STOP programma
+   - Riavvia robot
+   - Riapri programma
+   - PLAY
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Programma in PLAYING sul Teach Pendant
+[ ] External Control configurato con IP: 192.168.10.191
+[ ] External Control configurato con Porta: 50002
+[ ] Teach Pendant mostra "Waiting for connection..."
+[ ] Porta 50002 raggiungibile (test con VERIFICA_CONNESSIONE.sh)
+[ ] Driver ROS2 avviato (START_RAPIDO.sh)
+[ ] Connessione verificata (VERIFICA_CONNESSIONE.sh)
+
+================================================================================
+
+

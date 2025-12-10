@@ -1,0 +1,166 @@
+================================================================================
+📋 ANALISI COMPLETA ISSUE GITHUB - COSA DICONO REALMENTE
+================================================================================
+
+Ho letto direttamente le issue su GitHub. Ecco cosa dicono ESATTAMENTE:
+
+================================================================================
+🔍 ISSUE #31: "Connection Refused" after normal setup
+================================================================================
+
+Link: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/31
+Status: CLOSED (risolto)
+
+PROBLEMA:
+---------
+- Errore "Connection Refused" quando si preme PLAY sul Teach Pendant
+- Driver ROS2 avviato correttamente
+- Errore nel driver: "Variable 'speed_slider_mask' is currently controlled by another RTDE client"
+
+CAUSA IDENTIFICATA:
+-------------------
+Il problema NON era il firewall o la configurazione IP!
+
+Il problema era:
+- EtherNet/IP era ABILITATO sul robot
+- EtherNet/IP occupa le variabili RTDE
+- Il driver ROS2 non può usare RTDE perché già occupato
+
+SOLUZIONE FINALE:
+-----------------
+1. Sul Teach Pendant: Installation → Fieldbus
+2. DISABILITARE EtherNet/IP (se abilitato)
+3. DISABILITARE PROFINET (se abilitato)
+4. Solo Ethernet normale può essere abilitato
+
+Commento finale dell'utente:
+"Aaaaalter Schwede! Thank you so much, now that I think about it, it is so obvious. 
+I was certain that I need this to talk with the robot via the normal ethernet cable 
+that I use to connect it to the PC, so I always left it on... Yeah, works perfectly now!"
+
+================================================================================
+🔍 ISSUE #37: External Control URCap program throws connection error
+================================================================================
+
+Link: https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/37
+Status: OPEN (con "solution proposed")
+
+PROBLEMA:
+---------
+- Errore: "The connection to the remote PC at 192.168.1.1:50002 could not be established. Reason: Connection refused"
+- PC può pingare robot
+- RViz si avvia correttamente
+
+SOLUZIONE PROPOSTA (da urfeex, membro Universal Robots):
+--------------------------------------------------------
+"Connection refused" di solito indica:
+- Firewall attivo sul PC remoto che blocca l'accesso esterno alla porta 50002
+
+SOLUZIONE:
+1. Controllare firewall sul PC remoto
+2. Permettere connessioni alle porte:
+   - 50001
+   - 50002
+   - 50003
+   - 50004
+   (Queste porte sono necessarie per lo script che gira sul robot)
+
+================================================================================
+✅ RIEPILOGO: COSA VERIFICARE
+================================================================================
+
+PRIMA DI TUTTO (Issue #31):
+----------------------------
+1. Sul Teach Pendant: Installation → Fieldbus
+2. Verifica che EtherNet/IP sia DISABILITATO
+3. Verifica che PROFINET sia DISABILITATO
+4. Solo Ethernet normale può essere abilitato
+
+Questo è il problema più comune e spesso ignorato!
+
+POI (Issue #37):
+----------------
+1. Verifica firewall sul PC remoto
+2. Apri porte 50001, 50002, 50003, 50004
+
+================================================================================
+🎯 PROCEDURA COMPLETA BASATA SULLE ISSUE
+================================================================================
+
+PASSO 1: VERIFICA FIELD BUS (IMPORTANTE!)
+------------------------------------------
+Sul Teach Pendant:
+1. Vai su: Installation → Fieldbus
+2. Verifica:
+   - EtherNet/IP: DISABILITATO ❌
+   - PROFINET: DISABILITATO ❌
+   - Ethernet: Abilitato ✅ (normale, non EtherNet/IP!)
+
+Se EtherNet/IP o PROFINET sono abilitati, DISABILITALI!
+
+PASSO 2: VERIFICA FIREWALL
+---------------------------
+Sul PC remoto:
+1. Verifica firewall attivo:
+   sudo ufw status
+   
+2. Se firewall attivo, apri porte:
+   sudo ufw allow 50001
+   sudo ufw allow 50002
+   sudo ufw allow 50003
+   sudo ufw allow 50004
+   sudo ufw reload
+
+PASSO 3: AVVIA DRIVER ROS2
+---------------------------
+Sul PC remoto:
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+PASSO 4: CONFIGURA TEACH PENDANT
+---------------------------------
+Sul Teach Pendant:
+- Host IP: 192.168.10.191 (IP PC remoto)
+- Porta: 50002
+
+PASSO 5: AVVIA PROGRAMMA
+------------------------
+Sul Teach Pendant:
+- Premi PLAY
+
+================================================================================
+📋 CHECKLIST BASATA SULLE ISSUE
+================================================================================
+
+[ ] EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)
+[ ] PROFINET DISABILITATO sul robot (Installation → Fieldbus)
+[ ] Firewall PC remoto: Porte 50001-50004 aperte
+[ ] Driver ROS2 avviato
+[ ] Teach Pendant: Host IP = 192.168.10.191, Porta = 50002
+[ ] Programma in PLAYING
+
+================================================================================
+💡 PERCHÉ È IMPORTANTE
+================================================================================
+
+Issue #31 mostra che il problema più comune NON è:
+- Firewall ❌
+- IP sbagliato ❌
+- Driver non avviato ❌
+
+Il problema più comune È:
+- EtherNet/IP o PROFINET abilitati ✅
+- Questi occupano RTDE e impediscono al driver di funzionare
+
+================================================================================
+🔗 RIFERIMENTI
+================================================================================
+
+Issue #31:
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/31
+
+Issue #37:
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/37
+
+================================================================================
+

@@ -1,0 +1,106 @@
+================================================================================
+GUIDA COMPLETA - PASSI PER CONTROLLO ROS2
+================================================================================
+
+Hai completato PASSO 1: Fermato web interface ✅
+
+================================================================================
+PASSO 2: VERIFICA CONFIGURAZIONE ROS2
+================================================================================
+
+Esegui:
+    ssh lab@192.168.10.191
+    cd ~/MekoAiAccelerator
+    ./PASSO_2_VERIFICA_ROS2.sh
+
+Questo script verifica:
+- ✅ ROS2 installato e configurato
+- ✅ Driver UR ROS2 installato
+- ✅ Robot in PLAYING
+- ✅ Porta 50002 aperta (se configurato)
+- ✅ Driver ROS2 in esecuzione (se già avviato)
+
+================================================================================
+PASSO 3: AVVIA DRIVER UR ROS2 (se non già avviato)
+================================================================================
+
+Se il driver NON è in esecuzione, esegui:
+    ./PASSO_3_AVVIA_DRIVER.sh
+
+OPPURE manualmente:
+    source /opt/ros/humble/setup.bash
+    source ~/ros2_ws/install/setup.bash
+    ros2 launch ur_robot_driver ur_control.launch.py \
+        ur_type:=ur5e \
+        robot_ip:=192.168.10.194 \
+        launch_rviz:=false
+
+Aspetta che vedi:
+    [INFO] [ur_robot_driver]: Robot connected
+    [INFO] [ur_robot_driver]: Controllers started
+
+⚠️  Se vedi errori "Pipeline producer overflowed":
+    → Ferma altri processi RTDE: pkill -f rtde
+
+================================================================================
+PASSO 4: TEST CONTROLLO ROS2 (opzionale)
+================================================================================
+
+Per testare che ROS2 funzioni:
+    ./PASSO_4_TEST_CONTROLLO.sh
+
+Questo:
+- Verifica topic ROS2 disponibili
+- Verifica controller attivi
+- Testa pubblicazione comando diretto
+- Monitora topic in tempo reale
+
+================================================================================
+PASSO 5: RIAVVIA WEB INTERFACE CON ROS2
+================================================================================
+
+Quando il driver ROS2 è in esecuzione e funzionante:
+    ./PASSO_5_RIACCENDI_WEB_INTERFACE.sh
+
+Questo:
+- Verifica che driver ROS2 sia in esecuzione
+- Riavvia web interface con ROS2 configurato
+- La web interface userà ROS2 invece di socket
+
+Poi:
+1. Apri browser: http://192.168.10.191:8081
+2. Muovi joystick
+3. Dovresti vedere "ROS2 speedj" invece di "Socket control"
+4. Il robot dovrebbe muoversi!
+
+================================================================================
+VERIFICA FINALE
+================================================================================
+
+1. Driver ROS2 in esecuzione → ✅
+2. Robot in PLAYING → ✅
+3. Web interface avviata → ✅
+4. Joystick muove robot → ✅
+
+Se tutto OK → CONTROLLO ROS2 FUNZIONANTE! 🎉
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Se robot non si muove:
+- Verifica che programma sia in PLAYING
+- Verifica che driver ROS2 sia connesso (vedi log driver)
+- Verifica topic ROS2: ros2 topic echo /forward_velocity_controller/commands
+- Controlla log web interface: tail -f /tmp/web_interface.log
+
+Se vedi ancora "Socket control":
+- La web interface non sta usando ROS2
+- Verifica che driver ROS2 sia in esecuzione
+- Riavvia web interface con ROS2 configurato
+
+================================================================================
+
+
+
+

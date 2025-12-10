@@ -1,0 +1,157 @@
+================================================================================
+🔧 SOLUZIONE PROBLEMA URCap
+================================================================================
+
+PROBLEMA:
+L'URCap externalcontrol-1.0.5.urcap ha problemi quando viene eseguito sul robot.
+
+ERRORE VISTO:
+"connection to the remote PC at 192 168 561 50002 could not be established"
+
+================================================================================
+✅ SOLUZIONE: USA FILE FRESH SCARICATO
+================================================================================
+
+Ho scaricato un file URCap FRESCO e PULITO:
+📄 externalcontrol-1.0.5-FRESH.urcap
+
+Questo file è stato scaricato DIRETTAMENTE da GitHub, quindi è garantito pulito.
+
+================================================================================
+🚀 PROCEDURA COMPLETA DI REINSTALLAZIONE
+================================================================================
+
+PASSO 1: DISINSTALLA URCap VECCHIO
+-----------------------------------
+1. Sul Teach Pendant: Installation → URCaps
+2. Seleziona "External Control" (se presente)
+3. Rimuovi/Uninstall
+4. Riavvia robot quando richiesto
+
+PASSO 2: COPIA FILE FRESH SU USB
+---------------------------------
+1. Prendi chiavetta USB (formattata FAT32)
+2. Copia file: externalcontrol-1.0.5-FRESH.urcap
+   Path: metodo_guida_pratica\externalcontrol-1.0.5-FRESH.urcap
+3. Copia nella ROOT della USB (non in sottocartelle)
+4. Verifica che file sia completo (~35 KB)
+
+PASSO 3: INSTALLA URCap FRESH
+------------------------------
+1. Inserisci USB nel Teach Pendant
+2. Teach Pendant: Installation → URCaps → +
+3. Seleziona: externalcontrol-1.0.5-FRESH.urcap
+4. Installa
+5. Riavvia robot quando richiesto
+
+PASSO 4: VERIFICA INSTALLAZIONE
+-------------------------------
+1. Dopo riavvio: Installation → URCaps
+2. Dovresti vedere "External Control" nella lista
+3. Se lo vedi, installazione OK! ✅
+
+PASSO 5: CREA PROGRAMMA NUOVO
+------------------------------
+1. Crea NUOVO programma (non riusare quello vecchio!)
+2. Aggiungi nodo "External Control"
+3. Configura ATTENTAMENTE:
+   
+   ⚙️ CONFIGURAZIONE CORRETTA:
+   ┌─────────────────────────────────────┐
+   │ External Control                    │
+   ├─────────────────────────────────────┤
+   │ IP Host:    192.168.10.191          │ ← CON PUNTI!
+   │ Porta:      50002                    │ ← SEPARATA!
+   │ Timeout:    20                       │
+   └─────────────────────────────────────┘
+
+   ⚠️ IMPORTANTE:
+   - IP Host: 192.168.10.191 (con PUNTI, no spazi)
+   - Porta: 50002 (in campo SEPARATO)
+   - NON mettere porta insieme all'IP!
+
+PASSO 6: SALVA E AVVIA
+----------------------
+1. Salva programma (es: "ExternalControl_Fresh")
+2. STOP qualsiasi programma vecchio
+3. PLAY nuovo programma
+4. Dovresti vedere: "Waiting for connection..."
+5. NESSUN errore di connessione!
+
+================================================================================
+🔍 VERIFICA DOPO INSTALLAZIONE
+================================================================================
+
+Dalla macchina remota:
+
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./VERIFICA_CONNESSIONE.sh
+
+Dovresti vedere:
+✅ Robot raggiungibile
+✅ Porta 50002 APERTA e in ascolto!
+
+================================================================================
+❓ PERCHÉ IL PROBLEMA?
+================================================================================
+
+Possibili cause del problema originale:
+
+1. **File URCap corrotto** durante download o copia
+2. **Installazione incompleta** - URCap non installato correttamente
+3. **Configurazione errata** - IP/Porta configurati male nel programma
+4. **Versione incompatibile** - Firmware robot non compatibile (raro)
+
+SOLUZIONE:
+- Usa file FRESH scaricato di nuovo
+- Reinstalla completamente
+- Crea programma NUOVO con configurazione corretta
+
+================================================================================
+📋 CHECKLIST COMPLETA
+================================================================================
+
+[ ] URCap vecchio disinstallato
+[ ] Robot riavviato dopo disinstallazione
+[ ] File FRESH copiato su USB
+[ ] USB inserita nel Teach Pendant
+[ ] URCap FRESH installato
+[ ] Robot riavviato dopo installazione
+[ ] URCap visibile in Installation → URCaps
+[ ] Programma NUOVO creato (non riusare vecchio!)
+[ ] Nodo External Control aggiunto
+[ ] IP Host configurato: 192.168.10.191 (con punti!)
+[ ] Porta configurata: 50002 (separata!)
+[ ] Programma salvato
+[ ] Programma in PLAYING
+[ ] Messaggio: "Waiting for connection..."
+[ ] Nessun errore di connessione
+[ ] Porta 50002 raggiungibile (verifica con script)
+
+================================================================================
+✅ FILE DISPONIBILI
+================================================================================
+
+Nella cartella metodo_guida_pratica:
+- externalcontrol-1.0.5-FRESH.urcap  ← USA QUESTO!
+- externalcontrol-1.0.5.urcap          (vecchio, potrebbe essere corrotto)
+
+Il file FRESH è stato scaricato DIRETTAMENTE da GitHub, quindi è garantito pulito.
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+1. Disinstalla URCap vecchio
+2. Usa file FRESH: externalcontrol-1.0.5-FRESH.urcap
+3. Installa URCap FRESH sul robot
+4. Crea programma NUOVO (non riusare vecchio!)
+5. Configura IP: 192.168.10.191 (con punti!)
+6. Configura Porta: 50002 (separata!)
+7. Avvia programma
+8. Verifica connessione
+
+================================================================================
+
+

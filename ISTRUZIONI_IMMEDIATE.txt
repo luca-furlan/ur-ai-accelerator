@@ -1,0 +1,39 @@
+================================================================================
+🚀 ISTRUZIONI IMMEDIATE - FIX E AVVIO WEB APP
+================================================================================
+
+OPZIONE 1: Copia e incolla questo comando completo:
+----------------------------------------------------
+
+ssh lab@192.168.10.191 "pkill -f web_interface; sleep 2; cd ~/MekoAiAccelerator && source /opt/ros/humble/setup.bash 2>/dev/null || true && export UR_ROBOT_IP=192.168.10.194 && export WEB_HOST=0.0.0.0 && export WEB_PORT=8080 && nohup python3 -m remote_ur_control.web_interface > /tmp/web_interface.log 2>&1 & sleep 3 && echo '✅ Web interface avviata!' && echo '🌐 Connettiti a: http://192.168.10.191:8080'"
+
+OPZIONE 2: Connettiti e esegui script:
+---------------------------------------
+
+1. Connettiti:
+   ssh lab@192.168.10.191
+
+2. Copia e incolla tutto il contenuto del file ESEGUI_QUESTO.sh
+
+OPZIONE 3: Manuale passo passo:
+-------------------------------
+
+ssh lab@192.168.10.191
+pkill -f web_interface
+cd ~/MekoAiAccelerator
+source /opt/ros/humble/setup.bash 2>/dev/null || true
+export UR_ROBOT_IP=192.168.10.194
+export WEB_HOST=0.0.0.0
+export WEB_PORT=8080
+python3 -m remote_ur_control.web_interface
+
+VERIFICA:
+---------
+Apri browser: http://192.168.10.191:8080
+
+VEDI LOG:
+---------
+ssh lab@192.168.10.191 "tail -f /tmp/web_interface.log"
+
+================================================================================
+

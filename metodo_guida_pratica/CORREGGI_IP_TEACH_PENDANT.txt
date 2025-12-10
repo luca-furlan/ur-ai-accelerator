@@ -1,0 +1,117 @@
+================================================================================
+🔧 CORREZIONE IP SUL TEACH PENDANT
+================================================================================
+
+ERRORE VISTO:
+"connection to the remote PC at 192 168 561 50002 could not be established"
+
+PROBLEMA:
+L'IP è scritto male! Dovrebbe essere: 192.168.10.191
+Invece vedi: 192 168 561 (con spazi e numero sbagliato)
+
+================================================================================
+✅ SOLUZIONE: CORREGGI IP SUL TEACH PENDANT
+================================================================================
+
+PASSO 1: APRI PROGRAMMA SUL TEACH PENDANT
+-----------------------------------------
+1. Sul Teach Pendant, apri il programma con External Control
+2. Seleziona il nodo "External Control"
+3. Premi "Edit" o "Modify"
+
+PASSO 2: CORREGGI IP HOST
+--------------------------
+1. Trova il campo "IP Host" o "Host IP"
+2. CANCELLA il valore attuale (192 168 561)
+3. INSERISCI ESATTAMENTE:
+   192.168.10.191
+   
+   ⚠️ IMPORTANTE:
+   - Usa PUNTI (.) non SPAZI
+   - Deve essere ESATTAMENTE: 192.168.10.191
+   - Non aggiungere spazi o caratteri extra
+
+PASSO 3: VERIFICA PORTA
+-----------------------
+1. Verifica che Porta sia: 50002
+2. Non deve esserci spazio tra porta e IP
+
+PASSO 4: SALVA E RIAVVIA
+-------------------------
+1. Premi "OK" o "Save" per salvare
+2. STOP il programma (se è in esecuzione)
+3. PLAY il programma di nuovo
+4. Dovresti vedere: "Waiting for connection..."
+
+================================================================================
+📋 CONFIGURAZIONE CORRETTA
+================================================================================
+
+Sul Teach Pendant, External Control deve avere:
+
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ IP Host:    192.168.10.191          │ ← CORRETTO
+│ Porta:      50002                    │ ← CORRETTO
+│ Timeout:    20                       │
+└─────────────────────────────────────┘
+
+❌ SBAGLIATO:
+   IP Host: 192 168 561 50002
+   (con spazi, numero sbagliato, porta insieme)
+
+✅ CORRETTO:
+   IP Host: 192.168.10.191
+   Porta: 50002
+   (separati, con punti, IP corretto)
+
+================================================================================
+🔍 VERIFICA DOPO CORREZIONE
+================================================================================
+
+Dopo aver corretto l'IP sul Teach Pendant:
+
+1. Programma in PLAYING
+2. Teach Pendant mostra: "Waiting for connection..."
+3. Nessun errore di connessione
+
+Poi dalla macchina remota verifica:
+
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./VERIFICA_CONNESSIONE.sh
+
+Dovresti vedere:
+✅ Porta 50002 APERTA e in ascolto!
+
+================================================================================
+❓ PERCHÉ L'ERRORE?
+================================================================================
+
+Possibili cause:
+1. IP inserito manualmente con errori di battitura
+2. Spazi invece di punti
+3. Porta inserita insieme all'IP invece che separata
+4. Copia-incolla da fonte con formattazione sbagliata
+
+SOLUZIONE:
+Inserisci manualmente ESATTAMENTE: 192.168.10.191
+Verifica carattere per carattere!
+
+================================================================================
+✅ CHECKLIST
+================================================================================
+
+[ ] Programma aperto sul Teach Pendant
+[ ] Nodo External Control selezionato
+[ ] IP Host corretto: 192.168.10.191 (con punti, no spazi)
+[ ] Porta corretta: 50002 (separata dall'IP)
+[ ] Configurazione salvata
+[ ] Programma in PLAYING
+[ ] Nessun errore di connessione
+[ ] Messaggio: "Waiting for connection..."
+
+================================================================================
+
+

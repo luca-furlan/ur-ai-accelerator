@@ -1,0 +1,113 @@
+================================================================================
+🔧 FIX: PROGRAMMA SI FERMA DOPO "ATTENDERE PREGO..."
+================================================================================
+
+PROBLEMA:
+Il programma va in "ATTENDERE PREGO..." e poi si ferma (STOPPED).
+
+CAUSA:
+Il robot si connette ma la connessione non è completa o si interrompe.
+
+================================================================================
+✅ SOLUZIONE: AVVIA DRIVER ROS2 PRIMA!
+================================================================================
+
+Il problema è che il robot si connette ma non trova il driver ROS2 pronto.
+
+PROCEDURA CORRETTA (ORDINE IMPORTANTE!):
+
+PASSO 1: AVVIA DRIVER ROS2 PRIMA
+---------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+Aspetta che il driver sia completamente avviato (vedrai messaggi ROS2).
+
+PASSO 2: VERIFICA DRIVER PRONTO
+--------------------------------
+Dalla macchina remota:
+ros2 topic list
+
+Dovresti vedere topic ROS2 disponibili.
+
+PASSO 3: POI AVVIA PROGRAMMA SUL ROBOT
+---------------------------------------
+Sul Teach Pendant:
+1. Verifica configurazione External Control:
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+   - Timeout: 20 (aumenta se necessario)
+2. Premi PLAY
+3. Il programma dovrebbe rimanere in PLAYING
+
+================================================================================
+🔍 SE IL PROBLEMA PERSISTE
+================================================================================
+
+OPZIONE 1: Aumenta Timeout
+---------------------------
+Sul Teach Pendant, nel nodo External Control:
+- Timeout: aumenta a 30 o 40 secondi
+- Questo dà più tempo al robot per stabilire la connessione
+
+OPZIONE 2: Verifica Connessione Stabile
+----------------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+watch -n 1 'netstat -an | grep "192.168.10.194.*50002"'
+
+Mantieni questo comando in esecuzione mentre avvii il programma sul robot.
+Se la connessione si interrompe subito, c'è un problema di rete o configurazione.
+
+OPZIONE 3: Verifica Driver ROS2 Completo
+-----------------------------------------
+Il driver ROS2 deve essere COMPLETAMENTE avviato prima di avviare il programma.
+
+Dalla macchina remota:
+ssh lab@192.168.10.191
+ros2 node list
+
+Dovresti vedere nodi del driver UR:
+- ur_robot_driver
+- joint_state_broadcaster
+- scaled_joint_trajectory_controller
+
+Se non li vedi, il driver non è completamente avviato!
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Driver ROS2 avviato PRIMA (START_RAPIDO.sh)
+[ ] Driver ROS2 completamente avviato (verifica con ros2 node list)
+[ ] Macchina remota in ascolto sulla 50002 (netstat -tuln | grep 50002)
+[ ] Teach Pendant: Host IP = 192.168.10.191
+[ ] Teach Pendant: Porta = 50002
+[ ] Teach Pendant: Timeout = 20 o più
+[ ] Programma avviato DOPO che driver è pronto
+[ ] Programma rimane in PLAYING (non si ferma)
+
+================================================================================
+🎯 PROCEDURA CORRETTA COMPLETA
+================================================================================
+
+1. ✅ Avvia driver ROS2 PRIMA:
+   ssh lab@192.168.10.191
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+   ./START_RAPIDO.sh
+
+2. ✅ Aspetta che driver sia pronto (vedi messaggi ROS2)
+
+3. ✅ Verifica driver pronto:
+   ros2 node list
+   ros2 topic list
+
+4. ✅ POI avvia programma sul robot:
+   - Teach Pendant: PLAY
+   - Programma dovrebbe rimanere in PLAYING
+
+================================================================================
+
+

@@ -1,0 +1,80 @@
+================================================================================
+🔍 CHIARIMENTO: COME FUNZIONANO LE CONNESSIONI
+================================================================================
+
+IMPORTANTE: Ci sono DUE tipi di connessioni diverse!
+
+================================================================================
+1. CONNESSIONE RTDE (Driver ROS2 → Robot)
+================================================================================
+
+Questa connessione:
+- Parte dal PC (192.168.10.191) → va al Robot (192.168.10.194)
+- Usa porta 30004 (RTDE)
+- Il driver ROS2 si CONNETTE al robot
+- Serve per leggere dati dal robot (posizioni, velocità, etc.)
+
+Configurazione:
+- robot_ip:=192.168.10.194 nel launch file
+- Il driver si connette automaticamente al robot
+
+STATO ATTUALE:
+✅ Questa connessione FUNZIONA (vedi log: "Connected: Universal Robots Dashboard Server")
+
+================================================================================
+2. CONNESSIONE EXTERNAL CONTROL (Robot → PC)
+================================================================================
+
+Questa connessione:
+- Parte dal Robot (192.168.10.194) → va al PC (192.168.10.191)
+- Usa porta 50002 (External Control)
+- Il robot si CONNETTE alla macchina remota
+- Serve per inviare comandi di controllo al robot
+
+Configurazione:
+- Sul Teach Pendant: Host IP = 192.168.10.191, Port = 50002
+- La macchina remota DEVE essere in ascolto sulla 50002 PRIMA
+- Il driver ROS2 mette la macchina in ascolto quando è in modalità "headless"
+
+STATO ATTUALE:
+❌ Questa connessione NON funziona ancora
+   - Macchina non in ascolto sulla 50002
+   - Driver ROS2 va in segmentation fault prima di mettersi in ascolto
+
+================================================================================
+🤔 PERCHÉ IL DRIVER VA IN SEGMENTATION FAULT?
+================================================================================
+
+Il problema è che il driver ROS2:
+1. Si connette al robot via RTDE (porta 30004) ✅
+2. Ma poi va in crash prima di mettersi in ascolto sulla 50002 ❌
+
+Possibili cause:
+1. Conflitto RTDE (altri client RTDE attivi)
+2. EtherNet/IP abilitato sul robot (occupa RTDE)
+3. Driver non configurato per modalità "headless" (aspetta connessioni)
+4. Problema con la configurazione del driver
+
+================================================================================
+✅ SOLUZIONE CORRETTA
+================================================================================
+
+Il driver ROS2 deve essere avviato in modalità "headless" per aspettare
+connessioni sulla porta 50002.
+
+Verifica configurazione START_RAPIDO.sh:
+- Deve avere parametro headless_mode:=true
+- OPPURE il driver deve essere configurato per aspettare connessioni
+
+================================================================================
+📋 VERIFICA CONFIGURAZIONE ATTUALE
+================================================================================
+
+Il tuo START_RAPIDO.sh usa:
+- robot_ip:=192.168.10.194 (driver si connette al robot)
+- Ma NON ha headless_mode:=true (non aspetta connessioni sulla 50002)
+
+QUESTO È IL PROBLEMA!
+
+================================================================================
+

@@ -1,0 +1,110 @@
+================================================================================
+✅ SOLUZIONE DEFINITIVA: IL ROBOT SI CONNETTE ALLA MACCHINA REMOTA!
+================================================================================
+
+HO CAPITO IL PROBLEMA!
+
+L'URCap External Control funziona così:
+- Il ROBOT si CONNETTE alla MACCHINA REMOTA sulla porta 50002
+- La MACCHINA REMOTA deve essere IN ASCOLTO PRIMA
+- Quindi Host IP deve essere l'IP della MACCHINA REMOTA (192.168.10.191)
+
+================================================================================
+🚀 PROCEDURA CORRETTA (ORDINE IMPORTANTE!)
+================================================================================
+
+PASSO 1: AVVIA MACCHINA REMOTA IN ASCOLTO PRIMA!
+------------------------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+
+# Metto macchina remota in ascolto sulla 50002
+nc -l -p 50002 &
+echo "Macchina remota in ascolto sulla 50002"
+
+OPPURE avvia il driver ROS2 che mette automaticamente in ascolto:
+./START_RAPIDO.sh
+
+PASSO 2: CONFIGURA TEACH PENDANT
+---------------------------------
+Sul Teach Pendant, nel nodo "External Control":
+
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ Host IP:     192.168.10.191         │ ← IP MACCHINA REMOTA!
+│ Host Name:   (vuoto)                │
+│ Porta:       50002                   │
+│ Timeout:     20                      │
+└─────────────────────────────────────┘
+
+IMPORTANTE:
+- Host IP: 192.168.10.191 (IP della MACCHINA REMOTA, NON del robot!)
+- Porta: 50002
+- La macchina remota DEVE essere in ascolto PRIMA!
+
+PASSO 3: AVVIA PROGRAMMA SUL ROBOT
+-----------------------------------
+1. STOP programma (se è in esecuzione)
+2. PLAY programma
+3. Il robot si connetterà alla macchina remota
+
+PASSO 4: VERIFICA CONNESSIONE
+------------------------------
+Dalla macchina remota, verifica che la connessione sia arrivata:
+tail -f /tmp/robot_connection.log
+
+OPPURE verifica con:
+netstat -an | grep 50002
+
+Dovresti vedere una connessione da 192.168.10.194!
+
+================================================================================
+📋 ORDINE CORRETTO (IMPORTANTE!)
+================================================================================
+
+1. ✅ Remote Control abilitato (già fatto!)
+2. ✅ MACCHINA REMOTA in ascolto sulla 50002 PRIMA
+3. ✅ Teach Pendant: Host IP = 192.168.10.191
+4. ✅ Teach Pendant: Porta = 50002
+5. ✅ Avvia programma sul robot (PLAY)
+6. ✅ Robot si connette alla macchina remota
+
+================================================================================
+🔧 SE NON FUNZIONA
+================================================================================
+
+Se ancora dice "Connection Refused":
+
+1. Verifica che macchina remota sia in ascolto:
+   ssh lab@192.168.10.191
+   netstat -tuln | grep 50002
+   Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+2. Verifica firewall:
+   ssh lab@192.168.10.191
+   sudo ufw status
+   Se firewall attivo, apri porta: sudo ufw allow 50002
+
+3. Verifica che robot possa raggiungere macchina remota:
+   Dal robot (se possibile) o dalla macchina remota:
+   ping 192.168.10.191
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+IL PROBLEMA:
+- L'URCap cerca di connettersi alla macchina remota
+- Ma la macchina remota NON è in ascolto!
+
+LA SOLUZIONE:
+1. Metti macchina remota in ascolto sulla 50002 PRIMA
+2. Configura Teach Pendant: Host IP = 192.168.10.191
+3. Avvia programma sul robot
+4. Il robot si connetterà!
+
+================================================================================
+
+

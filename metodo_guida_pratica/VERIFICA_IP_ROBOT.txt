@@ -1,0 +1,110 @@
+================================================================================
+🔍 VERIFICA IP CORRETTO DEL ROBOT
+================================================================================
+
+PROBLEMA:
+Ricevi "CONNECTION REFUSED" - potrebbe essere che l'IP del robot sia diverso!
+
+================================================================================
+✅ COSA FARE SUL TEACH PENDANT
+================================================================================
+
+PASSO 1: VERIFICA IP DEL ROBOT
+-------------------------------
+1. Sul Teach Pendant: Menu → About → Network
+   OPPURE
+   Menu → Settings → Network
+   OPPURE
+   Menu → System → Network
+
+2. Cerca "IP Address" o "IP"
+3. Scrivi ESATTAMENTE quale IP vedi
+4. Potrebbe essere:
+   - 192.168.10.50 (quello che pensiamo)
+   - 192.168.10.51
+   - 192.168.10.52
+   - 192.168.10.100
+   - 192.168.10.194
+   - O altro!
+
+PASSO 2: VERIFICA CONFIGURAZIONE EXTERNAL CONTROL
+--------------------------------------------------
+1. Apri programma sul Teach Pendant
+2. Controlla nodo "External Control"
+3. Verifica:
+   - Host IP: 192.168.10.191 ✅
+   - Porta: 50002 ✅
+4. Se Host IP è diverso, correggilo!
+
+PASSO 3: VERIFICA CHE PROGRAMMA SIA IN PLAYING
+-----------------------------------------------
+1. Sul Teach Pendant, verifica che programma sia in PLAYING
+2. Dovresti vedere "PLAYING" o "▶️"
+3. Se è STOPPED, premi PLAY
+
+================================================================================
+📋 IP POSSIBILI DEL ROBOT
+================================================================================
+
+Il robot potrebbe avere uno di questi IP:
+- 192.168.10.50 (quello che pensiamo)
+- 192.168.10.51
+- 192.168.10.52
+- 192.168.10.100
+- 192.168.10.194
+- Altro IP su rete 192.168.10.x
+
+VERIFICA SUL TEACH PENDANT quale IP ha effettivamente!
+
+================================================================================
+🔧 COSA FARE SE IP È DIVERSO
+================================================================================
+
+Se l'IP del robot è diverso da 192.168.10.50:
+
+1. **Dimmi quale IP è** (es: 192.168.10.194)
+2. **Aggiorneremo la configurazione** con l'IP corretto
+3. **Verificheremo la connessione** con l'IP corretto
+
+================================================================================
+❓ PERCHÉ "CONNECTION REFUSED"?
+================================================================================
+
+"CONNECTION REFUSED" può significare:
+
+1. **IP sbagliato** - Il robot ha un IP diverso
+2. **Robot non sulla stessa rete** - Robot e macchina remota su reti diverse
+3. **Programma non in PLAYING** - External Control non attivo
+4. **Porta bloccata** - Firewall o configurazione di rete
+
+SOLUZIONE:
+- Verifica IP sul Teach Pendant
+- Verifica che programma sia in PLAYING
+- Verifica configurazione External Control
+
+================================================================================
+✅ CHECKLIST
+================================================================================
+
+[ ] IP robot verificato sul Teach Pendant: About → Network
+[ ] IP robot è: _______________ (scrivilo qui!)
+[ ] Programma in PLAYING sul Teach Pendant
+[ ] External Control configurato:
+    [ ] Host IP: 192.168.10.191
+    [ ] Porta: 50002
+[ ] Nessun errore sul Teach Pendant
+
+================================================================================
+🎯 DIMMI QUALE IP VEDI SUL TEACH PENDANT!
+================================================================================
+
+Vai su Teach Pendant:
+Menu → About → Network
+
+E dimmi ESATTAMENTE quale IP vedi!
+
+Poi aggiorneremo la configurazione con l'IP corretto.
+
+================================================================================
+
+

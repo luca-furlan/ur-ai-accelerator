@@ -1,0 +1,16 @@
+# Programma minimale per controllo remoto robot UR
+# Copia questo script e crea un programma sul Teach Pendant
+
+# Programma minimale che permette controllo remoto
+# Non fa nulla, solo mantiene il robot pronto per comandi esterni
+
+def main():
+    # Loop infinito che ascolta comandi esterni
+    while True:
+        # Il robot rimane in attesa di comandi via socket (porta 30002)
+        # I comandi vengono inviati dalla web interface
+        sync()
+end
+
+main()
+

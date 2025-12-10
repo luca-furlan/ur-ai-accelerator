@@ -1,0 +1,84 @@
+================================================================================
+🔍 ANALISI LOG: SEGMENTATION FAULT
+================================================================================
+
+Dal tuo log vedo:
+
+✅ CONNESSIONE RTDE FUNZIONA:
+   [INFO] Connected: Universal Robots Dashboard Server
+   [INFO] Negotiated RTDE protocol version to 2
+   [INFO] Setting up RTDE communication with frequency 500.000000
+   [INFO] System successfully started!
+
+❌ CRASH QUANDO ATTIVA CONTROLLER:
+   [INFO] Configured and activated scaled_joint_trajectory_controller
+   Segmentation fault (Address not mapped to object [0x72746e6f635f00])
+
+================================================================================
+🤔 COSA STA SUCCEDENDO
+================================================================================
+
+1. Driver ROS2 si connette al ROBOT via RTDE (porta 30004) ✅
+   - PC (191) → Robot (194) via porta 30004
+   - Questa connessione FUNZIONA
+
+2. Driver ROS2 cerca di attivare controller ❌
+   - Va in segmentation fault quando attiva scaled_joint_trajectory_controller
+   - Questo è un problema interno del driver, NON di rete
+
+3. Porta 50002 NON è ancora coinvolta
+   - Il crash avviene PRIMA che il driver si metta in ascolto sulla 50002
+   - Il problema è nel driver stesso, non nella connessione External Control
+
+================================================================================
+🔴 CAUSA DEL SEGMENTATION FAULT
+================================================================================
+
+Possibili cause:
+1. EtherNet/IP abilitato sul robot (occupa RTDE) - Issue #31
+2. Conflitto RTDE (altri client RTDE attivi)
+3. Problema con configurazione calibration
+4. Versione driver incompatibile
+
+Dal log vedo anche:
+[ERROR] The calibration parameters of the connected robot don't match
+
+Questo potrebbe causare problemi!
+
+================================================================================
+✅ SOLUZIONE
+================================================================================
+
+PRIMA DI TUTTO - Verifica sul Teach Pendant:
+
+1. EtherNet/IP DISABILITATO (Installation → Fieldbus)
+2. Remote Control abilitato (Settings → System → Remote Control)
+3. Programma External Control configurato:
+   - Host IP: 192.168.10.191
+   - Port: 50002
+
+POI - Risolvi segmentation fault:
+
+1. Ferma tutto: pkill -f ur_robot_driver
+2. Verifica EtherNet/IP disabilitato sul robot
+3. Riavvia driver ROS2
+
+================================================================================
+📋 CHIARIMENTO CONNESSIONI
+================================================================================
+
+CONNESSIONE 1: RTDE (PC → Robot, porta 30004)
+- Driver ROS2 si connette al robot
+- Serve per leggere dati dal robot
+- FUNZIONA ✅
+
+CONNESSIONE 2: External Control (Robot → PC, porta 50002)
+- Robot si connette alla macchina remota
+- Serve per inviare comandi di controllo
+- NON ancora attiva perché driver va in crash prima ❌
+
+Il problema NON è la connessione External Control, ma il crash del driver
+quando cerca di attivare i controller!
+
+================================================================================
+

@@ -1,0 +1,162 @@
+================================================================================
+📦 COME INSTALLARE L'URCap SUL ROBOT UR5e
+================================================================================
+
+⚠️ IMPORTANTE: L'URCap NON si installa sul PC Windows!
+L'URCap si installa SUL ROBOT UR tramite il Teach Pendant.
+
+================================================================================
+📍 DOVE SI TROVA IL FILE
+================================================================================
+
+File scaricato in locale:
+C:\Users\user\Documents\MekoAiAccelerator\metodo_guida_pratica\externalcontrol-1.0.5.urcap
+
+Dimensione: ~35 KB
+
+================================================================================
+🚀 PROCEDURA INSTALLAZIONE SUL ROBOT
+================================================================================
+
+PASSO 1: COPIA FILE SU USB
+---------------------------
+1. Prendi una chiavetta USB (formato FAT32)
+2. Copia il file "externalcontrol-1.0.5.urcap" sulla USB
+3. Assicurati che sia nella root della USB (non in sottocartelle)
+
+PASSO 2: INSERISCI USB NEL TEACH PENDANT
+------------------------------------------
+1. Spegni il robot (se necessario)
+2. Inserisci la chiavetta USB nel Teach Pendant del robot UR5e
+3. Accendi il robot e attendi il caricamento
+
+PASSO 3: INSTALLA URCap DAL TEACH PENDANT
+------------------------------------------
+1. Sul Teach Pendant, vai su:
+   Menu → Installation → URCaps
+
+2. Premi il pulsante "+" (aggiungi nuovo URCap)
+
+3. Naviga fino alla tua USB e seleziona:
+   "externalcontrol-1.0.5.urcap"
+
+4. Premi "Install" o "OK"
+
+5. Il sistema ti chiederà di riavviare il robot
+   → Premi "Yes" o "Restart"
+
+PASSO 4: VERIFICA INSTALLAZIONE
+-------------------------------
+1. Dopo il riavvio, vai su:
+   Menu → Installation → URCaps
+
+2. Dovresti vedere "External Control" nella lista degli URCap installati
+
+3. Se lo vedi, l'installazione è riuscita! ✅
+
+================================================================================
+⚙️ CONFIGURAZIONE PROGRAMMA SUL ROBOT
+================================================================================
+
+Dopo aver installato l'URCap, devi creare un programma che lo usa:
+
+PASSO 1: CREA NUOVO PROGRAMMA
+------------------------------
+1. Sul Teach Pendant: Menu → Program
+2. Crea nuovo programma (es: "ExternalControl")
+3. Premi "Structure" o "Program Tree"
+
+PASSO 2: AGGIUNGI NODO EXTERNAL CONTROL
+----------------------------------------
+1. Nella struttura programma, cerca "External Control"
+2. Trascinalo nel programma (o selezionalo e premi OK)
+3. Configura i parametri:
+   
+   ⚙️ PARAMETRI DA CONFIGURARE:
+   - IP Host: 192.168.10.191
+   - Porta: 50002
+   - Timeout: 20 (secondi)
+
+PASSO 3: SALVA E AVVIA
+-----------------------
+1. Salva il programma
+2. Premi PLAY (▶️) per avviare il programma
+3. Il robot dovrebbe mostrare "Waiting for connection..."
+4. Ora puoi connetterti dalla macchina remota!
+
+================================================================================
+🔍 VERIFICA CONNESSIONE
+================================================================================
+
+Sul Teach Pendant dovresti vedere:
+- Programma in esecuzione (PLAYING)
+- Messaggio: "Waiting for connection..." o "Connected"
+
+Se vedi errori:
+- Verifica che IP Host sia corretto: 192.168.10.191
+- Verifica che porta sia: 50002
+- Verifica che il robot sia sulla stessa rete della macchina remota
+
+================================================================================
+📋 CHECKLIST INSTALLAZIONE
+================================================================================
+
+[ ] File URCap copiato su USB
+[ ] USB inserita nel Teach Pendant
+[ ] URCap installato tramite Installation → URCaps
+[ ] Robot riavviato dopo installazione
+[ ] URCap visibile in Installation → URCaps
+[ ] Programma creato con nodo External Control
+[ ] IP Host configurato: 192.168.10.191
+[ ] Porta configurata: 50002
+[ ] Programma salvato
+[ ] Programma avviato (PLAYING)
+[ ] Robot mostra "Waiting for connection..."
+
+================================================================================
+❌ PROBLEMI COMUNI
+================================================================================
+
+PROBLEMA: "URCap non trovato"
+SOLUZIONE: 
+- Verifica che USB sia formattata FAT32
+- Verifica che file sia nella root della USB
+- Verifica che file abbia estensione .urcap
+
+PROBLEMA: "Installation failed"
+SOLUZIONE:
+- Verifica versione firmware robot (deve essere compatibile)
+- Prova a riavviare il robot prima di installare
+- Verifica che non ci siano altri URCap con conflitti
+
+PROBLEMA: "Nodo External Control non trovato"
+SOLUZIONE:
+- Verifica che URCap sia installato correttamente
+- Riavvia il robot dopo installazione
+- Controlla che versione URCap sia compatibile con firmware robot
+
+================================================================================
+📞 SUPPORTO
+================================================================================
+
+Se hai problemi:
+1. Verifica che file sia scaricato correttamente
+2. Controlla versione firmware robot sul Teach Pendant
+3. Leggi ISTRUZIONI_COMPLETE.txt per troubleshooting dettagliato
+
+================================================================================
+✅ RIEPILOGO
+================================================================================
+
+1. File URCap è in: metodo_guida_pratica\externalcontrol-1.0.5.urcap
+2. Copialo su USB
+3. Inserisci USB nel Teach Pendant
+4. Installation → URCaps → + → Seleziona file → Install
+5. Riavvia robot
+6. Crea programma con nodo External Control
+7. Configura IP: 192.168.10.191, Porta: 50002
+8. Avvia programma (PLAY)
+
+================================================================================
+
+

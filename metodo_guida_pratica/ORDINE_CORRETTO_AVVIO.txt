@@ -1,0 +1,55 @@
+================================================================================
+✅ ORDINE CORRETTO DI AVVIO - PROBLEMA RISOLTO!
+================================================================================
+
+HO MODIFICATO LO SCRIPT START_RAPIDO.sh!
+
+Ora lo script avvia il driver ROS2 ANCHE se la porta 50002 non è ancora aperta.
+
+================================================================================
+🚀 PROCEDURA CORRETTA (ORDINE IMPORTANTE!)
+================================================================================
+
+PASSO 1: AVVIA DRIVER ROS2 PRIMA
+---------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+Lo script ora avvia il driver anche se la porta 50002 non è aperta!
+Aspetta che vedi messaggi ROS2 e "Waiting for connection..."
+
+PASSO 2: POI AVVIA PROGRAMMA SUL ROBOT
+---------------------------------------
+Sul Teach Pendant:
+1. Verifica configurazione External Control:
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+   - Timeout: 20
+2. Premi PLAY
+3. Il programma dovrebbe rimanere in PLAYING e connettersi!
+
+================================================================================
+📋 COSA SUCCEDE ORA
+================================================================================
+
+1. ✅ Driver ROS2 si avvia e va in ascolto sulla porta 50002
+2. ✅ Driver mostra "Waiting for connection..."
+3. ✅ Sul Teach Pendant: avvii programma External Control (PLAY)
+4. ✅ Robot si connette al driver ROS2
+5. ✅ Connessione completata!
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+ORDINE CORRETTO:
+1. Avvia driver ROS2 PRIMA (START_RAPIDO.sh)
+2. Aspetta "Waiting for connection..."
+3. POI avvia programma sul robot (PLAY)
+4. Robot si connette e tutto funziona!
+
+================================================================================
+
+

@@ -1,0 +1,47 @@
+================================================================================
+🔧 SOLUZIONE SENZA EXTERNAL CONTROL
+================================================================================
+
+NON HAI EXTERNAL CONTROL? NESSUN PROBLEMA!
+Il controllo via socket (porta 30002) funziona senza External Control.
+
+COSA FARE SUL TEACH PENDANT:
+-----------------------------
+
+1. Crea un programma minimale:
+   - Teach Pendant → Program → New
+   - Aggiungi questo codice:
+
+   def main():
+       while True:
+           sync()
+   end
+   
+   main()
+
+2. Salva come: remote_control.urp
+
+3. Metti robot in modalità REMOTE (non Local)
+
+4. Premi PLAY
+
+5. Il programma deve essere in stato PLAYING (non STOPPED)
+
+VERIFICA:
+---------
+Sull'AI Accelerator:
+   bash diagnostica_completa.sh
+
+Dovresti vedere:
+   ✅ Robot in RUNNING
+   ✅ Program State: PLAYING (non STOPPED)
+   ✅ Remote Control: true
+
+POI USA WEB INTERFACE:
+---------------------
+http://192.168.10.191:8081
+
+Il joystick funzionerà via socket diretto (non serve ROS2)!
+
+================================================================================
+

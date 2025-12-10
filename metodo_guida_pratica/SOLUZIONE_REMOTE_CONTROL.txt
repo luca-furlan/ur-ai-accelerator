@@ -1,0 +1,115 @@
+================================================================================
+🔑 SOLUZIONE DEFINITIVA: REMOTE CONTROL È OBBLIGATORIO!
+================================================================================
+
+PROBLEMA IDENTIFICATO:
+Il robot dice "Connection Refused" perché probabilmente Remote Control NON è abilitato!
+
+================================================================================
+⚠️ REMOTE CONTROL È OBBLIGATORIO!
+================================================================================
+
+Secondo la documentazione ufficiale Universal Robots:
+"Several functions shared in this guide will require the robot to be in Remote Control mode"
+
+SENZA Remote Control abilitato, External Control NON funziona!
+
+================================================================================
+✅ COSA FARE SUL TEACH PENDANT
+================================================================================
+
+PASSO 1: ABILITA REMOTE CONTROL (OBBLIGATORIO!)
+------------------------------------------------
+1. Sul Teach Pendant: Menu (☰) → Settings → System → Remote Control
+2. Premi "Enable"
+3. Verifica che appaia il pulsante "Remote Control" in alto a destra
+   (accanto al safety checksum)
+
+PASSO 2: VERIFICA REMOTE CONTROL ABILITATO
+-------------------------------------------
+Dalla macchina remota, verifica:
+ssh lab@192.168.10.191
+echo "is in remote control" | nc 192.168.10.194 29999
+
+Deve rispondere: "true"
+Se risponde "false", Remote Control NON è abilitato!
+
+PASSO 3: CONFIGURA EXTERNAL CONTROL
+------------------------------------
+1. Crea programma con nodo "External Control"
+2. Configura:
+   - Host IP: 192.168.10.191 (IP macchina remota)
+   - Porta: 50002
+   - Timeout: 20
+3. Salva programma
+
+PASSO 4: AVVIA PROGRAMMA
+------------------------
+1. STOP programma (se è in esecuzione)
+2. PLAY programma
+3. Verifica che programma sia in PLAYING
+4. Verifica che Remote Control sia attivo
+
+PASSO 5: VERIFICA PORTA 50002
+------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+nc -zv 192.168.10.194 50002
+
+Se funziona, vedrai: "Connection succeeded!"
+
+================================================================================
+🔍 VERIFICA COMPLETA
+================================================================================
+
+Esegui questo script per verificare tutto:
+
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./FIX_URCAP_CONNECTION_REFUSED.sh
+
+Dovresti vedere:
+✅ Remote Control: true
+✅ Programma: PLAYING
+✅ Porta 50002: APERTA
+
+================================================================================
+❌ SE REMOTE CONTROL È FALSE
+================================================================================
+
+Se Remote Control è "false":
+
+1. Vai sul Teach Pendant
+2. Menu → Settings → System → Remote Control
+3. Premi "Enable"
+4. Verifica che pulsante "Remote Control" appaia in alto a destra
+5. Riavvia programma External Control
+
+================================================================================
+📋 CHECKLIST COMPLETA
+================================================================================
+
+[ ] Remote Control abilitato sul Teach Pendant
+[ ] Pulsante "Remote Control" visibile in alto a destra
+[ ] Verifica Remote Control: "true" (via nc 29999)
+[ ] Programma con External Control creato
+[ ] Host IP: 192.168.10.191
+[ ] Porta: 50002
+[ ] Programma in PLAYING
+[ ] Porta 50002 aperta (verifica con nc -zv)
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+IL PROBLEMA PRINCIPALE È PROBABILMENTE:
+❌ Remote Control NON abilitato!
+
+SOLUZIONE:
+✅ Abilita Remote Control sul Teach Pendant
+✅ Poi configura External Control
+✅ Poi avvia programma
+
+================================================================================
+
+

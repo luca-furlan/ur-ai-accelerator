@@ -1,0 +1,40 @@
+================================================================================
+📱 CONFIGURAZIONE TEACH PENDANT - EXTERNAL CONTROL
+================================================================================
+
+PASSO 1: Crea/Apri Programma
+-----------------------------
+1. Sul Teach Pendant → Program
+2. Crea nuovo programma o apri esistente
+
+PASSO 2: Aggiungi External Control
+-----------------------------------
+1. Nel programma → Structure (o URCaps)
+2. Cerca "External Control"
+3. Trascina nel programma
+   (Se non c'è: URCaps → Install → Cerca "External Control")
+
+PASSO 3: Configura External Control
+------------------------------------
+Clicca sul nodo External Control e imposta:
+   IP Host: 192.168.10.191
+   Porta: 50002
+   Timeout: default (30 sec)
+
+PASSO 4: Salva e Avvia
+----------------------
+1. Salva programma (es: ros_control.urp)
+2. Assicurati modalità REMOTE (non Local)
+3. Premi PLAY
+
+VERIFICA:
+---------
+Il programma deve essere in stato PLAYING (non STOPPED)
+
+Sull'AI Accelerator verifica:
+   ros2 node list | grep ur
+
+Dovresti vedere nodi UR attivi.
+
+================================================================================
+

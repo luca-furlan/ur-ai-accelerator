@@ -1,0 +1,141 @@
+================================================================================
+🔧 FIX COMPLETO: RTDE Overflow + Errore Compilazione Teach Pendant
+================================================================================
+
+PROBLEMA 1: RTDE Pipeline Overflow
+-----------------------------------
+Errore: "Pipeline producer overflowed! <RTDE Data Pipeline>"
+
+CAUSA:
+- RTDE può essere usato da UN SOLO processo alla volta
+- Se web interface E driver ROS2 usano RTDE insieme → overflow!
+
+PROBLEMA 2: Errore Compilazione Teach Pendant
+----------------------------------------------
+Il programma sul Teach Pendant ha un errore di compilazione.
+
+================================================================================
+✅ SOLUZIONE COMPLETA
+================================================================================
+
+PASSO 1: FERMA TUTTO
+--------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./FERMA_TUTTO_E_RIACCENDI.sh
+
+Questo ferma tutti i processi RTDE.
+
+PASSO 2: CORREGGI ERRORE COMPILAZIONE SUL TEACH PENDANT
+--------------------------------------------------------
+Sul Teach Pendant:
+
+1. Apri il programma che dà errore
+2. Verifica quale errore vedi (es: "Syntax error", "Variable not defined", etc.)
+3. Errori comuni:
+   
+   a) SINTASSI ERRATA:
+      - Verifica parentesi, virgolette, punti e virgola
+      - Controlla che comandi URScript siano corretti
+   
+   b) NODO EXTERNAL CONTROL CONFIGURATO MALE:
+      - Verifica che Host IP sia: 192.168.10.191
+      - Verifica che Porta sia: 50002
+      - Verifica che nodo sia nella struttura corretta
+   
+   c) VARIABILI NON DEFINITE:
+      - Se usi variabili, assicurati che siano definite prima
+   
+   d) PROGRAMMA TROPPO COMPLESSO:
+      - Prova a creare programma MINIMALE solo con External Control
+      - Aggiungi altro codice dopo che funziona
+
+4. Correggi l'errore
+5. Salva programma
+6. Verifica che programma compili senza errori
+
+PASSO 3: CREA PROGRAMMA MINIMALE (se errore persiste)
+------------------------------------------------------
+Sul Teach Pendant, crea programma NUOVO minimale:
+
+1. Crea nuovo programma (es: "external_control_minimal.urp")
+2. Aggiungi SOLO nodo "External Control"
+3. Configura:
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+   - Timeout: 20
+4. Salva programma
+5. Verifica che compili senza errori
+6. Se compila OK, avvia (PLAY)
+
+PASSO 4: RIAVVIA DRIVER ROS2 (SOLO DOPO CHE PROGRAMMA COMPILA)
+---------------------------------------------------------------
+Dalla macchina remota:
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+IMPORTANTE:
+- Avvia driver SOLO dopo che programma compila senza errori
+- Assicurati che NON ci siano altri processi RTDE attivi
+
+PASSO 5: AVVIA PROGRAMMA SUL ROBOT
+------------------------------------
+Sul Teach Pendant:
+1. Verifica che programma compili senza errori
+2. Premi PLAY
+3. Programma dovrebbe rimanere in PLAYING
+
+================================================================================
+🔍 VERIFICA ERRORE COMPILAZIONE TEACH PENDANT
+================================================================================
+
+Sul Teach Pendant, quando apri il programma, dovresti vedere:
+
+✅ PROGRAMMA OK:
+   - Nessun errore rosso
+   - Programma compila correttamente
+   - Puoi salvare senza errori
+
+❌ ERRORE COMPILAZIONE:
+   - Messaggio di errore rosso
+   - Programma non compila
+   - Non puoi salvare o avviare
+
+ERRORI COMUNI:
+
+1. "Syntax error" → Controlla sintassi script
+2. "Variable not defined" → Definisci variabili prima di usarle
+3. "External Control not configured" → Configura nodo External Control
+4. "Invalid IP address" → Verifica Host IP: 192.168.10.191
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Tutti i processi RTDE fermati
+[ ] Errore compilazione Teach Pendant corretto
+[ ] Programma compila senza errori
+[ ] Programma minimale creato (se necessario)
+[ ] Driver ROS2 riavviato (SOLO dopo che programma compila)
+[ ] Programma sul robot in PLAYING
+[ ] Nessun errore RTDE overflow
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+1. Ferma tutti i processi RTDE
+2. Correggi errore compilazione sul Teach Pendant
+3. Crea programma minimale se necessario
+4. Riavvia driver ROS2
+5. Avvia programma sul robot
+
+IMPORTANTE:
+- RTDE può essere usato da UN SOLO processo alla volta!
+- Se driver ROS2 è attivo → NON avviare web interface
+- Se web interface è attiva → NON avviare driver ROS2
+
+================================================================================
+
+

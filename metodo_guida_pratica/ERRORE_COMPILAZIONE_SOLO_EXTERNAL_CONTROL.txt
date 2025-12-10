@@ -1,0 +1,77 @@
+================================================================================
+🔧 ERRORE COMPILAZIONE CON SOLO EXTERNAL CONTROL
+================================================================================
+
+Se il programma contiene SOLO External Control e dà errore di compilazione,
+il problema è nella CONFIGURAZIONE del nodo!
+
+================================================================================
+✅ CONFIGURAZIONE ESATTA DA INSERIRE
+================================================================================
+
+Sul Teach Pendant, nel nodo External Control:
+
+Campo "Host IP":
+----------------
+INSERISCI ESATTAMENTE (carattere per carattere):
+192.168.10.191
+
+VERIFICA:
+- 192 (tre cifre)
+- . (punto)
+- 168 (tre cifre)
+- . (punto)
+- 10 (due cifre)
+- . (punto)
+- 191 (tre cifre)
+- NIENTE ALTRO dopo!
+
+Campo "Porta" o "Port":
+------------------------
+INSERISCI ESATTAMENTE:
+50002
+
+VERIFICA:
+- Solo numero
+- Niente spazi
+- Niente punti
+- Niente due punti
+- Niente altro carattere
+
+Campo "Host Name":
+------------------
+LASCIA COMPLETAMENTE VUOTO!
+
+Campo "Timeout":
+-----------------
+20 (o lascia default)
+
+================================================================================
+❌ COSA NON FARE
+================================================================================
+
+NON mettere:
+- Spazi nell'IP
+- Porta insieme all'IP
+- Caratteri extra nella porta
+- IP nel campo Host Name
+- Porta nel campo Host IP
+
+================================================================================
+🔍 SE ANCORA ERRORE
+================================================================================
+
+Dimmi ESATTAMENTE:
+1. Quale errore vedi sul Teach Pendant?
+   (es: "Invalid IP", "Port error", "Connection failed", etc.)
+
+2. Cosa c'è scritto ESATTAMENTE nei campi?
+   - Host IP: _______________
+   - Porta: _______________
+
+3. L'URCap è installato correttamente?
+   (Installation → URCaps → External Control presente?)
+
+================================================================================
+
+

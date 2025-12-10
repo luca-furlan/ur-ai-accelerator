@@ -1,0 +1,104 @@
+================================================================================
+AVVIA WEB INTERFACE - ISTRUZIONI IMMEDIATE
+================================================================================
+
+La web interface è pronta ma deve essere avviata SULL'AI ACCELERATOR.
+
+================================================================================
+PASSO 1: Connettiti all'AI Accelerator
+================================================================================
+
+Apri un terminale e connettiti:
+
+    ssh lab@192.168.10.191
+
+================================================================================
+PASSO 2: Vai nella directory
+================================================================================
+
+    cd ~/MekoAiAccelerator
+
+================================================================================
+PASSO 3: Avvia Web Interface
+================================================================================
+
+Copia e incolla questi comandi:
+
+    export UR_ROBOT_IP=192.168.10.194
+    export WEB_PORT=8081
+    python3 -m remote_ur_control.web_interface
+
+Dovresti vedere:
+    🌐 Starting web interface on http://0.0.0.0:8081
+    * Running on http://192.168.10.191:8081
+
+================================================================================
+PASSO 4: Apri Browser
+================================================================================
+
+Apri il browser e vai su:
+
+    http://192.168.10.191:8081
+
+Dovresti vedere:
+    - ROS2 Monitor (in alto)
+    - Robot Status (sotto) - CON JOINTS E TCP POSE IN TEMPO REALE
+    - Joystick e controlli (sotto)
+
+================================================================================
+OPZIONE: Avvia in Background
+================================================================================
+
+Se vuoi avviare in background (per lasciare il terminale libero):
+
+    export UR_ROBOT_IP=192.168.10.194
+    export WEB_PORT=8081
+    nohup python3 -m remote_ur_control.web_interface > /tmp/web_interface.log 2>&1 &
+
+Poi verifica che sia attiva:
+    curl http://192.168.10.191:8081/
+
+================================================================================
+VERIFICA STATO ROBOT
+================================================================================
+
+Nella web interface, il pannello "Robot Status" mostra:
+    - Robot Mode: RUNNING/IDLE/POWER_OFF
+    - Safety Mode: NORMAL/PROTECTIVE_STOP
+    - Program State: PLAYING/STOPPED
+    - Remote Control: true/false
+    - Joint Positions: [valori aggiornati ogni 2 secondi]
+    - TCP Pose: [valori aggiornati ogni 2 secondi]
+
+================================================================================
+SE NON FUNZIONA
+================================================================================
+
+1. Verifica che robot sia acceso:
+   ping 192.168.10.194
+
+2. Verifica che ur_rtde sia installato:
+   python3 -c "import ur_rtde; print('OK')"
+   
+   Se non installato:
+   pip3 install --user ur-rtde
+
+3. Controlla log:
+   tail -f /tmp/web_interface.log
+
+================================================================================
+RIEPILOGO
+================================================================================
+
+✅ Web interface pronta e configurata
+✅ Endpoint /api/robot_status aggiunto
+✅ Pannello Robot Status nell'interfaccia HTML
+✅ Aggiornamento automatico ogni 2 secondi
+
+❌ Web interface NON ancora avviata (devi avviarla manualmente)
+
+================================================================================
+
+
+
+

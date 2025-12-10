@@ -1,0 +1,120 @@
+================================================================================
+🔧 SOLUZIONE DALLA ISSUE #37 SU GITHUB
+================================================================================
+
+Issue GitHub: #37 - "External Control URCap program throws connection error"
+Status: Open con "solution proposed"
+
+================================================================================
+📋 PROBLEMA COMUNE
+================================================================================
+
+Molti utenti hanno lo stesso problema: "connection could not be established"
+
+CAUSE COMUNI:
+1. Driver ROS2 non avviato PRIMA di avviare programma sul robot
+2. Macchina remota non in ascolto sulla porta 50002
+3. Configurazione IP/Porta errata
+4. Firewall che blocca connessione
+
+================================================================================
+✅ SOLUZIONE PROPOSTA NELL'ISSUE #37
+================================================================================
+
+ORDINE CORRETTO DI AVVIO:
+
+1. AVVIA DRIVER ROS2 PRIMA
+   ------------------------
+   Dalla macchina remota:
+   ssh lab@192.168.10.191
+   cd ~/MekoAiAccelerator/metodo_guida_pratica
+   ./START_RAPIDO.sh
+   
+   Aspetta che vedi: "Waiting for connection..." o "Listening on port 50002"
+
+2. POI AVVIA PROGRAMMA SUL ROBOT
+   ------------------------------
+   Sul Teach Pendant:
+   - Configura External Control:
+     * Host IP: 192.168.10.191
+     * Porta: 50002
+   - Premi PLAY
+   - Il robot si connetterà al driver
+
+================================================================================
+🔍 VERIFICA CONFIGURAZIONE CORRETTA
+================================================================================
+
+Sul Teach Pendant, nel nodo External Control:
+
+Host IP: 192.168.10.191  ← IP della MACCHINA REMOTA (dove gira ROS2)
+Porta: 50002              ← Porta su cui macchina remota ascolta
+
+IMPORTANTE:
+- Il robot si CONNETTE alla macchina remota
+- La macchina remota DEVE essere in ascolto PRIMA
+- Il driver ROS2 mette la macchina remota in ascolto
+
+================================================================================
+🚀 PROCEDURA COMPLETA
+================================================================================
+
+PASSO 1: FERMA TUTTO
+--------------------
+Dalla macchina remota:
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./FERMA_TUTTO_E_RIACCENDI.sh
+
+PASSO 2: AVVIA DRIVER ROS2 PRIMA
+---------------------------------
+Dalla macchina remota:
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+Aspetta che vedi messaggi ROS2 e "Waiting for connection..."
+
+PASSO 3: VERIFICA MACCHINA IN ASCOLTO
+-------------------------------------
+Dalla macchina remota (in altro terminale):
+netstat -tuln | grep 50002
+
+Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+PASSO 4: CONFIGURA TEACH PENDANT
+---------------------------------
+Sul Teach Pendant:
+- Host IP: 192.168.10.191
+- Porta: 50002
+- Salva programma
+
+PASSO 5: AVVIA PROGRAMMA SUL ROBOT
+-----------------------------------
+Sul Teach Pendant:
+- Premi PLAY
+- Il robot si connetterà alla macchina remota
+- Dovresti vedere "Connected" o nessun errore
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Driver ROS2 avviato PRIMA
+[ ] Macchina remota in ascolto sulla 50002 (verifica con netstat)
+[ ] Teach Pendant: Host IP = 192.168.10.191
+[ ] Teach Pendant: Porta = 50002
+[ ] Programma avviato DOPO che driver è pronto
+[ ] Nessun errore "connection could not be established"
+
+================================================================================
+🔗 RIFERIMENTI
+================================================================================
+
+GitHub Issue #37:
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap/issues/37
+
+Repository URCap:
+https://github.com/UniversalRobots/Universal_Robots_ExternalControl_URCap
+
+================================================================================
+
+

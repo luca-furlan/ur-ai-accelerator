@@ -1,0 +1,169 @@
+================================================================================
+✅ CONFIGURAZIONE CORRETTA EXTERNAL CONTROL
+================================================================================
+
+SEI GIÀ IN REMOTE CONTROL - PERFETTO! ✅
+
+Ora devi solo configurare External Control correttamente.
+
+================================================================================
+🎯 CONFIGURAZIONE SUL TEACH PENDANT
+================================================================================
+
+Nel nodo "External Control" sul Teach Pendant:
+
+OPZIONE 1: Host IP VUOTO (CONSIGLIATO)
+--------------------------------------
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ Host IP:     (VUOTO o 0.0.0.0)      │ ← LASCIA VUOTO!
+│ Host Name:   (vuoto)                │
+│ Porta:       50002                   │ ← INSERISCI QUESTO!
+│ Timeout:     20                      │
+└─────────────────────────────────────┘
+
+SPIEGAZIONE:
+- Host IP VUOTO = Il robot ASPETTA connessioni invece di connettersi
+- Porta 50002 = Porta su cui il robot ascolta
+
+OPZIONE 2: Host IP = IP Macchina Remota
+----------------------------------------
+┌─────────────────────────────────────┐
+│ External Control                    │
+├─────────────────────────────────────┤
+│ Host IP:     192.168.10.191         │ ← IP MACCHINA REMOTA
+│ Host Name:   (vuoto)                │
+│ Porta:       50002                   │
+│ Timeout:     20                      │
+└─────────────────────────────────────┘
+
+SPIEGAZIONE:
+- Host IP = IP della macchina remota
+- Il robot si connette alla macchina remota
+- La macchina remota DEVE essere in ascolto PRIMA
+
+================================================================================
+🚀 PROCEDURA COMPLETA
+================================================================================
+
+METODO 1: Robot Aspetta Connessioni (CONSIGLIATO)
+--------------------------------------------------
+
+PASSO 1: Configura Teach Pendant
+---------------------------------
+1. Apri programma con External Control
+2. Configura:
+   - Host IP: (LASCIA VUOTO o metti 0.0.0.0)
+   - Porta: 50002
+   - Timeout: 20
+3. Salva programma
+
+PASSO 2: Avvia Programma
+-------------------------
+1. STOP programma (se è in esecuzione)
+2. PLAY programma
+3. Verifica che programma sia in PLAYING
+
+PASSO 3: Verifica Porta Aperta
+-------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+nc -zv 192.168.10.194 50002
+
+Se funziona: "Connection succeeded!" ✅
+
+PASSO 4: Avvia Driver ROS2
+---------------------------
+Dalla macchina remota:
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+Il driver si connetterà al robot!
+
+METODO 2: Robot Si Connette alla Macchina
+------------------------------------------
+
+PASSO 1: Avvia Driver ROS2 PRIMA
+---------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+./START_RAPIDO.sh
+
+Questo mette la macchina remota in ascolto sulla 50002.
+
+PASSO 2: Configura Teach Pendant
+---------------------------------
+1. Apri programma con External Control
+2. Configura:
+   - Host IP: 192.168.10.191
+   - Porta: 50002
+   - Timeout: 20
+3. Salva programma
+
+PASSO 3: Avvia Programma
+-------------------------
+1. STOP programma (se è in esecuzione)
+2. PLAY programma
+3. Il robot si connetterà alla macchina remota
+
+================================================================================
+🔍 COSA PROVARE ORA
+================================================================================
+
+PROVA QUESTA CONFIGURAZIONE SUL TEACH PENDANT:
+
+1. Host IP: (LASCIA COMPLETAMENTE VUOTO)
+2. Porta: 50002
+3. Timeout: 20
+4. Salva programma
+5. STOP programma
+6. PLAY programma
+
+Poi verifica dalla macchina remota:
+ssh lab@192.168.10.191
+nc -zv 192.168.10.194 50002
+
+Se vedi "Connection succeeded!", funziona! ✅
+
+================================================================================
+❓ PERCHÉ HOST IP VUOTO?
+================================================================================
+
+Host IP VUOTO significa:
+- Il robot NON prova a connettersi
+- Il robot ASPETTA connessioni sulla porta 50002
+- Il driver ROS2 si connette AL robot
+
+Questo è il comportamento standard per External Control!
+
+================================================================================
+📋 CHECKLIST
+================================================================================
+
+[ ] Remote Control abilitato ✅ (già fatto!)
+[ ] Programma con External Control creato
+[ ] Host IP: (VUOTO) ← PROVA QUESTO!
+[ ] Porta: 50002
+[ ] Timeout: 20
+[ ] Programma salvato
+[ ] Programma in PLAYING
+[ ] Porta 50002 aperta (verifica con nc -zv)
+
+================================================================================
+🎯 RIEPILOGO
+================================================================================
+
+SEI GIÀ IN REMOTE CONTROL - PERFETTO! ✅
+
+ORA:
+1. Configura External Control con Host IP VUOTO
+2. Porta: 50002
+3. Avvia programma
+4. Verifica porta 50002 aperta
+5. Avvia driver ROS2
+
+================================================================================
+
+

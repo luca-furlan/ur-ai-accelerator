@@ -1,0 +1,153 @@
+================================================================================
+🚨 SOLUZIONE DEFINITIVA: DRIVER VA IN CRASH
+================================================================================
+
+PROBLEMA IDENTIFICATO:
+- Driver ROS2 va in segmentation fault quando si avvia
+- Quindi NON si mette in ascolto sulla porta 50002
+- Robot cerca di connettersi ma trova "Connection refused"
+- Programma sul Teach Pendant va in errore
+
+È UN CIRCOLO VIZIOSO!
+
+================================================================================
+🔴 CAUSA PRINCIPALE (Issue #31 GitHub)
+================================================================================
+
+Il crash è causato da:
+- EtherNet/IP ABILITATO sul robot
+- EtherNet/IP occupa le variabili RTDE
+- Driver ROS2 non può usare RTDE → CRASH
+
+================================================================================
+✅ SOLUZIONE IMMEDIATA
+================================================================================
+
+PASSO 1: DISABILITA ETHERNET/IP SUL ROBOT (CRITICO!)
+-----------------------------------------------------
+Sul Teach Pendant:
+1. Vai su: Installation → Fieldbus
+2. Cerca "EtherNet/IP"
+3. DISABILITALO ❌
+4. Verifica anche PROFINET è DISABILITATO ❌
+5. Solo Ethernet normale può essere abilitato ✅
+
+QUESTO È IL PASSO PIÙ IMPORTANTE!
+
+PASSO 2: VERIFICA REMOTE CONTROL
+----------------------------------
+Sul Teach Pendant:
+1. Vai su: Settings → System → Remote Control
+2. Deve essere "Enabled"
+
+PASSO 3: CONFIGURA EXTERNAL CONTROL (NON AVVIARE ANCORA!)
+----------------------------------------------------------
+Sul Teach Pendant:
+1. Crea programma con nodo External Control
+2. Configura:
+   - Host IP: 192.168.10.191
+   - Port: 50002
+   - Host Name: (vuoto)
+3. SALVA programma
+4. NON avviare ancora (STOP)
+
+PASSO 4: AVVIA DRIVER ROS2 PRIMA
+---------------------------------
+Dalla macchina remota:
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator/metodo_guida_pratica
+
+# Ferma tutto
+pkill -f ur_robot_driver
+
+# Apri porta firewall
+sudo ufw allow 50002
+sudo ufw reload
+
+# Avvia driver
+./START_RAPIDO.sh
+
+ASPETTA che vedi:
+- "System successfully started!"
+- "Robot connected to reverse interface"
+- Nessun "Segmentation fault"
+
+PASSO 5: VERIFICA PC IN ASCOLTO
+--------------------------------
+Dalla macchina remota (in altro terminale):
+netstat -tuln | grep 50002
+
+Dovresti vedere: "0.0.0.0:50002" in LISTEN
+
+PASSO 6: SOLO ORA AVVIA PROGRAMMA SUL ROBOT
+---------------------------------------------
+Sul Teach Pendant:
+1. Verifica EtherNet/IP è DISABILITATO
+2. Verifica Remote Control è abilitato
+3. Verifica configurazione External Control corretta
+4. Premi PLAY
+
+Ora dovrebbe funzionare!
+
+================================================================================
+🔍 SE IL DRIVER ANCORA VA IN CRASH
+================================================================================
+
+Verifica log per errori specifici:
+
+tail -100 /tmp/driver_ros2_fix.log | grep -E "Variable.*controlled|RTDE|EtherNet"
+
+Se vedi:
+- "Variable 'speed_slider_mask' is currently controlled by another RTDE client"
+  → EtherNet/IP è ancora abilitato!
+
+- "Segmentation fault"
+  → EtherNet/IP o altro processo RTDE attivo
+
+SOLUZIONE:
+1. DISABILITA EtherNet/IP sul robot
+2. Riavvia robot (power cycle)
+3. Riavvia driver ROS2
+
+================================================================================
+📋 CHECKLIST COMPLETA
+================================================================================
+
+PRIMA DI AVVIARE DRIVER ROS2:
+[ ] EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)
+[ ] PROFINET DISABILITATO sul robot (Installation → Fieldbus)
+[ ] Remote Control abilitato (Settings → System → Remote Control)
+[ ] Nessun altro processo RTDE attivo sulla macchina remota
+
+PRIMA DI AVVIARE PROGRAMMA SUL ROBOT:
+[ ] Driver ROS2 avviato e funzionante (nessun crash)
+[ ] PC in ascolto sulla porta 50002 (netstat -tuln | grep 50002)
+[ ] Configurazione External Control corretta (Host IP = 192.168.10.191, Port = 50002)
+[ ] Programma salvato
+
+================================================================================
+💡 PERCHÉ IL PROGRAMMA VA IN ERRORE
+================================================================================
+
+Il programma sul Teach Pendant va in errore perché:
+1. Il robot cerca di connettersi al PC sulla porta 50002
+2. Ma il PC NON è in ascolto (driver crashato)
+3. Quindi "Connection refused"
+
+Il PC NON è in ascolto perché:
+1. Il driver ROS2 va in crash quando si avvia
+2. Il crash è causato da EtherNet/IP abilitato sul robot
+
+QUINDI:
+- Il problema NON è il programma sul robot
+- Il problema È il driver ROS2 che va in crash
+- La causa È EtherNet/IP abilitato sul robot
+
+================================================================================
+🎯 SOLUZIONE IN UNA FRASE
+================================================================================
+
+DISABILITA ETHERNET/IP SUL ROBOT, POI RIAVVIA DRIVER ROS2!
+
+================================================================================
+
