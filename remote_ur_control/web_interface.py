@@ -747,6 +747,31 @@ HTML_TEMPLATE = """
           </button>
           <div id="step-d-message" style="margin-top: 6px; padding: 6px; background: #fff; border-radius: 4px; font-size: 11px; color: #666; min-height: 30px;"></div>
         </div>
+        
+        <!-- Controlli Robot senza Teach Pendant -->
+        <div id="robot-control-panel" style="flex: 1; min-width: 300px; padding: 12px; border: 2px solid #0066cc; border-radius: 6px; background: #f0f7ff; margin-top: 12px; grid-column: 1 / -1;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+            <span style="font-size: 20px;">🎮</span>
+            <h3 style="margin: 0; flex: 1; font-size: 16px; color: #0066cc;">Controllo Robot senza Teach Pendant</h3>
+          </div>
+          <div style="font-size: 12px; color: #666; margin-bottom: 12px;">
+            Usa questi controlli se non hai accesso fisico al Teach Pendant. Alcune operazioni (come abilitare Remote Control) devono essere fatte via VNC.
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px;">
+            <button type="button" class="primary-btn" id="btn-power-on" style="font-size: 12px; padding: 8px;">⚡ Power On</button>
+            <button type="button" class="primary-btn" id="btn-brake-release" style="font-size: 12px; padding: 8px;">🔓 Brake Release</button>
+            <button type="button" class="primary-btn" id="btn-play" style="font-size: 12px; padding: 8px;">▶️ Play</button>
+            <button type="button" class="secondary-btn" id="btn-stop" style="font-size: 12px; padding: 8px;">⏹️ Stop</button>
+            <button type="button" class="secondary-btn" id="btn-pause" style="font-size: 12px; padding: 8px;">⏸️ Pause</button>
+            <button type="button" class="secondary-btn" id="btn-load-program" style="font-size: 12px; padding: 8px;">📂 Load Program</button>
+          </div>
+          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <input type="text" id="program-name-input" placeholder="Nome programma (es: remote_control.urp)" 
+                   style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
+            <button type="button" class="primary-btn" id="btn-load-program-name" style="font-size: 12px; padding: 6px 12px;">Carica</button>
+          </div>
+          <div id="robot-control-message" style="margin-top: 8px; padding: 8px; background: #fff; border-radius: 4px; font-size: 12px; color: #666; min-height: 20px; display: none;"></div>
+        </div>
 
         <!-- Step E: Verifica Connessione -->
         <div class="wizard-step" id="step-e" style="flex: 1; min-width: 180px; padding: 12px; border: 2px solid #ddd; border-radius: 6px; background: #f9f9f9; opacity: 0.5; position: relative;">
@@ -1704,6 +1729,93 @@ HTML_TEMPLATE = """
         wizardCheckTeachPendantBtn.addEventListener("click", () => {
           updateWizardStep('d', 'success', 'Verifica connessione in corso...');
           wizardStepE();
+        });
+      }
+
+      // --- Controlli Robot senza Teach Pendant ---
+      const robotControlMessage = document.getElementById("robot-control-message");
+      
+      function showRobotControlMessage(text, isError = false) {
+        if (robotControlMessage) {
+          robotControlMessage.textContent = text;
+          robotControlMessage.style.display = "block";
+          robotControlMessage.style.color = isError ? "#cc0000" : "#0066cc";
+          robotControlMessage.style.background = isError ? "#fff5f5" : "#f0f7ff";
+          setTimeout(() => {
+            robotControlMessage.style.display = "none";
+          }, 5000);
+        }
+      }
+
+      async function sendRobotControl(action, params = {}) {
+        try {
+          showRobotControlMessage(`🔄 Esecuzione: ${action}...`, false);
+          const response = await fetch("/api/robot_control", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action, ...params })
+          });
+          const payload = await response.json();
+          
+          if (payload.status === "ok") {
+            showRobotControlMessage(`✅ ${payload.message}`, false);
+            // Aggiorna stato robot dopo 1 secondo
+            setTimeout(() => fetchRobotStatus(), 1000);
+          } else {
+            showRobotControlMessage(`❌ ${payload.message}`, true);
+          }
+        } catch (err) {
+          showRobotControlMessage(`❌ Errore: ${err.message}`, true);
+        }
+      }
+
+      // Event listeners per i pulsanti controllo robot
+      const btnPowerOn = document.getElementById("btn-power-on");
+      const btnBrakeRelease = document.getElementById("btn-brake-release");
+      const btnPlay = document.getElementById("btn-play");
+      const btnStop = document.getElementById("btn-stop");
+      const btnPause = document.getElementById("btn-pause");
+      const btnLoadProgram = document.getElementById("btn-load-program");
+      const btnLoadProgramName = document.getElementById("btn-load-program-name");
+      const programNameInput = document.getElementById("program-name-input");
+
+      if (btnPowerOn) {
+        btnPowerOn.addEventListener("click", () => sendRobotControl("power_on"));
+      }
+      if (btnBrakeRelease) {
+        btnBrakeRelease.addEventListener("click", () => sendRobotControl("brake_release"));
+      }
+      if (btnPlay) {
+        btnPlay.addEventListener("click", () => sendRobotControl("play"));
+      }
+      if (btnStop) {
+        btnStop.addEventListener("click", () => sendRobotControl("stop"));
+      }
+      if (btnPause) {
+        btnPause.addEventListener("click", () => sendRobotControl("pause"));
+      }
+      if (btnLoadProgram) {
+        btnLoadProgram.addEventListener("click", () => {
+          const programName = prompt("Inserisci il nome del programma (es: remote_control.urp):");
+          if (programName) {
+            sendRobotControl("load", { program: programName });
+          }
+        });
+      }
+      if (btnLoadProgramName && programNameInput) {
+        btnLoadProgramName.addEventListener("click", () => {
+          const programName = programNameInput.value.trim();
+          if (programName) {
+            sendRobotControl("load", { program: programName });
+            programNameInput.value = "";
+          } else {
+            showRobotControlMessage("❌ Inserisci un nome programma", true);
+          }
+        });
+        programNameInput.addEventListener("keypress", (e) => {
+          if (e.key === "Enter") {
+            btnLoadProgramName.click();
+          }
         });
       }
 
@@ -2694,6 +2806,102 @@ def api_servo_loop_stop():
         controller = get_controller()
         controller.stop()
         return jsonify({"status": "ok", "message": "Socket stop"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/dashboard_command", methods=["POST"])
+def api_dashboard_command():
+    """Esegue un comando Dashboard Server sul robot."""
+    try:
+        payload = request.get_json(force=True)
+        command = payload.get("command", "").strip()
+        
+        if not command:
+            return jsonify({"status": "error", "message": "Comando non specificato"}), 400
+        
+        config = load_config()
+        dashboard = DashboardClient(config.robot_ip)
+        
+        try:
+            dashboard.connect()
+            response = dashboard.send_command(command)
+            dashboard.close()
+            
+            return jsonify({
+                "status": "ok",
+                "message": f"Comando eseguito: {command}",
+                "response": response
+            })
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": f"Errore esecuzione comando: {str(e)}"
+            }), 500
+            
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/api/robot_control", methods=["POST"])
+def api_robot_control():
+    """Controlla il robot (play, stop, load, power on, brake release, etc.)."""
+    try:
+        payload = request.get_json(force=True)
+        action = payload.get("action", "").strip().lower()
+        
+        if not action:
+            return jsonify({"status": "error", "message": "Azione non specificata"}), 400
+        
+        config = load_config()
+        dashboard = DashboardClient(config.robot_ip)
+        
+        # Mappa azioni a comandi Dashboard
+        action_map = {
+            "play": "play",
+            "stop": "stop",
+            "pause": "pause",
+            "power_on": "power on",
+            "power_off": "power off",
+            "brake_release": "brake release",
+            "shutdown": "shutdown",
+            "unlock_protective_stop": "unlock protective stop",
+            "close_safety_popup": "close safety popup",
+            "restart_safety": "restart safety",
+        }
+        
+        if action not in action_map:
+            # Per azioni speciali come "load", serve un parametro aggiuntivo
+            if action == "load":
+                program_name = payload.get("program", "").strip()
+                if not program_name:
+                    return jsonify({"status": "error", "message": "Nome programma non specificato"}), 400
+                command = f"load {program_name}"
+            else:
+                return jsonify({"status": "error", "message": f"Azione non supportata: {action}"}), 400
+        else:
+            command = action_map[action]
+        
+        try:
+            dashboard.connect()
+            response = dashboard.send_command(command)
+            dashboard.close()
+            
+            # Attendi un momento per operazioni che richiedono tempo
+            if action in ["play", "power_on", "brake_release"]:
+                time.sleep(1)
+            
+            return jsonify({
+                "status": "ok",
+                "message": f"Azione '{action}' eseguita",
+                "response": response
+            })
+        except Exception as e:
+            return jsonify({
+                "status": "error",
+                "message": f"Errore esecuzione azione '{action}': {str(e)}"
+            }), 500
+            
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
