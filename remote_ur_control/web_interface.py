@@ -5190,20 +5190,81 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
 fi
 echo "[OK] ur_ros2_control_node stabile (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
 
-# Se arriviamo qui, il processo è ancora vivo dopo 8 secondi - probabilmente OK
-# Verifica solo errori fatali che indicano un crash definitivo
+# VERIFICA FINALE: Aspetta che il driver completi l'inizializzazione e si connetta al robot
+# Questo può richiedere tempo, specialmente se il robot deve connettersi via External Control
+echo "[INFO] Attendo completamento inizializzazione e connessione robot (15s)..." >> /tmp/ros2_driver.log
+sleep 15
+
+# Verifica che il processo sia ancora vivo dopo l'attesa
+if ! ps -p $FOUND_PID > /dev/null 2>&1; then
+    echo "ERROR: ur_ros2_control_node è crashato dopo l'inizializzazione (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
+    echo "[ERROR] Cercando errori fatali nel log..." >> /tmp/ros2_driver.log
+    if grep -i "segmentation\|fault\|abort\|died\|killed\|failed" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
+        echo "" >> /tmp/ros2_driver.log
+    fi
+    echo "[ERROR] Ultimi 200 righe del log:" >> /tmp/ros2_driver.log
+    tail -200 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Diagnostica crash post-inizializzazione:" >> /tmp/ros2_driver.log
+    echo "  - Il driver crasha durante la connessione al robot" >> /tmp/ros2_driver.log
+    echo "  - Verifica EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)" >> /tmp/ros2_driver.log
+    echo "  - Verifica Remote Control abilitato (Settings → System → Remote Control)" >> /tmp/ros2_driver.log
+    echo "  - Verifica programma remote_control.urp in PLAYING sul Teach Pendant" >> /tmp/ros2_driver.log
+    echo "  - Verifica robot raggiungibile: ping -c 2 {config.robot_ip}" >> /tmp/ros2_driver.log
+    echo "ERROR"
+    exit 1
+fi
+
+# Verifica che la porta 50002 si apra (il driver deve mettersi in ascolto)
+echo "[INFO] Verifica porta 50002 in ascolto..." >> /tmp/ros2_driver.log
+PORT_OPEN=false
+for i in 1 2 3 4 5; do
+    if command -v lsof >/dev/null 2>&1; then
+        if lsof -ti :50002 >/dev/null 2>&1; then
+            PORT_OPEN=true
+            echo "[OK] Porta 50002 in ascolto (tentativo $i/5)" >> /tmp/ros2_driver.log
+            break
+        fi
+    elif command -v netstat >/dev/null 2>&1; then
+        if netstat -tuln 2>/dev/null | grep -q ":50002 "; then
+            PORT_OPEN=true
+            echo "[OK] Porta 50002 in ascolto (tentativo $i/5)" >> /tmp/ros2_driver.log
+            break
+        fi
+    fi
+    if [ $i -lt 5 ]; then
+        echo "[INFO] Porta 50002 non ancora aperta, attendo... (tentativo $i/5)" >> /tmp/ros2_driver.log
+        sleep 2
+    fi
+done
+
+# Verifica errori fatali nel log (anche se il processo è vivo, potrebbe essere in crash)
 if grep -q "process has died.*exit code -[0-9]" /tmp/ros2_driver.log 2>/dev/null; then
     # Se c'è un "process has died" con exit code negativo, verifica che il processo sia ancora vivo
-    # Se il processo è vivo, potrebbe essere un messaggio vecchio
     if ! ps -p $FOUND_PID > /dev/null 2>&1; then
-        echo "ERROR: Processo morto rilevato nel log" >> /tmp/ros2_driver.log
+        echo "ERROR: Processo morto rilevato nel log (exit code negativo)" >> /tmp/ros2_driver.log
+        echo "[ERROR] Ultimi 200 righe del log:" >> /tmp/ros2_driver.log
+        tail -200 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
         echo "ERROR"
         exit 1
     fi
 fi
 
+# Verifica finale che il processo sia ancora vivo
+if ! ps -p $FOUND_PID > /dev/null 2>&1; then
+    echo "ERROR: ur_ros2_control_node è crashato durante la verifica finale" >> /tmp/ros2_driver.log
+    echo "[ERROR] Ultimi 200 righe del log:" >> /tmp/ros2_driver.log
+    tail -200 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "ERROR"
+    exit 1
+fi
+
 # Se tutto ok, restituisci il PID del processo launch (non quello del nodo figlio)
-echo "[OK] Driver avviato correttamente: launch PID=$LAUNCH_PID, node PID=$FOUND_PID" >> /tmp/ros2_driver.log
+if [ "$PORT_OPEN" = true ]; then
+    echo "[OK] Driver avviato correttamente: launch PID=$LAUNCH_PID, node PID=$FOUND_PID, porta 50002 aperta" >> /tmp/ros2_driver.log
+else
+    echo "[WARN] Driver avviato ma porta 50002 non ancora aperta (potrebbe aprirsi dopo)" >> /tmp/ros2_driver.log
+    echo "[INFO] Driver PID=$LAUNCH_PID, node PID=$FOUND_PID" >> /tmp/ros2_driver.log
+fi
 echo $LAUNCH_PID
 exit 0
 """
