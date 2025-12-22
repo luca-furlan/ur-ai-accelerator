@@ -1572,7 +1572,7 @@ HTML_TEMPLATE = """
           rosStatusJson.textContent = JSON.stringify(payload, null, 2);
         }
         if (statusTimestamp) {
-          statusTimestamp.textContent = `Agg. ${new Date().toLocaleTimeString()}`;
+          statusTimestamp.textContent = 'Agg. ' + new Date().toLocaleTimeString();
         }
       }
 
@@ -1648,11 +1648,11 @@ HTML_TEMPLATE = """
 
         // RTDE data
         if (jointPositions && rtde.joints) {
-          jointPositions.textContent = `[${rtde.joints.map(j => j.toFixed(4)).join(", ")}]`;
+          jointPositions.textContent = '[' + rtde.joints.map(j => j.toFixed(4)).join(', ') + ']';
         }
 
         if (tcpPose && rtde.tcp_pose) {
-          tcpPose.textContent = `[${rtde.tcp_pose.map(p => p.toFixed(4)).join(", ")}]`;
+          tcpPose.textContent = '[' + rtde.tcp_pose.map(p => p.toFixed(4)).join(', ') + ']';
         }
 
         // Warnings
@@ -1824,7 +1824,7 @@ HTML_TEMPLATE = """
             // }
             
             if (systemStatusTimestamp) {
-              systemStatusTimestamp.textContent = `Agg. ${new Date().toLocaleTimeString()}`;
+              systemStatusTimestamp.textContent = 'Agg. ' + new Date().toLocaleTimeString();
             }
             
             if (showToast) {
