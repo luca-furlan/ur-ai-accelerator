@@ -2026,7 +2026,7 @@ HTML_TEMPLATE = """
         }
         
         // STEP 2: Verifica e kill processi esistenti (IMPORTANTE per evitare crash)
-        updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Pulizia processi esistenti...');
+        updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Pulizia processi esistenti e verifica porta 50002 libera...');
         try {
           const checkResponse = await fetch("/api/system/check_processes", {
             method: "POST",
@@ -2036,11 +2036,11 @@ HTML_TEMPLATE = """
           const checkPayload = await checkResponse.json();
           if (checkPayload.status === "ok") {
             if (checkPayload.data.duplicates_found) {
-              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Processi duplicati terminati. Attendo pulizia completa (5 secondi)...');
+              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Processi duplicati terminati. Verifico porta 50002 libera (5 secondi)...');
               await new Promise(resolve => setTimeout(resolve, 5000)); // Attendi 5 secondi per pulizia completa
             } else {
-              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Nessun processo duplicato. Procedo...');
-              await new Promise(resolve => setTimeout(resolve, 1000));
+              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Nessun processo duplicato. Verifico porta 50002 libera...');
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Attendi per verifica porta
             }
           }
         } catch (err) {
@@ -5133,7 +5133,7 @@ echo "[OK] Robot raggiungibile" >> /tmp/ros2_driver.log
 # IMPORTANTE: usa headless_mode:=true per far sì che il driver aspetti connessioni sulla porta 50002
 # senza cercare di connettersi immediatamente al robot (il robot si connetterà nello step D)
 # IMPORTANTE: usa nohup e disown per evitare che il processo venga killato quando lo script termina
-echo "[STEP 2/8] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
+echo "[STEP 2/9] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
 nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller headless_mode:=true >> /tmp/ros2_driver.log 2>&1 &
 LAUNCH_PID=$!
 echo "[OK] Processo launch avviato (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
@@ -5187,7 +5187,7 @@ echo "[OK] Processo launch ancora vivo (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.l
 
 # Cerca il processo ur_ros2_control_node (il processo principale del driver)
 # Aspetta con più tentativi per dare tempo al processo di avviarsi
-echo "[STEP 5/8] Cerca processo ur_ros2_control_node..." >> /tmp/ros2_driver.log
+echo "[STEP 5/9] Cerca processo ur_ros2_control_node..." >> /tmp/ros2_driver.log
 FOUND_PID=""
 for i in 1 2 3 4 5 6 7 8; do
     FOUND_PID=$(pgrep -f 'ur_ros2_control_node' | head -1)
