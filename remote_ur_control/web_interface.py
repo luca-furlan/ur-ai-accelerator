@@ -1520,10 +1520,10 @@ HTML_TEMPLATE = """
         const env = (bridge && bridge.env) || (payload && payload.env) || {};
         if (rosEnv) {
           rosEnv.textContent = [
-            env.ROS_DISTRO ? `ROS ${env.ROS_DISTRO}` : "ROS? n/d",
-            env.LD_LIBRARY_PATH ? "LD_LIB ✓" : "LD_LIB ✗",
-            env.PYTHONPATH ? "PYTHONPATH ✓" : "PYTHONPATH ✗",
-            env.HOSTNAME ? `Host: ${env.HOSTNAME}` : null,
+            env.ROS_DISTRO ? 'ROS ' + env.ROS_DISTRO : 'ROS? n/d',
+            env.LD_LIBRARY_PATH ? 'LD_LIB ✓' : 'LD_LIB ✗',
+            env.PYTHONPATH ? 'PYTHONPATH ✓' : 'PYTHONPATH ✗',
+            env.HOSTNAME ? 'Host: ' + env.HOSTNAME : null,
           ].filter(Boolean).join(" · ") || "n/d";
         }
 
@@ -1940,7 +1940,7 @@ HTML_TEMPLATE = """
         }
         
         // Mostra/nascondi barra di caricamento
-        const progressEl = document.getElementById(`step-${step}-progress`);
+        const progressEl = document.getElementById('step-' + step + '-progress');
         if (progressEl) {
           if (status === 'active') {
             progressEl.style.display = 'block';
@@ -2201,7 +2201,7 @@ HTML_TEMPLATE = """
                   if (!wizardStepCToastShown) {
                     updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Errore attivazione: ' + switchData.message);
                     if (typeof showToast === 'function') {
-                      showToast(`Errore attivazione controller: ${switchData.message}`, 'error', 4000);
+                      showToast('Errore attivazione controller: ' + switchData.message, 'error', 4000);
                       wizardStepCToastShown = true;
                     }
                   }
@@ -3297,7 +3297,7 @@ HTML_TEMPLATE = """
         const radius = joystick2.clientWidth / 2 - handle2.clientWidth / 2;
         const x = radius * xNorm;
         const y = radius * yNorm;
-        handle2.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+        handle2.style.transform = 'translate(calc(-50% + ' + x + 'px), calc(-50% + ' + y + 'px))';
         joy2X.textContent = xNorm.toFixed(2);
         joy2Y.textContent = (-yNorm).toFixed(2);
       }
