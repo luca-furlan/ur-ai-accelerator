@@ -2079,7 +2079,7 @@ HTML_TEMPLATE = """
                 let errorMsg = payload.message;
                 // Rimuovi dettagli tecnici eccessivi se presenti
                 if (errorMsg.length > 500) {
-                  errorMsg = errorMsg.substring(0, 500) + '...' + String.fromCharCode(10) + String.fromCharCode(10) + '[Clicca \'Riprova\' per vedere log completo]';
+                  errorMsg = errorMsg.substring(0, 500) + '...' + String.fromCharCode(10) + String.fromCharCode(10) + '[Clicca ' + String.fromCharCode(39) + 'Riprova' + String.fromCharCode(39) + ' per vedere log completo]';
                 }
                 updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore avvio driver:<br><small>' + errorMsg.replace(/\\n/g, '<br>') + '</small><br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile<br>2. Clicca "Riprova" per riprovare<br>3. Se persiste, riavvia robot e riprova</small>');
               }
