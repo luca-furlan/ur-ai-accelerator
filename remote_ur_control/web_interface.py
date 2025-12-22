@@ -2862,7 +2862,7 @@ HTML_TEMPLATE = """
       
       // Tracker Fluidità Movimento
       let commandCount = 0;
-      let lastCommandTime = null;
+      let lastCommandTime = 0; // Usato sia per tracker fluidità che per dead man's switch
       let commandIntervals = [];
       const maxIntervals = 50;
       const fluidityBar = document.getElementById("fluidity-bar");
@@ -2874,7 +2874,7 @@ HTML_TEMPLATE = """
         commandCount++;
         const now = Date.now();
         
-        if (lastCommandTime) {
+        if (lastCommandTime > 0) {
           const interval = now - lastCommandTime;
           commandIntervals.push(interval);
           if (commandIntervals.length > maxIntervals) {
