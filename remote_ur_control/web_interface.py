@@ -4163,16 +4163,18 @@ def api_servo_loop_start():
 
 # Traccia ultimo comando ricevuto per timeout automatico (DEAD MAN'S SWITCH)
 _last_command_time = None
+_last_timeout_warning_time = None
 _COMMAND_TIMEOUT_SEC = 0.3  # 300ms timeout backend (doppio livello di sicurezza)
+_TIMEOUT_WARNING_INTERVAL = 10.0  # Log warning solo ogni 10 secondi per evitare spam
 
 def _check_command_timeout():
     """Verifica se è passato troppo tempo dall'ultimo comando. Se sì, ferma il robot."""
-    global _last_command_time
+    global _last_command_time, _last_timeout_warning_time
     import time
-    
+
     if _last_command_time is None:
         return False
-    
+
     time_since_last = time.time() - _last_command_time
     if time_since_last > _COMMAND_TIMEOUT_SEC:
         # Timeout: ferma il robot
@@ -4181,7 +4183,11 @@ def _check_command_timeout():
                 bridge = get_ros2_bridge()
                 if bridge and bridge.ensure_ros():
                     bridge.publish_speedj([0, 0, 0, 0, 0, 0])
-                    app.logger.warning(f"[TIMEOUT] Nessun comando per {time_since_last:.3f}s - robot fermato automaticamente")
+                    # Log warning solo ogni 10 secondi per evitare spam nei log
+                    current_time = time.time()
+                    if _last_timeout_warning_time is None or (current_time - _last_timeout_warning_time) >= _TIMEOUT_WARNING_INTERVAL:
+                        app.logger.warning(f"[TIMEOUT] Nessun comando per {time_since_last:.3f}s - robot fermato automaticamente")
+                        _last_timeout_warning_time = current_time
         except Exception as e:
             app.logger.error(f"[ERROR] Errore timeout stop: {e}")
         return True
@@ -4191,7 +4197,7 @@ def _timeout_monitor_thread():
     """Thread che monitora il timeout dei comandi e ferma il robot se necessario."""
     import time
     import threading
-    
+
     while True:
         try:
             time.sleep(0.05)  # Controlla ogni 50ms
@@ -5084,17 +5090,23 @@ nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={
 LAUNCH_PID=$!
 echo "PID launch: $LAUNCH_PID" >> /tmp/ros2_driver.log
 
-# Verifica immediatamente che il processo sia partito
-sleep 2
+# Verifica immediatamente che il processo sia partito (con più attesa)
+echo "[INFO] Attendo avvio processo (5s)..." >> /tmp/ros2_driver.log
+sleep 5  # Aumentato a 5 secondi per dare più tempo al processo di avviarsi
+
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
     echo "ERROR: Processo launch morto immediatamente (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
     echo "[ERROR] Verifica errori nel log:" >> /tmp/ros2_driver.log
     # Cerca errori specifici nel log
-    if grep -i "error\|abort\|fault\|died\|failed" /tmp/ros2_driver.log | tail -20 >> /tmp/ros2_driver.log 2>/dev/null; then
+    if grep -i "error\|abort\|fault\|died\|failed\|segmentation\|killed" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
         echo "" >> /tmp/ros2_driver.log
     fi
-    echo "[ERROR] Ultimi 100 righe del log:" >> /tmp/ros2_driver.log
-    tail -100 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Ultimi 150 righe del log:" >> /tmp/ros2_driver.log
+    tail -150 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Diagnostica crash:" >> /tmp/ros2_driver.log
+    echo "  - Verifica robot raggiungibile: ping -c 2 {config.robot_ip}" >> /tmp/ros2_driver.log
+    echo "  - Verifica EtherNet/IP disabilitato sul robot" >> /tmp/ros2_driver.log
+    echo "  - Verifica Remote Control abilitato sul robot" >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
@@ -5102,15 +5114,24 @@ fi
 # Disown dopo verifica che sia vivo
 disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
 
-# Attendi che il processo si avvii completamente (aumentato a 15s per maggiore stabilità)
-echo "[INFO] Attendo inizializzazione driver (15s)..." >> /tmp/ros2_driver.log
-sleep 15
+# Attendi che il processo si avvii completamente (aumentato a 20s per maggiore stabilità)
+echo "[INFO] Attendo inizializzazione driver (20s)..." >> /tmp/ros2_driver.log
+sleep 20  # Aumentato a 20 secondi per dare più tempo all'inizializzazione
 
 # Verifica di nuovo che il processo launch sia ancora vivo
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
     echo "ERROR: Processo launch morto durante inizializzazione (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
-    echo "[ERROR] Ultimi 100 righe del log:" >> /tmp/ros2_driver.log
-    tail -100 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Cercando errori nel log..." >> /tmp/ros2_driver.log
+    if grep -i "error\|abort\|fault\|died\|failed\|segmentation\|killed" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
+        echo "" >> /tmp/ros2_driver.log
+    fi
+    echo "[ERROR] Ultimi 150 righe del log:" >> /tmp/ros2_driver.log
+    tail -150 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Diagnostica crash:" >> /tmp/ros2_driver.log
+    echo "  - Verifica robot raggiungibile: ping -c 2 {config.robot_ip}" >> /tmp/ros2_driver.log
+    echo "  - Verifica EtherNet/IP disabilitato sul robot (Installation → Fieldbus)" >> /tmp/ros2_driver.log
+    echo "  - Verifica Remote Control abilitato (Settings → System → Remote Control)" >> /tmp/ros2_driver.log
+    echo "  - Verifica programma remote_control.urp in PLAYING sul Teach Pendant" >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
@@ -5119,16 +5140,27 @@ echo "[OK] Processo launch ancora vivo (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.l
 # Cerca il processo ur_ros2_control_node (il processo principale del driver)
 # Aspetta con più tentativi per dare tempo al processo di avviarsi
 FOUND_PID=""
-for i in 1 2 3 4 5; do
+for i in 1 2 3 4 5 6 7 8; do
     FOUND_PID=$(pgrep -f 'ur_ros2_control_node' | head -1)
     if [ -n "$FOUND_PID" ]; then
+        echo "[OK] ur_ros2_control_node trovato (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
         break
     fi
-    echo "[INFO] Tentativo $i/5: ur_ros2_control_node non ancora avviato, attendo..." >> /tmp/ros2_driver.log
+    echo "[INFO] Tentativo $i/8: ur_ros2_control_node non ancora avviato, attendo..." >> /tmp/ros2_driver.log
     sleep 3
 done
 
 if [ -z "$FOUND_PID" ]; then
+    echo "[ERROR] ur_ros2_control_node non trovato dopo 24 secondi" >> /tmp/ros2_driver.log
+    echo "[ERROR] Verifica log per errori:" >> /tmp/ros2_driver.log
+    if grep -i "error\|abort\|fault\|died\|failed\|segmentation\|killed" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
+        echo "" >> /tmp/ros2_driver.log
+    fi
+    echo "[ERROR] Possibili cause:" >> /tmp/ros2_driver.log
+    echo "  1. EtherNet/IP abilitato sul robot (DISABILITALO: Installation → Fieldbus)" >> /tmp/ros2_driver.log
+    echo "  2. Robot non raggiungibile o non acceso" >> /tmp/ros2_driver.log
+    echo "  3. Remote Control non abilitato (Settings → System → Remote Control)" >> /tmp/ros2_driver.log
+    echo "  4. Problema con configurazione ROS2" >> /tmp/ros2_driver.log
     echo "ERROR: ur_ros2_control_node non trovato" >> /tmp/ros2_driver.log
     echo "Ultimi 50 righe del log:" >> /tmp/ros2_driver.log
     tail -50 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
