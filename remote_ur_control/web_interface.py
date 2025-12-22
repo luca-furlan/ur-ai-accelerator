@@ -5095,6 +5095,7 @@ fi
 echo "=== AVVIO DRIVER ROS2 ===" >> /tmp/ros2_driver.log
 echo "Data: $(date)" >> /tmp/ros2_driver.log
 echo "Robot IP: {config.robot_ip}" >> /tmp/ros2_driver.log
+echo "[INFO] Porta 50002 verificata libera - driver si metterà in ascolto su questa porta" >> /tmp/ros2_driver.log
 
 # Verifica che il launch file esista
 LAUNCH_FILE="/opt/ros/humble/share/ur_robot_driver/launch/ur_control.launch.py"
