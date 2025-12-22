@@ -5084,9 +5084,11 @@ echo "[OK] Robot raggiungibile" >> /tmp/ros2_driver.log
 
 # Avvia driver ROS2 con forward_velocity_controller invece di scaled_joint_trajectory_controller
 # (scaled_joint_trajectory_controller causa segmentation fault)
+# IMPORTANTE: usa headless_mode:=true per far sì che il driver aspetti connessioni sulla porta 50002
+# senza cercare di connettersi immediatamente al robot (il robot si connetterà nello step D)
 # IMPORTANTE: usa nohup e disown per evitare che il processo venga killato quando lo script termina
-echo "[INFO] Avvio ros2 launch..." >> /tmp/ros2_driver.log
-nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller >> /tmp/ros2_driver.log 2>&1 &
+echo "[INFO] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
+nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller headless_mode:=true >> /tmp/ros2_driver.log 2>&1 &
 LAUNCH_PID=$!
 echo "PID launch: $LAUNCH_PID" >> /tmp/ros2_driver.log
 
@@ -5158,9 +5160,9 @@ if [ -z "$FOUND_PID" ]; then
     fi
     echo "[ERROR] Possibili cause:" >> /tmp/ros2_driver.log
     echo "  1. EtherNet/IP abilitato sul robot (DISABILITALO: Installation → Fieldbus)" >> /tmp/ros2_driver.log
-    echo "  2. Robot non raggiungibile o non acceso" >> /tmp/ros2_driver.log
-    echo "  3. Remote Control non abilitato (Settings → System → Remote Control)" >> /tmp/ros2_driver.log
-    echo "  4. Problema con configurazione ROS2" >> /tmp/ros2_driver.log
+    echo "  2. Problema con configurazione ROS2 o launch file" >> /tmp/ros2_driver.log
+    echo "  3. Conflitto con altri processi ROS2" >> /tmp/ros2_driver.log
+    echo "  4. NOTA: Il driver è in modalità headless - non richiede Teach Pendant configurato" >> /tmp/ros2_driver.log
     echo "ERROR: ur_ros2_control_node non trovato" >> /tmp/ros2_driver.log
     echo "Ultimi 50 righe del log:" >> /tmp/ros2_driver.log
     tail -50 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
@@ -5183,8 +5185,7 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     echo "[ERROR] Diagnostica crash:" >> /tmp/ros2_driver.log
     echo "  - Verifica robot raggiungibile: ping -c 2 {config.robot_ip}" >> /tmp/ros2_driver.log
     echo "  - Verifica EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)" >> /tmp/ros2_driver.log
-    echo "  - Verifica Remote Control abilitato (Settings → System → Remote Control)" >> /tmp/ros2_driver.log
-    echo "  - Verifica programma remote_control.urp in PLAYING sul Teach Pendant" >> /tmp/ros2_driver.log
+    echo "  - Verifica configurazione ROS2 e launch file" >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
@@ -5205,11 +5206,11 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     echo "[ERROR] Ultimi 200 righe del log:" >> /tmp/ros2_driver.log
     tail -200 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
     echo "[ERROR] Diagnostica crash post-inizializzazione:" >> /tmp/ros2_driver.log
-    echo "  - Il driver crasha durante la connessione al robot" >> /tmp/ros2_driver.log
+    echo "  - Il driver crasha durante l'inizializzazione" >> /tmp/ros2_driver.log
     echo "  - Verifica EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)" >> /tmp/ros2_driver.log
-    echo "  - Verifica Remote Control abilitato (Settings → System → Remote Control)" >> /tmp/ros2_driver.log
-    echo "  - Verifica programma remote_control.urp in PLAYING sul Teach Pendant" >> /tmp/ros2_driver.log
+    echo "  - Verifica configurazione ROS2 e launch file" >> /tmp/ros2_driver.log
     echo "  - Verifica robot raggiungibile: ping -c 2 {config.robot_ip}" >> /tmp/ros2_driver.log
+    echo "  - NOTA: Il driver è in modalità headless e aspetta connessioni (non richiede Teach Pendant)" >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
