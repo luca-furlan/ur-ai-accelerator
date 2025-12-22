@@ -85,21 +85,42 @@ def _init_camera_subscriber():
         from cv_bridge import CvBridge
         import cv2
         
-        if not rclpy.ok():
-            rclpy.init()
+        # Assicurati che ROS2 sia inizializzato (il bridge potrebbe averlo già fatto)
+        # Usa lo stesso approccio del bridge ROS2 per gestire rclpy.init()
+        try:
+            try:
+                if not rclpy.ok():
+                    rclpy.init()
+            except RuntimeError as e:
+                if 'must only be called once' in str(e) or 'already initialized' in str(e).lower():
+                    # ROS2 già inizializzato - va bene, continuiamo
+                    pass
+                else:
+                    raise
+        except Exception as e:
+            app.logger.warning(f"[CAMERA] Errore inizializzazione rclpy: {e}")
+            return
         
-        _camera_bridge = CvBridge()
+        try:
+            _camera_bridge = CvBridge()
+        except Exception as e:
+            app.logger.warning(f"[CAMERA] cv_bridge non disponibile: {e}")
+            return
         
         class CameraSubscriberNode:
             def __init__(self):
-                self.node = rclpy.create_node('camera_stream_subscriber')
-                self.subscription = self.node.create_subscription(
-                    Image,
-                    '/camera/color/image_raw',
-                    self.image_callback,
-                    10
-                )
-                app.logger.info("[CAMERA] Subscriber inizializzato per /camera/color/image_raw")
+                try:
+                    self.node = rclpy.create_node('camera_stream_subscriber')
+                    self.subscription = self.node.create_subscription(
+                        Image,
+                        '/camera/color/image_raw',
+                        self.image_callback,
+                        10
+                    )
+                    app.logger.info("[CAMERA] Subscriber inizializzato per /camera/color/image_raw")
+                except Exception as e:
+                    app.logger.error(f"[CAMERA] Errore creazione subscriber node: {e}")
+                    raise
             
             def image_callback(self, msg):
                 global _camera_frame
@@ -1048,7 +1069,7 @@ HTML_TEMPLATE = """
         </div>
 
         <!-- Vision & MoveIt Section -->
-        <section id="vision-moveit-section" class="mdc-card" style="margin-top: 24px; border-left: 4px solid #9c27b0;">
+        <section id="vision-moveit-section" class="mdc-card" style="margin-top: 24px; border-left: 4px solid #9c27b0; display: block;">
           <div class="mdc-card__title">
             <span class="material-icons">camera_alt</span>
             Vision System & MoveIt
@@ -2212,7 +2233,8 @@ HTML_TEMPLATE = """
               // Verifica flessibile: se driver è attivo e porta è aperta, considera pronto
               // anche se alcuni dati dashboard non sono disponibili
               const driverReady = data.ros2_driver.running && data.port_50002.listening;
-              const controllerReady = data.controller.active;
+              // Gestisci controller.active che può essere null, undefined, true, o false
+              const controllerReady = data.controller && (data.controller.active === true);
               
               // Verifica stato robot (più flessibile)
               const robotModeOk = data.robot_mode === "RUNNING" || 
@@ -2260,6 +2282,11 @@ HTML_TEMPLATE = """
                     joystickSection.style.animation = '';
                   }, 2000);
                 }
+                // Mostra sezione Vision/MoveIt
+                const visionSection = document.getElementById('vision-moveit-section');
+                if (visionSection) {
+                  visionSection.style.display = 'block';
+                }
                 const advancedControls = document.getElementById('advanced-controls');
                 if (advancedControls) {
                   advancedControls.style.display = 'block';
@@ -2285,11 +2312,16 @@ HTML_TEMPLATE = """
                 }
                 errorMsg += '<br><br><small>Se il robot è effettivamente in esecuzione, puoi comunque provare a usare i joystick.</small>';
                 updateWizardStep('e', 'error', errorMsg);
-                // Mostra comunque i joystick se driver e controller sono OK
-                if (driverReady && controllerReady) {
+                // Mostra comunque i joystick se driver è OK (controller può essere null se non ancora verificato)
+                if (driverReady) {
                   const joystickSection = document.getElementById('joystick-section');
                   if (joystickSection) {
                     joystickSection.style.display = 'block';
+                  }
+                  // Mostra anche sezione Vision/MoveIt
+                  const visionSection = document.getElementById('vision-moveit-section');
+                  if (visionSection) {
+                    visionSection.style.display = 'block';
                   }
                 }
                 if (wizardCheckInterval) {
