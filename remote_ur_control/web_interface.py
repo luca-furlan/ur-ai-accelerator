@@ -3141,7 +3141,7 @@ HTML_TEMPLATE = """
 
       // APPROCCIO DIRETTO: Invia comando immediatamente quando joystick si muove (come commit funzionante)
       // Non usare throttling complesso - invia direttamente come nel commit 31521b63
-      let lastCommandTime = 0; // Traccia quando è stato inviato l'ultimo comando
+      // lastCommandTime è già dichiarato sopra per il tracker fluidità
       const COMMAND_TIMEOUT = 100; // 100ms timeout: se non arrivano comandi, ferma il robot (DEAD MAN'S SWITCH)
       
       function updateSpeeds() {
