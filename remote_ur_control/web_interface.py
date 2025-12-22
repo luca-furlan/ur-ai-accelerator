@@ -65,6 +65,69 @@ app = Flask(__name__)
 # ROS2 bridge singleton
 _ros2_bridge = None
 
+# Camera stream subscriber (per Orbbec)
+_camera_frame = None
+_camera_frame_lock = threading.Lock()
+_camera_subscriber_node = None
+_camera_subscriber_thread = None
+_camera_bridge = None
+
+def _init_camera_subscriber():
+    """Inizializza subscriber ROS2 per camera stream."""
+    global _camera_subscriber_node, _camera_subscriber_thread, _camera_bridge
+    
+    if not ROS2_AVAILABLE or _camera_subscriber_node is not None:
+        return
+    
+    try:
+        import rclpy
+        from sensor_msgs.msg import Image
+        from cv_bridge import CvBridge
+        import cv2
+        
+        if not rclpy.ok():
+            rclpy.init()
+        
+        _camera_bridge = CvBridge()
+        
+        class CameraSubscriberNode:
+            def __init__(self):
+                self.node = rclpy.create_node('camera_stream_subscriber')
+                self.subscription = self.node.create_subscription(
+                    Image,
+                    '/camera/color/image_raw',
+                    self.image_callback,
+                    10
+                )
+                app.logger.info("[CAMERA] Subscriber inizializzato per /camera/color/image_raw")
+            
+            def image_callback(self, msg):
+                global _camera_frame
+                try:
+                    cv_image = _camera_bridge.imgmsg_to_cv2(msg, "bgr8")
+                    _, buffer = cv2.imencode('.jpg', cv_image, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    with _camera_frame_lock:
+                        _camera_frame = buffer.tobytes()
+                except Exception as e:
+                    app.logger.error(f"[CAMERA] Errore conversione frame: {e}")
+        
+        _camera_subscriber_node = CameraSubscriberNode()
+        
+        def spin_node():
+            try:
+                rclpy.spin(_camera_subscriber_node.node)
+            except Exception as e:
+                app.logger.error(f"[CAMERA] Errore spin node: {e}")
+        
+        _camera_subscriber_thread = threading.Thread(target=spin_node, daemon=True)
+        _camera_subscriber_thread.start()
+        app.logger.info("[CAMERA] Thread subscriber avviato")
+        
+    except ImportError as e:
+        app.logger.warning(f"[CAMERA] Import error (cv_bridge o rclpy non disponibili): {e}")
+    except Exception as e:
+        app.logger.error(f"[CAMERA] Errore inizializzazione subscriber: {e}")
+
 # Sistema di logging centralizzato
 _log_buffer = deque(maxlen=1000)  # Mantieni ultimi 1000 log
 _log_lock = threading.Lock()
@@ -5019,48 +5082,23 @@ def api_test_moveit():
 @app.route("/api/vision/camera_stream", methods=["GET"])
 def api_camera_stream():
     """Stream video camera Orbbec come MJPEG."""
-    if not ROS2_AVAILABLE:
-        # Restituisci placeholder image
-        return Response(
-            b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9',
-            mimetype='image/jpeg'
-        )
+    # Placeholder JPEG (1x1 pixel nero)
+    placeholder_jpeg = b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9'
     
-    try:
-        import subprocess
-        import cv2
-        import numpy as np
-        from cv_bridge import CvBridge
-        
-        # Prova a leggere un frame dal topic ROS2
-        result = subprocess.run(
-            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 1 ros2 topic echo /camera/color/image_raw --once 2>/dev/null | head -20'],
-            capture_output=True,
-            text=True,
-            timeout=2
-        )
-        
-        if result.returncode != 0 or not result.stdout:
-            # Nessun frame disponibile - restituisci placeholder
-            return Response(
-                b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9',
-                mimetype='image/jpeg'
-            )
-        
-        # TODO: Implementare lettura frame completo da ROS2 topic
-        # Per ora restituisci placeholder
-        # In futuro: usare rclpy per sottoscriversi al topic e convertire con cv_bridge
-        return Response(
-            b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9',
-            mimetype='image/jpeg'
-        )
-    except Exception as e:
-        app.logger.error(f"Camera stream error: {e}")
-        # Restituisci placeholder in caso di errore
-        return Response(
-            b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9',
-            mimetype='image/jpeg'
-        )
+    if not ROS2_AVAILABLE:
+        return Response(placeholder_jpeg, mimetype='image/jpeg')
+    
+    # Inizializza subscriber se non già fatto
+    if _camera_subscriber_node is None:
+        _init_camera_subscriber()
+    
+    # Restituisci ultimo frame se disponibile
+    with _camera_frame_lock:
+        if _camera_frame:
+            return Response(_camera_frame, mimetype='image/jpeg')
+    
+    # Nessun frame disponibile - restituisci placeholder
+    return Response(placeholder_jpeg, mimetype='image/jpeg')
 
 
 @app.route("/api/vision/plan_move", methods=["POST"])
@@ -5108,19 +5146,172 @@ def api_plan_move():
                     "message": "MoveIt services not available. Make sure MoveIt is running."
                 })
             
-            # TODO: Implementare pianificazione completa con MoveIt Python API
-            # Per ora restituiamo un messaggio che indica che la funzionalità è in sviluppo
-            # ma accettiamo i parametri per struttura futura
+            # Implementa pianificazione ed esecuzione con MoveIt
+            import math
+            from builtin_interfaces.msg import Time
+            import time as time_module
             
-            if execute:
+            # Converti roll, pitch, yaw in quaternion
+            def euler_to_quaternion(roll, pitch, yaw):
+                cy = math.cos(yaw * 0.5)
+                sy = math.sin(yaw * 0.5)
+                cp = math.cos(pitch * 0.5)
+                sp = math.sin(pitch * 0.5)
+                cr = math.cos(roll * 0.5)
+                sr = math.sin(roll * 0.5)
+                
+                qw = cr * cp * cy + sr * sp * sy
+                qx = sr * cp * cy - cr * sp * sy
+                qy = cr * sp * cy + sr * cp * sy
+                qz = cr * cp * sy - sr * sp * cy
+                return Quaternion(x=qx, y=qy, z=qz, w=qw)
+            
+            # Crea target pose
+            target_pose_msg = Pose()
+            target_pose_msg.position = Point(x=float(x), y=float(y), z=float(z))
+            target_pose_msg.orientation = euler_to_quaternion(roll, pitch, yaw)
+            
+            # Crea goal per MoveIt
+            goal_msg = MoveGroup.Goal()
+            now = Time()
+            now.sec = int(time_module.time())
+            now.nanosec = int((time_module.time() - now.sec) * 1e9)
+            goal_msg.request.workspace_parameters.header.frame_id = "base_link"
+            goal_msg.request.workspace_parameters.header.stamp = now
+            
+            # Planning group
+            goal_msg.request.group_name = "ur_manipulator"
+            goal_msg.request.num_planning_attempts = 10
+            goal_msg.request.allowed_planning_time = 5.0
+            
+            # Target pose
+            goal_msg.request.goal_constraints = [Constraints()]
+            goal_msg.request.goal_constraints[0].name = "goal"
+            
+            # Position constraint
+            pos_constraint = PositionConstraint()
+            pos_constraint.header.frame_id = "base_link"
+            pos_constraint.link_name = "tool0"
+            pos_constraint.target_point_offset.x = 0.0
+            pos_constraint.target_point_offset.y = 0.0
+            pos_constraint.target_point_offset.z = 0.0
+            
+            # Bounding box per posizione (tolleranza)
+            from shape_msgs.msg import SolidPrimitive
+            box = SolidPrimitive()
+            box.type = SolidPrimitive.BOX
+            box.dimensions = [0.05, 0.05, 0.05]  # 5cm tolleranza
+            pos_constraint.constraint_region.primitives = [box]
+            pos_constraint.constraint_region.primitive_poses = [target_pose_msg]
+            pos_constraint.weight = 1.0
+            
+            goal_msg.request.goal_constraints[0].position_constraints = [pos_constraint]
+            
+            # Orientation constraint
+            orient_constraint = OrientationConstraint()
+            orient_constraint.header.frame_id = "base_link"
+            orient_constraint.link_name = "tool0"
+            orient_constraint.orientation = target_pose_msg.orientation
+            orient_constraint.absolute_x_axis_tolerance = 0.1
+            orient_constraint.absolute_y_axis_tolerance = 0.1
+            orient_constraint.absolute_z_axis_tolerance = 0.1
+            orient_constraint.weight = 1.0
+            
+            goal_msg.request.goal_constraints[0].orientation_constraints = [orient_constraint]
+            
+            # Planning options
+            goal_msg.request.planning_options.plan_only = not execute
+            
+            # Crea action client e invia goal
+            if not rclpy.ok():
+                rclpy.init()
+            
+            node = Node('moveit_plan_client')
+            action_client = ActionClient(node, MoveGroup, 'move_action')
+            
+            # Attendi server
+            if not action_client.wait_for_server(timeout_sec=5.0):
+                node.destroy_node()
                 return jsonify({
                     "status": "error",
-                    "message": "MoveIt execution not yet fully implemented. Planning works but execution needs MoveIt action server running."
+                    "message": "MoveIt action server not available. Make sure MoveIt is running: ros2 launch ur_moveit_config moveit.launch.py"
                 })
+            
+            # Invia goal
+            app.logger.info(f"[MOVEIT] Invio goal: pose=({x:.3f}, {y:.3f}, {z:.3f}), execute={execute}")
+            send_goal_future = action_client.send_goal_async(goal_msg)
+            
+            # Attendi risultato (timeout 10s)
+            rclpy.spin_until_future_complete(node, send_goal_future, timeout_sec=10.0)
+            
+            if not send_goal_future.done():
+                node.destroy_node()
+                return jsonify({
+                    "status": "error",
+                    "message": "MoveIt planning timeout. Try again or check MoveIt configuration."
+                })
+            
+            goal_handle = send_goal_future.result()
+            if not goal_handle.accepted:
+                node.destroy_node()
+                return jsonify({
+                    "status": "error",
+                    "message": "MoveIt goal rejected. Check target pose validity and robot configuration."
+                })
+            
+            # Attendi risultato esecuzione
+            if execute:
+                result_future = goal_handle.get_result_async()
+                rclpy.spin_until_future_complete(node, result_future, timeout_sec=30.0)
+                
+                if not result_future.done():
+                    node.destroy_node()
+                    return jsonify({
+                        "status": "error",
+                        "message": "MoveIt execution timeout. Movement may still be in progress."
+                    })
+                
+                result = result_future.result().result
+                node.destroy_node()
+                
+                if result.error_code.val == MoveGroup.Result.SUCCESS:
+                    return jsonify({
+                        "status": "ok",
+                        "message": f"Movement executed successfully to pose: x={x:.3f}, y={y:.3f}, z={z:.3f}",
+                        "data": {
+                            "target_pose": target_pose,
+                            "executed": True,
+                            "error_code": result.error_code.val
+                        }
+                    })
+                else:
+                    error_names = {
+                        1: "SUCCESS",
+                        99999: "FAILURE",
+                        -1: "PLANNING_FAILED",
+                        -2: "INVALID_MOTION_PLAN",
+                        -3: "MOTION_PLAN_INVALIDATED_BY_ENVIRONMENT_CHANGE",
+                        -4: "CONTROL_FAILED",
+                        -5: "UNABLE_TO_AQUIRE_SENSOR_DATA",
+                        -6: "TIMED_OUT",
+                        -7: "PREEMPTED"
+                    }
+                    error_name = error_names.get(result.error_code.val, f"UNKNOWN_{result.error_code.val}")
+                    return jsonify({
+                        "status": "error",
+                        "message": f"MoveIt execution failed: {error_name}",
+                        "data": {
+                            "target_pose": target_pose,
+                            "executed": False,
+                            "error_code": result.error_code.val
+                        }
+                    })
             else:
+                # Solo planning
+                node.destroy_node()
                 return jsonify({
                     "status": "ok",
-                    "message": f"Plan created for pose: x={x:.3f}, y={y:.3f}, z={z:.3f}, roll={roll:.3f}, pitch={pitch:.3f}, yaw={yaw:.3f}",
+                    "message": f"Plan created successfully for pose: x={x:.3f}, y={y:.3f}, z={z:.3f}, roll={roll:.3f}, pitch={pitch:.3f}, yaw={yaw:.3f}",
                     "data": {
                         "target_pose": target_pose,
                         "plan_created": True
@@ -5178,12 +5369,45 @@ def api_detections():
 
 @app.route("/api/vision/start", methods=["POST"])
 def api_vision_start():
-    """Avvia il sistema vision completo."""
-    # TODO: Implementare avvio vision system
-    return jsonify({
-        "status": "error",
-        "message": "Vision system not yet implemented. Start Orbbec camera first."
-    })
+    """Avvia il sistema vision completo (YOLO + detections)."""
+    if not ROS2_AVAILABLE:
+        return jsonify({
+            "status": "error",
+            "message": "ROS2 not available"
+        })
+    
+    try:
+        # Verifica che la camera sia attiva
+        import subprocess
+        result = subprocess.run(
+            ['pgrep', '-f', 'orbbec_camera'],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        
+        if result.returncode != 0:
+            return jsonify({
+                "status": "error",
+                "message": "Orbbec camera not running. Start camera first using 'Start Camera' button."
+            })
+        
+        # TODO: Avvia nodo YOLO/detections se disponibile
+        # Per ora restituiamo messaggio informativo
+        return jsonify({
+            "status": "ok",
+            "message": "Vision system ready. Camera is active. YOLO detection node integration pending.",
+            "data": {
+                "camera_active": True,
+                "yolo_available": False  # TODO: verificare se YOLO è disponibile
+            }
+        })
+    except Exception as e:
+        app.logger.error(f"Vision start error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error starting vision system: {str(e)}"
+        })
 
 
 @app.route("/api/vision/stop", methods=["POST"])
@@ -5641,6 +5865,9 @@ def main() -> None:
                 print("[OK] ROS2 bridge initialized - publishing at 125Hz")
             else:
                 print("[WARN] ROS2 bridge initialization failed - verificare ambiente ROS2")
+            
+            # Inizializza camera subscriber
+            _init_camera_subscriber()
         except Exception as e:
             print(f"[WARN] Failed to initialize ROS2 bridge: {e}")
     else:
