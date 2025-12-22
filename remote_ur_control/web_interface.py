@@ -1388,7 +1388,7 @@ HTML_TEMPLATE = """
           info: 'info'
         }[type] || 'info';
         
-        toast.innerHTML = '<span class="material-icons">' + icon + '</span>' +
+        toast.innerHTML = '<span class=' + '"material-icons"' + '>' + icon + '</span>' +
           '<span style="flex: 1;">' + message + '</span>' +
           '<button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; opacity: 0.6; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">' +
             '<span class="material-icons md-18">close</span>' +
@@ -2397,8 +2397,8 @@ HTML_TEMPLATE = """
               const isReady = driverReady && controllerReady && robotModeOk;
               
               // Debug info
-              const driverIcon = driverReady ? '<span class="material-icons md-18">check_circle</span>' : '<span class="material-icons md-18">error</span>';
-              const controllerIcon = controllerReady ? '<span class="material-icons md-18">check_circle</span>' : '<span class="material-icons md-18">error</span>';
+              const driverIcon = driverReady ? '<span class=' + '"material-icons md-18"' + '>check_circle</span>' : '<span class=' + '"material-icons md-18"' + '>error</span>';
+              const controllerIcon = controllerReady ? '<span class=' + '"material-icons md-18"' + '>check_circle</span>' : '<span class=' + '"material-icons md-18"' + '>error</span>';
               const debugInfo = 'Driver: ' + driverIcon + ', Controller: ' + controllerIcon + ', Mode: ' + (data.robot_mode || 'N/A') + ', Safety: ' + (data.robot_safety_mode || 'N/A') + ', Remote: ' + (data.remote_control || 'N/A') + ', Program: ' + (data.program_state || 'N/A');
               
               if (isReady) {
@@ -2440,16 +2440,16 @@ HTML_TEMPLATE = """
               } else if (attempts >= maxAttempts) {
                 let errorMsg = 'Robot non pronto dopo ' + maxAttempts + ' tentativi.<br>';
                 errorMsg += '<small style="color: #666;">Debug: ' + debugInfo + '</small><br>';
-                if (!driverReady) errorMsg += '<br><span class="material-icons md-18">error</span> Driver ROS2 non attivo o porta 50002 chiusa.';
-                if (!controllerReady) errorMsg += '<br><span class="material-icons md-18">error</span> Controller non attivo.';
+                if (!driverReady) errorMsg += '<br><span class=' + '"material-icons md-18"' + '>error</span> Driver ROS2 non attivo o porta 50002 chiusa.';
+                if (!controllerReady) errorMsg += '<br><span class=' + '"material-icons md-18"' + '>error</span> Controller non attivo.';
                 if (data.robot_mode && data.robot_mode !== "RUNNING" && data.robot_mode !== "unknown") {
-                  errorMsg += '<br><span class="material-icons md-18">warning</span> Modalità robot: ' + data.robot_mode + ' (atteso: RUNNING).';
+                  errorMsg += '<br><span class=' + '"material-icons md-18"' + '>warning</span> Modalità robot: ' + data.robot_mode + ' (atteso: RUNNING).';
                 }
                 if (data.robot_safety_mode && data.robot_safety_mode !== "NORMAL" && data.robot_safety_mode !== "unknown") {
-                  errorMsg += '<br><span class="material-icons md-18">warning</span> Safety mode: ' + data.robot_safety_mode + ' (atteso: NORMAL).';
+                  errorMsg += '<br><span class=' + '"material-icons md-18"' + '>warning</span> Safety mode: ' + data.robot_safety_mode + ' (atteso: NORMAL).';
                 }
                 if (data.remote_control !== true && data.program_state !== "PLAYING" && data.program_state !== "PLAYING remote_control.urp") {
-                  errorMsg += '<br><span class="material-icons md-18">warning</span> Remote Control: ' + (data.remote_control || 'non disponibile') + ', Program: ' + (data.program_state || 'non disponibile');
+                  errorMsg += '<br><span class=' + '"material-icons md-18"' + '>warning</span> Remote Control: ' + (data.remote_control || 'non disponibile') + ', Program: ' + (data.program_state || 'non disponibile');
                 }
                 errorMsg += '<br><br><small>Se il robot è effettivamente in esecuzione, puoi comunque provare a usare i joystick.</small>';
                 updateWizardStep('e', 'error', errorMsg);
@@ -2956,7 +2956,7 @@ HTML_TEMPLATE = """
           }
           
           restartWebInterfaceBtn.disabled = true;
-          restartWebInterfaceBtn.innerHTML = '<span class="material-icons md-18">refresh</span> Riavvio in corso...';
+          restartWebInterfaceBtn.innerHTML = '<span class=' + '"material-icons md-18"' + '>refresh</span> Riavvio in corso...';
           
           try {
             const response = await fetch("/api/system/restart_web_interface", {
@@ -3039,9 +3039,9 @@ HTML_TEMPLATE = """
           toggleLogsBtn.addEventListener('click', () => {
             logsPaused = !logsPaused;
             if (logsPaused) {
-              toggleLogsBtn.innerHTML = '<span class="material-icons md-18">play_arrow</span> Riprendi';
+              toggleLogsBtn.innerHTML = '<span class=' + '"material-icons md-18"' + '>play_arrow</span> Riprendi';
             } else {
-              toggleLogsBtn.innerHTML = '<span class="material-icons md-18">pause</span> Pausa';
+              toggleLogsBtn.innerHTML = '<span class=' + '"material-icons md-18"' + '>pause</span> Pausa';
             }
           });
         }
