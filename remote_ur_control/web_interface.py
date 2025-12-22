@@ -3680,6 +3680,23 @@ HTML_TEMPLATE = """
         });
       }
       
+      let selectedDetectionIndex = -1;
+      
+      function selectDetection(idx) {
+        selectedDetectionIndex = idx;
+        // Evidenzia detection selezionata
+        document.querySelectorAll('[id^="detection-"]').forEach(el => {
+          el.style.background = 'rgba(0, 0, 0, 0.06)';
+        });
+        const selected = document.getElementById('detection-' + idx);
+        if (selected) {
+          selected.style.background = 'rgba(25, 118, 210, 0.2)';
+        }
+      }
+      
+      // Rendi selectDetection globale
+      window.selectDetection = selectDetection;
+      
       async function fetchDetections() {
         try {
           const response = await fetch("/api/vision/detections");
@@ -3688,10 +3705,11 @@ HTML_TEMPLATE = """
             if (detectionsContainer) {
               detectionsContainer.innerHTML = data.detections.map((det, idx) => {
                 const pos = det.position || {};
-                return `<div style="padding: 8px; margin-bottom: 4px; background: rgba(0, 0, 0, 0.06); border-radius: var(--mdc-shape-small); cursor: pointer;" onclick="selectDetection(${idx})" id="detection-${idx}">
-                  <strong>${det.class_name}</strong> (${(det.confidence * 100).toFixed(1)}%)<br>
-                  <small>Position: [${(pos.x || 0).toFixed(3)}, ${(pos.y || 0).toFixed(3)}, ${(pos.z || 0).toFixed(3)}] m</small>
-                </div>`;
+                const className = (det.class_name || 'unknown').replace(/'/g, "\\'");
+                return '<div style="padding: 8px; margin-bottom: 4px; background: rgba(0, 0, 0, 0.06); border-radius: var(--mdc-shape-small); cursor: pointer;" onclick="selectDetection(' + idx + ')" id="detection-' + idx + '">' +
+                  '<strong>' + className + '</strong> (' + (det.confidence * 100).toFixed(1) + '%)<br>' +
+                  '<small>Position: [' + (pos.x || 0).toFixed(3) + ', ' + (pos.y || 0).toFixed(3) + ', ' + (pos.z || 0).toFixed(3) + '] m</small>' +
+                  '</div>';
               }).join("");
             }
           } else if (detectionsContainer && (!data.detections || data.detections.length === 0)) {
@@ -3699,19 +3717,6 @@ HTML_TEMPLATE = """
           }
         } catch (err) {
           console.error("Detections fetch error:", err);
-        }
-      }
-      
-      let selectedDetectionIndex = -1;
-      function selectDetection(idx) {
-        selectedDetectionIndex = idx;
-        // Evidenzia detection selezionata
-        document.querySelectorAll('[id^="detection-"]').forEach(el => {
-          el.style.background = 'rgba(0, 0, 0, 0.06)';
-        });
-        const selected = document.getElementById(`detection-${idx}`);
-        if (selected) {
-          selected.style.background = 'rgba(25, 118, 210, 0.2)';
         }
       }
       
