@@ -5133,13 +5133,13 @@ echo "[OK] Robot raggiungibile" >> /tmp/ros2_driver.log
 # IMPORTANTE: usa headless_mode:=true per far sì che il driver aspetti connessioni sulla porta 50002
 # senza cercare di connettersi immediatamente al robot (il robot si connetterà nello step D)
 # IMPORTANTE: usa nohup e disown per evitare che il processo venga killato quando lo script termina
-echo "[STEP 2/9] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
+echo "[STEP 2/8] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
 nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller headless_mode:=true >> /tmp/ros2_driver.log 2>&1 &
 LAUNCH_PID=$!
 echo "[OK] Processo launch avviato (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
 
 # Verifica immediatamente che il processo sia partito (con più attesa)
-echo "[STEP 3/8] Verifica processo avviato (attesa 5s)..." >> /tmp/ros2_driver.log
+echo "[STEP 3/9] Verifica processo avviato (attesa 5s)..." >> /tmp/ros2_driver.log
 sleep 5  # Aumentato a 5 secondi per dare più tempo al processo di avviarsi
 
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
@@ -5187,7 +5187,7 @@ echo "[OK] Processo launch ancora vivo (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.l
 
 # Cerca il processo ur_ros2_control_node (il processo principale del driver)
 # Aspetta con più tentativi per dare tempo al processo di avviarsi
-echo "[STEP 5/9] Cerca processo ur_ros2_control_node..." >> /tmp/ros2_driver.log
+echo "[STEP 5/8] Cerca processo ur_ros2_control_node..." >> /tmp/ros2_driver.log
 FOUND_PID=""
 for i in 1 2 3 4 5 6 7 8; do
     FOUND_PID=$(pgrep -f 'ur_ros2_control_node' | head -1)
@@ -5219,7 +5219,7 @@ fi
 
 # Verifica che il processo ur_ros2_control_node sia ancora vivo dopo 5 secondi
 # (diamo più tempo perché l'inizializzazione può richiedere tempo)
-echo "[STEP 6/8] Verifica stabilità ur_ros2_control_node (5s)..." >> /tmp/ros2_driver.log
+echo "[STEP 6/9] Verifica stabilità ur_ros2_control_node (5s)..." >> /tmp/ros2_driver.log
 sleep 5
 if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     echo "ERROR: ur_ros2_control_node è crashato durante l'inizializzazione (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
@@ -5269,7 +5269,7 @@ fi
 # Verifica che la porta 50002 si apra (il driver deve mettersi in ascolto)
 # NOTA: In modalità headless, il driver si mette in ascolto sulla porta 50002
 # anche senza che il robot si connetta. Questa verifica è opzionale nello step A.
-echo "[STEP 8/8] Verifica porta 50002 in ascolto (opzionale - verificata completamente nello step B)..." >> /tmp/ros2_driver.log
+echo "[STEP 8/9] Verifica porta 50002 in ascolto (opzionale - verificata completamente nello step B)..." >> /tmp/ros2_driver.log
 PORT_OPEN=false
 for i in 1 2 3; do
     if command -v lsof >/dev/null 2>&1; then
