@@ -2049,34 +2049,87 @@ HTML_TEMPLATE = """
           await new Promise(resolve => setTimeout(resolve, 2000)); // Attendi comunque per sicurezza
         }
         
-        // STEP 3: Avvia driver con retry automatico
-        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Avvio driver ROS2...');
+        // STEP 3: Avvia driver con retry automatico e verifica stabilità
+        updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Avvio driver ROS2...');
         let retryCount = 0;
-        const maxRetries = 2;
+        const maxRetries = 5; // Aumentato a 5 retry per maggiore stabilità
+        
+        // Funzione per verificare che il driver sia stabile
+        const verifyDriverStable = async (maxChecks = 10, checkInterval = 2000) => {
+          for (let i = 0; i < maxChecks; i++) {
+            try {
+              const statusResponse = await fetch("/api/system/status");
+              const statusData = await statusResponse.json();
+              if (statusData.status === "ok" && statusData.data.ros2_driver.running) {
+                // Verifica anche che la porta 50002 sia aperta
+                if (statusData.data.port_50002 && statusData.data.port_50002.listening) {
+                  return true; // Driver stabile e porta aperta
+                }
+              }
+              // Se non è ancora stabile, aspetta prima del prossimo check
+              if (i < maxChecks - 1) {
+                await new Promise(resolve => setTimeout(resolve, checkInterval));
+              }
+            } catch (err) {
+              console.warn('[VERIFY DRIVER] Errore verifica:', err);
+              if (i < maxChecks - 1) {
+                await new Promise(resolve => setTimeout(resolve, checkInterval));
+              }
+            }
+          }
+          return false; // Driver non stabile dopo tutti i check
+        };
         
         const tryStartDriver = async () => {
           try {
             const response = await fetch("/api/system/start_driver", { method: "POST" });
             const payload = await response.json();
             if (payload.status === "ok") {
-              updateWizardStep('a', 'waiting', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Driver avviato! Attendo stabilizzazione (5 secondi)...');
-              setTimeout(() => wizardStepB(), 5000);
+              updateWizardStep('a', 'waiting', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Driver avviato! Verifico stabilità (20 secondi)...');
+              
+              // Verifica che il driver sia stabile prima di procedere
+              const isStable = await verifyDriverStable(10, 2000); // 10 check ogni 2 secondi = 20 secondi totali
+              
+              if (isStable) {
+                updateWizardStep('a', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Driver stabile e pronto!');
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Attesa aggiuntiva per sicurezza
+                wizardStepB();
+              } else {
+                // Driver avviato ma non stabile - riprova se abbiamo ancora tentativi
+                if (retryCount < maxRetries) {
+                  retryCount++;
+                  updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Driver non stabile. Riprovo (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small>');
+                  // Pulisci tutto e riprova
+                  await fetch("/api/system/check_processes", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({kill_duplicates: true})
+                  });
+                  await new Promise(resolve => setTimeout(resolve, 8000)); // Attendi pulizia più a lungo
+                  await tryStartDriver(); // Retry
+                } else {
+                  updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Driver non si stabilizza dopo ' + maxRetries + ' tentativi.<br><small>Verifica i log del driver e riprova manualmente.</small>');
+                }
+              }
             } else {
               // Se c'è un errore e abbiamo ancora tentativi, riprova
-              if (retryCount < maxRetries && (payload.message.includes("crashato") || payload.message.includes("Segmentation fault"))) {
+              const errorMsg = payload.message || '';
+              const isCrash = errorMsg.includes("crashato") || errorMsg.includes("Segmentation fault") || errorMsg.includes("ERROR") || errorMsg.includes("died") || errorMsg.includes("failed");
+              
+              if (retryCount < maxRetries && isCrash) {
                 retryCount++;
-                updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Driver crashato. Riprovo automaticamente (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small>');
+                updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Driver crashato. Riprovo automaticamente (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small>');
                 // Pulisci tutto e riprova
                 await fetch("/api/system/check_processes", {
                   method: "POST",
                   headers: {"Content-Type": "application/json"},
                   body: JSON.stringify({kill_duplicates: true})
                 });
-                await new Promise(resolve => setTimeout(resolve, 5000)); // Attendi pulizia
+                await new Promise(resolve => setTimeout(resolve, 8000)); // Attendi pulizia più a lungo
                 await tryStartDriver(); // Retry
               } else {
                 // Formatta messaggio errore in modo più leggibile
-                let errorMsg = payload.message;
+                let errorMsg = payload.message || 'Errore sconosciuto';
                 // Rimuovi dettagli tecnici eccessivi se presenti
                 if (errorMsg.length > 500) {
                   errorMsg = errorMsg.substring(0, 500) + '...' + String.fromCharCode(10) + String.fromCharCode(10) + '[Clicca ' + String.fromCharCode(39) + 'Riprova' + String.fromCharCode(39) + ' per vedere log completo]';
@@ -2087,8 +2140,8 @@ HTML_TEMPLATE = """
           } catch (err) {
             if (retryCount < maxRetries) {
               retryCount++;
-              updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Errore connessione. Riprovo (tentativo ' + retryCount + '/' + maxRetries + ')...');
-              await new Promise(resolve => setTimeout(resolve, 2000));
+              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Errore connessione. Riprovo (tentativo ' + retryCount + '/' + maxRetries + ')...');
+              await new Promise(resolve => setTimeout(resolve, 3000)); // Attesa più lunga tra retry
               await tryStartDriver();
             } else {
               updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore di connessione: ' + err.message + '<br><small>Verifica che la web interface sia attiva e riprova.</small>');
@@ -4812,7 +4865,7 @@ def api_start_driver():
         except:
             pass
         
-        time.sleep(5)  # Aspetta che tutto sia pulito (aumentato a 5 secondi per maggiore stabilità)
+        time.sleep(3)  # Aspetta che tutto sia pulito (aumentato a 3 secondi)
     except:
         pass
     
@@ -4909,9 +4962,9 @@ fi
 # Disown dopo verifica che sia vivo
 disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
 
-# Attendi che il processo si avvii completamente (aumentato a 10s)
-echo "[INFO] Attendo inizializzazione driver (10s)..." >> /tmp/ros2_driver.log
-sleep 10
+# Attendi che il processo si avvii completamente (aumentato a 15s per maggiore stabilità)
+echo "[INFO] Attendo inizializzazione driver (15s)..." >> /tmp/ros2_driver.log
+sleep 15
 
 # Verifica di nuovo che il processo launch sia ancora vivo
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
