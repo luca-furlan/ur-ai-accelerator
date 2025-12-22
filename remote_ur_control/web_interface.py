@@ -2953,7 +2953,7 @@ HTML_TEMPLATE = """
         const radius = joystick.clientWidth / 2 - handle.clientWidth / 2;
         const x = radius * xNorm;
         const y = radius * yNorm;
-        handle.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+        handle.style.transform = 'translate(calc(-50% + ' + x + 'px), calc(-50% + ' + y + 'px))';
         joyX.textContent = xNorm.toFixed(2);
         joyY.textContent = (-yNorm).toFixed(2);
       }
