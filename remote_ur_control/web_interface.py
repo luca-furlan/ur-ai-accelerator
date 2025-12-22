@@ -1998,14 +1998,14 @@ HTML_TEMPLATE = """
       async function wizardStepA() {
         console.log('[WIZARD STEP A] Inizio wizard step A');
         try {
-          updateWizardStep('a', 'active', '<span class=\"material-icons md-18\">refresh</span> Verifica pre-avvio...');
+          updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Verifica pre-avvio...');
           
           // STEP 1: Verifica robot raggiungibile
           console.log('[WIZARD STEP A] Verifica robot raggiungibile...');
-          updateWizardStep('a', 'active', '<span class=\"material-icons md-18\">refresh</span> Verifica connessione robot...');
+          updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Verifica connessione robot...');
         } catch (err) {
           console.error('[WIZARD STEP A] Errore iniziale:', err);
-          updateWizardStep('a', 'error', '<span class=\"material-icons md-18\">error</span> Errore: ' + err.message);
+          updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore: ' + err.message);
           return;
         }
         
@@ -2016,13 +2016,13 @@ HTML_TEMPLATE = """
           console.log('[WIZARD STEP A] Dati robot:', robotData);
           if (robotData.status !== "ok" || !robotData.data.reachable) {
             console.error('[WIZARD STEP A] Robot non raggiungibile');
-            updateWizardStep('a', 'error', '<span class=\"material-icons md-18\">error</span> Robot non raggiungibile!<br><small>Verifica che il robot sia acceso e connesso alla rete.<br>IP: 192.168.10.194</small>');
+            updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Robot non raggiungibile!<br><small>Verifica che il robot sia acceso e connesso alla rete.<br>IP: 192.168.10.194</small>');
             return;
           }
           console.log('[WIZARD STEP A] Robot raggiungibile OK');
         } catch (err) {
           console.error('[WIZARD STEP A] Errore verifica robot:', err);
-          updateWizardStep('a', 'active', '<span class=\"material-icons md-18\">warning</span> Impossibile verificare robot. Procedo comunque...');
+          updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>warning</span> Impossibile verificare robot. Procedo comunque...');
         }
         
         // STEP 2: Verifica e kill processi esistenti (IMPORTANTE per evitare crash)
