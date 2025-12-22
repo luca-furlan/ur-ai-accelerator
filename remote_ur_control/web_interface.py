@@ -5175,11 +5175,12 @@ exit 0
         
         try:
             # Esegui script con timeout più lungo per permettere avvio completo
+            # Lo script ha: 8s pulizia + 2s porta + 5s robot check + 5s avvio processo + 20s inizializzazione = ~40s minimo
             result = subprocess.run(
                 ['bash', script_path],
                 capture_output=True,
                 text=True,
-                timeout=30,  # Timeout aumentato per permettere avvio completo
+                timeout=90,  # Timeout aumentato a 90 secondi per permettere avvio completo con tutti i controlli
                 env=os.environ.copy()
             )
             

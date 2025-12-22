@@ -232,20 +232,47 @@ class ROS2Bridge:
             return
         
         try:
-            # Verifica se ROS2 è già inizializzato
-            # rclpy.ok() può restituire False anche se ROS2 è già inizializzato
-            # Quindi proviamo sempre a inizializzare, ma gestiamo l'eccezione
+            # Inizializza ROS2 - CRITICO: rclpy.init() DEVE essere chiamato prima di creare qualsiasi nodo
+            # IMPORTANTE: rclpy.ok() può restituire False anche quando ROS2 è già inizializzato,
+            # quindi proviamo sempre a inizializzare e gestiamo l'eccezione
+            ros2_initialized = False
             try:
-                if not rclpy.ok():
-                    rclpy.init()
+                # Prova sempre a inizializzare - se è già inizializzato, solleverà RuntimeError
+                rclpy.init()
+                ros2_initialized = True
+                print('   ✅ ROS2 inizializzato')
             except RuntimeError as e:
-                if 'must only be called once' in str(e) or 'already initialized' in str(e).lower():
+                error_str = str(e).lower()
+                if 'must only be called once' in str(e) or 'already initialized' in error_str:
                     # ROS2 già inizializzato - va bene, continuiamo
-                    pass
+                    print('   ℹ️  ROS2 già inizializzato')
+                    ros2_initialized = True
                 else:
+                    # Altro tipo di RuntimeError - rilanciamo
+                    print(f'   ❌ RuntimeError durante inizializzazione ROS2: {e}')
                     raise
+            except Exception as e:
+                # Se rclpy.init() fallisce per altri motivi, verifichiamo se ROS2 è comunque OK
+                print(f'   ⚠️  Errore inizializzazione ROS2: {e}')
+                # Verifica se ROS2 è comunque OK (potrebbe essere già inizializzato da altro processo)
+                if rclpy.ok():
+                    print('   ℹ️  ROS2 è OK nonostante errore init, continuo...')
+                    ros2_initialized = True
+                else:
+                    print(f'   ❌ ROS2 non OK e init fallito: {e}')
+                    raise RuntimeError(f'Failed to initialize ROS2: {e}')
+            
+            # Verifica che ROS2 sia OK prima di creare il nodo
+            if not rclpy.ok():
+                print('   ❌ ROS2 non OK dopo inizializzazione')
+                raise RuntimeError('ROS2 context not OK after initialization')
+            
+            # CRITICO: Crea il nodo solo se ROS2 è inizializzato e OK
+            if not ros2_initialized and not rclpy.ok():
+                raise RuntimeError('ROS2 not initialized and not OK')
             
             self._node = Node('web_interface_bridge')
+            print('   ✅ Nodo ROS2 creato: web_interface_bridge')
             
             # Create publishers - usa topic reali del driver UR
             # Per movej: usa joint_trajectory_controller
