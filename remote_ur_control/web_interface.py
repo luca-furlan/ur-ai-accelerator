@@ -2229,10 +2229,6 @@ HTML_TEMPLATE = """
                     errorMsg += '<br><span class="material-icons md-18">error</span> Driver ROS2 non attivo.<br>';
                     errorMsg += '<small>Possibili cause:<br>- Driver crashato durante avvio<br>- Problemi di inizializzazione<br><br>Clicca "Riprova" nello step A per riavviare.</small>';
                   }
-                  if (!data.port_50002.listening) {
-                    errorMsg += '<br><span class="material-icons md-18">error</span> Porta 50002 non aperta.<br>';
-                    errorMsg += '<small>Il driver potrebbe non essere completamente avviato.</small>';
-                  }
                   updateWizardStep('b', 'error', errorMsg);
                   return true;
                 }
@@ -2496,7 +2492,7 @@ HTML_TEMPLATE = """
       }
 
       function wizardStepD() {
-        updateWizardStep('d', 'waiting', 'Attendi che attivi External Control sul Teach Pendant, poi clicca il pulsante qui sotto.');
+        updateWizardStep('d', 'active', '<span class="material-icons md-18">info</span> Configura Teach Pendant:<br><small>1. Apri programma con External Control<br>2. Configura Host IP: 192.168.10.191, Porta: 50002<br>3. Avvia programma (PLAY)<br>4. Clicca "Verifica Connessione" qui sotto</small>');
         const btn = document.getElementById("wizard-check-teach-pendant");
         if (btn) {
           btn.style.display = "block";
@@ -2537,21 +2533,22 @@ HTML_TEMPLATE = """
                               data.remote_control === null ||
                               data.remote_control === "unknown";
               
-              // Considera pronto se driver e controller sono attivi
-              // e almeno uno dei dati robot è disponibile/OK
-              const isReady = driverReady && controllerReady && robotModeOk;
+              // Considera pronto se driver, controller e porta 50002 sono attivi
+              // La porta 50002 viene aperta dal ROBOT quando il programma External Control è in PLAYING
+              const isReady = driverReady && controllerReady && portReady && robotModeOk;
               
               // Debug info
               const driverIcon = driverReady ? '<span class=' + '"material-icons md-18"' + '>check_circle</span>' : '<span class=' + '"material-icons md-18"' + '>error</span>';
               const controllerIcon = controllerReady ? '<span class=' + '"material-icons md-18"' + '>check_circle</span>' : '<span class=' + '"material-icons md-18"' + '>error</span>';
-              const debugInfo = 'Driver: ' + driverIcon + ', Controller: ' + controllerIcon + ', Mode: ' + (data.robot_mode || 'N/A') + ', Safety: ' + (data.robot_safety_mode || 'N/A') + ', Remote: ' + (data.remote_control || 'N/A') + ', Program: ' + (data.program_state || 'N/A');
+              const portIcon = portReady ? '<span class=' + '"material-icons md-18"' + '>check_circle</span>' : '<span class=' + '"material-icons md-18"' + '>error</span>';
+              const debugInfo = 'Driver: ' + driverIcon + ', Controller: ' + controllerIcon + ', Porta 50002: ' + portIcon + ', Mode: ' + (data.robot_mode || 'N/A') + ', Safety: ' + (data.robot_safety_mode || 'N/A') + ', Remote: ' + (data.remote_control || 'N/A') + ', Program: ' + (data.program_state || 'N/A');
               
               if (isReady) {
                 let successMsg = '<span class="material-icons md-18">check_circle</span> <strong style="font-size: 16px; color: #00aa00;">Robot connesso e pronto!</strong><br>';
-                if (data.robot_mode === "RUNNING" && data.robot_safety_mode === "NORMAL") {
-                  successMsg += 'Tutti i controlli verificati correttamente.';
+                if (data.robot_mode === "RUNNING" && data.robot_safety_mode === "NORMAL" && portReady) {
+                  successMsg += 'Tutti i controlli verificati correttamente: Driver attivo, Controller attivo, Porta 50002 aperta sul robot.';
                 } else {
-                  successMsg += 'Driver e controller attivi. Alcuni dati robot non disponibili ma sistema operativo.';
+                  successMsg += 'Driver, Controller e Porta 50002 verificati. Alcuni dati robot non disponibili ma sistema operativo.';
                 }
                 successMsg += '<br><small style="color: #666;">Scorri in basso per vedere i joystick di controllo.</small>';
                 
@@ -2585,7 +2582,8 @@ HTML_TEMPLATE = """
               } else if (attempts >= maxAttempts) {
                 let errorMsg = 'Robot non pronto dopo ' + maxAttempts + ' tentativi.<br>';
                 errorMsg += '<small style="color: #666;">Debug: ' + debugInfo + '</small><br>';
-                if (!driverReady) errorMsg += '<br><span class=' + '"material-icons md-18"' + '>error</span> Driver ROS2 non attivo o porta 50002 chiusa.';
+                if (!driverReady) errorMsg += '<br><span class=' + '"material-icons md-18"' + '>error</span> Driver ROS2 non attivo.';
+                if (!portReady) errorMsg += '<br><span class=' + '"material-icons md-18"' + '>error</span> Porta 50002 chiusa sul robot.<br><small>Verifica che il programma External Control sia in PLAYING sul Teach Pendant.</small>';
                 if (!controllerReady) errorMsg += '<br><span class=' + '"material-icons md-18"' + '>error</span> Controller non attivo.';
                 if (data.robot_mode && data.robot_mode !== "RUNNING" && data.robot_mode !== "unknown") {
                   errorMsg += '<br><span class=' + '"material-icons md-18"' + '>warning</span> Modalità robot: ' + data.robot_mode + ' (atteso: RUNNING).';
@@ -2598,8 +2596,8 @@ HTML_TEMPLATE = """
                 }
                 errorMsg += '<br><br><small>Se il robot è effettivamente in esecuzione, puoi comunque provare a usare i joystick.</small>';
                 updateWizardStep('e', 'error', errorMsg);
-                // Mostra comunque i joystick se driver è OK (controller può essere null se non ancora verificato)
-                if (driverReady) {
+                // Mostra comunque i joystick se driver è OK e porta è aperta (controller può essere null se non ancora verificato)
+                if (driverReady && portReady) {
                   const joystickSection = document.getElementById('joystick-section');
                   if (joystickSection) {
                     joystickSection.style.display = 'block';
@@ -5272,32 +5270,11 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     exit 1
 fi
 
-# STEP 8/9: Verifica porta 50002 sul ROBOT (non sull'AI Accelerator!)
-# NOTA CRITICA: In modalità headless, la porta 50002 viene aperta dal ROBOT
-# quando il programma External Control è in PLAYING. Il driver si connette al robot.
-# Questa verifica controlla se il ROBOT ha la porta 50002 aperta.
-echo "[STEP 8/9] Verifica porta 50002 sul ROBOT (robot deve aprire porta quando programma in PLAYING)..." >> /tmp/ros2_driver.log
-PORT_OPEN=false
-for i in 1 2 3; do
-    # Verifica porta 50002 sul ROBOT, non sull'AI Accelerator
-    if timeout 1 bash -c "echo > /dev/tcp/{config.robot_ip}/50002" 2>/dev/null; then
-        PORT_OPEN=true
-        echo "[OK] Porta 50002 aperta sul ROBOT (tentativo $i/3)" >> /tmp/ros2_driver.log
-        break
-    fi
-    if [ $i -lt 3 ]; then
-        echo "[INFO] Porta 50002 sul ROBOT non ancora aperta, attendo 2s... (tentativo $i/3)" >> /tmp/ros2_driver.log
-        echo "[INFO] La porta 50002 si aprirà quando il programma External Control è in PLAYING sul Teach Pendant (step D)" >> /tmp/ros2_driver.log
-        sleep 2
-    fi
-done
-
-# La porta 50002 non è obbligatoria nello step A/B (verificata completamente nello step D)
-# Il robot aprirà la porta quando il programma External Control è in PLAYING
-if [ "$PORT_OPEN" = false ]; then
-    echo "[INFO] Porta 50002 sul ROBOT non ancora aperta (normale - si aprirà nello step D quando programma in PLAYING)" >> /tmp/ros2_driver.log
-    echo "[INFO] La porta 50002 verrà verificata completamente nello step D del wizard" >> /tmp/ros2_driver.log
-fi
+# STEP 8/9: Driver completamente inizializzato
+# NOTA: La porta 50002 viene aperta dal ROBOT quando il programma External Control è in PLAYING
+# La verifica della porta 50002 viene fatta nello step D del wizard, non qui
+echo "[STEP 8/9] Driver completamente inizializzato" >> /tmp/ros2_driver.log
+echo "[INFO] La porta 50002 verrà verificata nello step D del wizard (quando il robot si connette)" >> /tmp/ros2_driver.log
 
 # Verifica errori fatali nel log (anche se il processo è vivo, potrebbe essere in crash)
 if grep -q "process has died.*exit code -[0-9]" /tmp/ros2_driver.log 2>/dev/null; then
