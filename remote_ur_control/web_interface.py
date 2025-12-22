@@ -2087,16 +2087,17 @@ HTML_TEMPLATE = """
         const logInterval = setInterval(pollDriverLogs, 2000);
         
         // Funzione per verificare che il driver sia stabile
+        // NOTA: Nello step A verifichiamo solo che il driver sia in esecuzione
+        // La verifica della porta 50002 viene fatta nello step B (dopo che il Teach Pendant è configurato)
         const verifyDriverStable = async (maxChecks = 10, checkInterval = 2000) => {
           for (let i = 0; i < maxChecks; i++) {
             try {
               const statusResponse = await fetch("/api/system/status");
               const statusData = await statusResponse.json();
               if (statusData.status === "ok" && statusData.data.ros2_driver.running) {
-                // Verifica anche che la porta 50002 sia aperta
-                if (statusData.data.port_50002 && statusData.data.port_50002.listening) {
-                  return true; // Driver stabile e porta aperta
-                }
+                // Nello step A basta che il driver sia in esecuzione
+                // La porta 50002 verrà verificata nello step B
+                return true; // Driver stabile (porta 50002 verificata nello step B)
               }
               // Se non è ancora stabile, aspetta prima del prossimo check
               if (i < maxChecks - 1) {
@@ -5265,27 +5266,36 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
 fi
 
 # Verifica che la porta 50002 si apra (il driver deve mettersi in ascolto)
-echo "[STEP 8/8] Verifica porta 50002 in ascolto..." >> /tmp/ros2_driver.log
+# NOTA: In modalità headless, il driver si mette in ascolto sulla porta 50002
+# anche senza che il robot si connetta. Questa verifica è opzionale nello step A.
+echo "[STEP 8/8] Verifica porta 50002 in ascolto (opzionale - verificata completamente nello step B)..." >> /tmp/ros2_driver.log
 PORT_OPEN=false
-for i in 1 2 3 4 5; do
+for i in 1 2 3; do
     if command -v lsof >/dev/null 2>&1; then
         if lsof -ti :50002 >/dev/null 2>&1; then
             PORT_OPEN=true
-            echo "[OK] Porta 50002 in ascolto (tentativo $i/5)" >> /tmp/ros2_driver.log
+            echo "[OK] Porta 50002 in ascolto (tentativo $i/3)" >> /tmp/ros2_driver.log
             break
         fi
     elif command -v netstat >/dev/null 2>&1; then
         if netstat -tuln 2>/dev/null | grep -q ":50002 "; then
             PORT_OPEN=true
-            echo "[OK] Porta 50002 in ascolto (tentativo $i/5)" >> /tmp/ros2_driver.log
+            echo "[OK] Porta 50002 in ascolto (tentativo $i/3)" >> /tmp/ros2_driver.log
             break
         fi
     fi
-    if [ $i -lt 5 ]; then
-        echo "[INFO] Porta 50002 non ancora aperta, attendo 2s... (tentativo $i/5)" >> /tmp/ros2_driver.log
+    if [ $i -lt 3 ]; then
+        echo "[INFO] Porta 50002 non ancora aperta, attendo 2s... (tentativo $i/3)" >> /tmp/ros2_driver.log
         sleep 2
     fi
 done
+
+# La porta 50002 non è obbligatoria nello step A (verificata completamente nello step B)
+# Il driver in modalità headless si metterà in ascolto quando sarà pronto
+if [ "$PORT_OPEN" = false ]; then
+    echo "[WARN] Porta 50002 non ancora aperta (normale - si aprirà quando il driver sarà completamente inizializzato)" >> /tmp/ros2_driver.log
+    echo "[INFO] La porta 50002 verrà verificata completamente nello step B del wizard" >> /tmp/ros2_driver.log
+fi
 
 # Verifica errori fatali nel log (anche se il processo è vivo, potrebbe essere in crash)
 if grep -q "process has died.*exit code -[0-9]" /tmp/ros2_driver.log 2>/dev/null; then
@@ -5309,11 +5319,12 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
 fi
 
 # Se tutto ok, restituisci il PID del processo launch (non quello del nodo figlio)
+# La porta 50002 verrà verificata completamente nello step B
 if [ "$PORT_OPEN" = true ]; then
     echo "[OK] Driver avviato correttamente: launch PID=$LAUNCH_PID, node PID=$FOUND_PID, porta 50002 aperta" >> /tmp/ros2_driver.log
 else
-    echo "[WARN] Driver avviato ma porta 50002 non ancora aperta (potrebbe aprirsi dopo)" >> /tmp/ros2_driver.log
-    echo "[INFO] Driver PID=$LAUNCH_PID, node PID=$FOUND_PID" >> /tmp/ros2_driver.log
+    echo "[OK] Driver avviato correttamente: launch PID=$LAUNCH_PID, node PID=$FOUND_PID" >> /tmp/ros2_driver.log
+    echo "[INFO] Porta 50002 verrà verificata nello step B (driver in modalità headless - si aprirà quando pronto)" >> /tmp/ros2_driver.log
 fi
 echo $LAUNCH_PID
 exit 0
