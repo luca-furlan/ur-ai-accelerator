@@ -176,3 +176,10 @@ echo "Per connettersi manualmente al robot:"
 echo "  sshpass -p '$ROBOT_PASS' ssh $ROBOT_USER@$ROBOT_IP"
 echo ""
 
+
+
+
+
+
+
+

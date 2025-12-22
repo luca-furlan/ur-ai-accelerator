@@ -71,3 +71,10 @@ echo "- Il driver ROS2 mette automaticamente la macchina in ascolto sulla 50002"
 echo ""
 echo "=================================================================================="
 
+
+
+
+
+
+
+

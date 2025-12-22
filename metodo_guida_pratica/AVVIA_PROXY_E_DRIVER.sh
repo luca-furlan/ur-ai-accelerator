@@ -142,3 +142,10 @@ echo "Per fermare tutto:"
 echo "  pkill -f 'ur_robot_driver\|external_control_proxy'"
 echo ""
 
+
+
+
+
+
+
+

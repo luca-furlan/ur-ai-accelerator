@@ -1,0 +1,118 @@
+================================================================================
+SOLUZIONE: FORWARD_VELOCITY_CONTROLLER SI BLOCCA
+================================================================================
+
+PROBLEMA IDENTIFICATO:
+----------------------
+Dai log del server, il problema è:
+
+1. Il driver ROS2 parte già con forward_velocity_controller ATTIVO
+   (configurato con initial_joint_controller:=forward_velocity_controller)
+
+2. Quando qualche script cerca di attivarlo di nuovo, si verificano errori:
+   - "Controller 'forward_velocity_controller' can not be configured from 'active' state"
+   - "Could not 'deactivate' controller with name 'scaled_joint_trajectory_controller' because no controller with this name exists"
+   - "Controller with name 'forward_velocity_controller' is not inactive so its following controllers do not have to be checked"
+
+3. Questo causa blocchi e il controller non funziona correttamente.
+
+================================================================================
+CAUSA ROOT:
+================================================================================
+
+Il problema è che:
+- Il driver parte già con forward_velocity_controller attivo
+- Gli script (attiva_controller.py, attiva_controller.sh) cercano di attivarlo di nuovo
+- Usano strictness=STRICT (1) che richiede che TUTTI i controller siano switchati correttamente
+- scaled_joint_trajectory_controller non esiste (non è mai stato caricato)
+- Il switch fallisce e il sistema si blocca
+
+================================================================================
+SOLUZIONE IMPLEMENTATA:
+================================================================================
+
+1. CORRETTO switch_controller.py:
+   - Verifica lo stato PRIMA di fare switch
+   - Se forward_velocity_controller è già attivo, ritorna successo senza fare nulla
+   - Se scaled_joint_trajectory_controller non esiste, non prova a deattivarlo
+   - Usa strictness=BEST_EFFORT (0) invece di STRICT (1) per permettere switch parziali
+   - Verifica finale stato dopo switch
+
+2. CORRETTO attiva_controller.py:
+   - Stessa logica robusta di switch_controller.py
+   - Verifica stato prima di switch
+   - Usa BEST_EFFORT invece di STRICT
+   - Gestisce correttamente controller già attivi
+
+================================================================================
+COME ASSICURARSI CHE PARTA SEMPRE:
+================================================================================
+
+1. Il driver ROS2 parte già con forward_velocity_controller attivo:
+   ✅ FATTO - il launch file usa initial_joint_controller:=forward_velocity_controller
+
+2. Gli script di attivazione ora verificano lo stato PRIMA di fare switch:
+   ✅ FATTO - switch_controller.py e attiva_controller.py verificano stato
+
+3. Se il controller è già attivo, gli script ritornano successo senza fare nulla:
+   ✅ FATTO - evita errori di riconfigurazione
+
+4. Usa BEST_EFFORT invece di STRICT per permettere switch parziali:
+   ✅ FATTO - se scaled_joint_trajectory_controller non esiste, non blocca il switch
+
+================================================================================
+VERIFICA CHE FUNZIONI:
+================================================================================
+
+1. Avvia il driver ROS2:
+   cd ~/MekoAiAccelerator
+   export UR_ROBOT_IP=192.168.10.194
+   ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.10.194 launch_rviz:=false initial_joint_controller:=forward_velocity_controller
+
+2. Verifica che forward_velocity_controller sia attivo:
+   source /opt/ros/humble/setup.bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 control list_controllers | grep forward_velocity_controller
+
+   Dovresti vedere: forward_velocity_controller [active]
+
+3. Prova a eseguire attiva_controller.py (dovrebbe dire "già attivo"):
+   python3 attiva_controller.py
+
+   Output atteso: "OK: Controller forward_velocity_controller già attivo - nessuna azione necessaria"
+
+4. Verifica che il topic sia disponibile:
+   ros2 topic list | grep forward_velocity_controller
+
+   Dovresti vedere: /forward_velocity_controller/commands
+
+================================================================================
+SE ANCORA NON FUNZIONA:
+================================================================================
+
+1. Verifica che il driver ROS2 sia attivo:
+   ps aux | grep ur_ros2_control_node
+
+2. Verifica che il robot sia in Remote Control:
+   python3 verifica_vnc_e_poweron.py
+
+3. Verifica log del driver:
+   tail -100 /tmp/ros2_driver.log | grep -E "forward_velocity|error|ERROR"
+
+4. Se vedi errori di riconfigurazione, il controller è già attivo:
+   - Non fare nulla, è normale
+   - Il controller è già pronto per ricevere comandi
+
+================================================================================
+RIEPILOGO:
+================================================================================
+
+✅ Il driver parte già con forward_velocity_controller attivo
+✅ Gli script ora verificano lo stato prima di fare switch
+✅ Se già attivo, ritornano successo senza errori
+✅ Usa BEST_EFFORT per permettere switch parziali
+✅ Gestisce correttamente controller inesistenti
+
+Il forward_velocity_controller DOVREBBE partire sempre correttamente ora!
+
+================================================================================

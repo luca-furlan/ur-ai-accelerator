@@ -152,3 +152,10 @@ echo "  sudo firewall-cmd --permanent --add-port=50004/tcp"
 echo "  sudo firewall-cmd --reload"
 echo ""
 
+
+
+
+
+
+
+

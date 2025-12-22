@@ -77,3 +77,10 @@ echo "⚠️  NOTA: Se EtherNet/IP è necessario, prova questa configurazione"
 echo "   Se non funziona, EtherNet/IP deve essere disabilitato"
 echo ""
 
+
+
+
+
+
+
+

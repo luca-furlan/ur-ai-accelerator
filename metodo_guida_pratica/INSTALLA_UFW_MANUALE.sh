@@ -40,3 +40,10 @@ echo ""
 echo "Porte aperte: 50001, 50002, 50003, 50004"
 echo ""
 
+
+
+
+
+
+
+

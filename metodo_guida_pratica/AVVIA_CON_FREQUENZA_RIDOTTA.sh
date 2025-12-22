@@ -50,3 +50,10 @@ ros2 launch ur_robot_driver ur_control.launch.py \
     launch_rviz:=false \
     --params-file /tmp/ur_config/ur5e_low_freq.yaml
 
+
+
+
+
+
+
+

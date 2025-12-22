@@ -160,3 +160,10 @@ if [ $? -ne 0 ]; then
     echo "  3. Altro processo RTDE attivo"
 fi
 
+
+
+
+
+
+
+

@@ -142,8 +142,15 @@ def main():
         else:
             print(f"     ⚠️ {topic} non presente")
     
+    # Riepilogo
     print("\n" + "=" * 60)
-    print("NOTA: Per avviare il driver UR:")
+    if topics and nodes:
+        print("✅ ROS2 driver disponibile e funzionante")
+    elif check_ros2_available():
+        print("⚠️ ROS2 disponibile ma driver non avviato")
+    else:
+        print("❌ ROS2 non disponibile")
+    print("\nNOTA: Per avviare il driver UR:")
     print("  ros2 launch ur_robot_driver ur_control.launch.py \\")
     print("      ur_type:=ur5e \\")
     print("      robot_ip:=192.168.10.194 \\")
@@ -152,6 +159,13 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
 
 
 

@@ -12,12 +12,31 @@ from datetime import datetime
 # This must happen before any Python imports that load shared libraries
 def setup_ros2_environment():
     """Setup ROS2 environment variables before importing rclpy."""
+    # CRITICAL: Set LD_LIBRARY_PATH FIRST - must include all ROS2 lib paths
+    ros_lib = '/opt/ros/humble/lib'
+    ros_lib_aarch64 = '/opt/ros/humble/lib/aarch64-linux-gnu'
+    
+    current_ld = os.environ.get('LD_LIBRARY_PATH', '')
+    ld_paths = []
+    
+    # Add aarch64 path first (required for librcl_action.so)
+    if ros_lib_aarch64 not in current_ld and os.path.exists(ros_lib_aarch64):
+        ld_paths.append(ros_lib_aarch64)
+    
+    # Add main ROS2 lib path
+    if ros_lib not in current_ld:
+        ld_paths.append(ros_lib)
+    
+    # Merge with existing paths
+    if ld_paths:
+        new_ld = ':'.join(ld_paths)
+        if current_ld:
+            os.environ['LD_LIBRARY_PATH'] = f'{new_ld}:{current_ld}'
+        else:
+            os.environ['LD_LIBRARY_PATH'] = new_ld
+    
     if 'ROS_DISTRO' in os.environ:
-        # Already sourced, just ensure LD_LIBRARY_PATH is set
-        ros_lib = '/opt/ros/humble/lib'
-        current_ld = os.environ.get('LD_LIBRARY_PATH', '')
-        if ros_lib not in current_ld:
-            os.environ['LD_LIBRARY_PATH'] = f'{ros_lib}:{current_ld}' if current_ld else ros_lib
+        # Already sourced, just ensure paths are set
         return
     
     # Not sourced - try to get environment from ROS2 setup script
@@ -38,12 +57,12 @@ def setup_ros2_environment():
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
         
         if result.returncode == 0:
-            # Parse environment variables
+            # Parse environment variables - IMPORTANTE: prendi TUTTE le variabili ROS2
             for line in result.stdout.strip().split('\n'):
                 if '=' in line:
                     key, value = line.split('=', 1)
-                    # Set critical environment variables
-                    if key in ['LD_LIBRARY_PATH', 'PYTHONPATH', 'ROS_DISTRO', 'ROS_VERSION']:
+                    # Set ALL ROS2-related environment variables
+                    if key.startswith('ROS_') or key in ['LD_LIBRARY_PATH', 'PYTHONPATH', 'CMAKE_PREFIX_PATH', 'PATH', 'PKG_CONFIG_PATH']:
                         if key == 'LD_LIBRARY_PATH':
                             # Merge with existing LD_LIBRARY_PATH
                             current = os.environ.get('LD_LIBRARY_PATH', '')
@@ -58,25 +77,72 @@ def setup_ros2_environment():
                                 os.environ[key] = f'{value}:{current}'
                             else:
                                 os.environ[key] = value
+                        elif key == 'PATH':
+                            # Merge with existing PATH
+                            current = os.environ.get('PATH', '')
+                            if current:
+                                os.environ[key] = f'{value}:{current}'
+                            else:
+                                os.environ[key] = value
                         else:
                             os.environ[key] = value
             
+            # Aggiungi anche path Python ROS2 espliciti (potrebbero mancare)
+            # IMPORTANTE: rclpy si trova in local/lib/python3.10/dist-packages
+            ros_python_paths = [
+                '/opt/ros/humble/lib/python3.10/site-packages',
+                '/opt/ros/humble/local/lib/python3.10/dist-packages',  # QUI si trova rclpy!
+            ]
+            current_pythonpath = os.environ.get('PYTHONPATH', '')
+            for ros_path in ros_python_paths:
+                if os.path.exists(ros_path) and ros_path not in current_pythonpath:
+                    os.environ['PYTHONPATH'] = f'{ros_path}:{current_pythonpath}' if current_pythonpath else ros_path
+                    current_pythonpath = os.environ['PYTHONPATH']
+            
+            # Aggiungi anche a sys.path direttamente (per sicurezza)
+            import sys
+            for ros_path in ros_python_paths:
+                if os.path.exists(ros_path) and ros_path not in sys.path:
+                    sys.path.insert(0, ros_path)
+            
             # Ensure ROS2 lib is in LD_LIBRARY_PATH (critical for librcl_action.so)
+            # IMPORTANTE: aggiungi anche path aarch64 per librcl_action.so
             ros_lib = '/opt/ros/humble/lib'
+            ros_lib_aarch64 = '/opt/ros/humble/lib/aarch64-linux-gnu'
             current_ld = os.environ.get('LD_LIBRARY_PATH', '')
+            
+            # Aggiungi aarch64 path se esiste e non è già presente
+            if os.path.exists(ros_lib_aarch64) and ros_lib_aarch64 not in current_ld:
+                os.environ['LD_LIBRARY_PATH'] = f'{ros_lib_aarch64}:{current_ld}' if current_ld else ros_lib_aarch64
+                current_ld = os.environ['LD_LIBRARY_PATH']
+            
             if ros_lib not in current_ld:
                 os.environ['LD_LIBRARY_PATH'] = f'{ros_lib}:{current_ld}' if current_ld else ros_lib
         else:
             # Fallback: set common paths
             ros_lib = '/opt/ros/humble/lib'
+            ros_lib_aarch64 = '/opt/ros/humble/lib/aarch64-linux-gnu'
             current_ld = os.environ.get('LD_LIBRARY_PATH', '')
+            
+            # Aggiungi aarch64 path se esiste
+            if os.path.exists(ros_lib_aarch64) and ros_lib_aarch64 not in current_ld:
+                os.environ['LD_LIBRARY_PATH'] = f'{ros_lib_aarch64}:{current_ld}' if current_ld else ros_lib_aarch64
+                current_ld = os.environ['LD_LIBRARY_PATH']
+            
             if ros_lib not in current_ld:
                 os.environ['LD_LIBRARY_PATH'] = f'{ros_lib}:{current_ld}' if current_ld else ros_lib
     except Exception as e:
         print(f'⚠️ Warning: Could not source ROS2 setup: {e}')
         # Fallback: set common paths anyway
         ros_lib = '/opt/ros/humble/lib'
+        ros_lib_aarch64 = '/opt/ros/humble/lib/aarch64-linux-gnu'
         current_ld = os.environ.get('LD_LIBRARY_PATH', '')
+        
+        # Aggiungi aarch64 path se esiste
+        if os.path.exists(ros_lib_aarch64) and ros_lib_aarch64 not in current_ld:
+            os.environ['LD_LIBRARY_PATH'] = f'{ros_lib_aarch64}:{current_ld}' if current_ld else ros_lib_aarch64
+            current_ld = os.environ['LD_LIBRARY_PATH']
+        
         if ros_lib not in current_ld:
             os.environ['LD_LIBRARY_PATH'] = f'{ros_lib}:{current_ld}' if current_ld else ros_lib
 
@@ -90,13 +156,17 @@ try:
     from std_msgs.msg import Float64MultiArray, Empty
     from geometry_msgs.msg import Twist
     ROS2_AVAILABLE = True
-    print(f'✅ ROS2 available - LD_LIBRARY_PATH={os.environ.get("LD_LIBRARY_PATH", "not set")[:100]}...')
+    print(f'[OK] ROS2 available - LD_LIBRARY_PATH={os.environ.get("LD_LIBRARY_PATH", "not set")[:100]}...')
 except ImportError as e:
     ROS2_AVAILABLE = False
     Node = None
-    print(f'⚠️ ROS2 not available: {e}')
-    print(f'   LD_LIBRARY_PATH={os.environ.get("LD_LIBRARY_PATH", "not set")}')
-    print(f'   PYTHONPATH={os.environ.get("PYTHONPATH", "not set")[:100]}...')
+    # Log solo una volta all'import, non ad ogni chiamata
+    if '_ros2_warn_logged' not in globals():
+        globals()['_ros2_warn_logged'] = True
+        print(f'[WARN] ROS2 not available: {e}')
+        print(f'   LD_LIBRARY_PATH={os.environ.get("LD_LIBRARY_PATH", "not set")}')
+        print(f'   PYTHONPATH={os.environ.get("PYTHONPATH", "not set")[:100]}...')
+        print(f'   Suggerimento: avvia web interface con: bash avvia_web_interface.sh')
 
 import threading
 import time
@@ -155,7 +225,10 @@ class ROS2Bridge:
             return
         
         if not ROS2_AVAILABLE:
-            print('⚠️ ROS2 not available (rclpy not found). Web interface will work but ROS2 commands will fail.')
+            # Log solo una volta, non ad ogni chiamata
+            if '_ros2_not_available_warned' not in globals():
+                globals()['_ros2_not_available_warned'] = True
+                print('⚠️ ROS2 not available (rclpy not found). Web interface will work but ROS2 commands will fail.')
             return
         
         try:
@@ -477,9 +550,18 @@ class ROS2Bridge:
                                         raise
                                 else:
                                     # Usa forward_velocity_controller (velocità diretta)
-                                    msg = Float64MultiArray()
-                                    msg.data = speeds
-                                    publisher.publish(msg)
+                                    try:
+                                        msg = Float64MultiArray()
+                                        msg.data = speeds
+                                        # Pubblica con timeout implicito (non blocca)
+                                        publisher.publish(msg)
+                                        # Non aspettare conferma - pubblicazione asincrona
+                                    except Exception as pub_err:
+                                        # Se la pubblicazione fallisce, logga ma continua
+                                        if publish_count % 50 == 0:  # Log ogni ~4 secondi
+                                            print(f'⚠️ Publish error (speedj): {pub_err}')
+                                        # Non fermare il loop - continua a provare
+                                        pass
                                 
                                 publish_count += 1
                                 self._last_publish_time = time.time()

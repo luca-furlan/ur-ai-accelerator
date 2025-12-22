@@ -33,10 +33,15 @@ def test_ros2_bridge_import() -> bool:
 def test_ros2_bridge_init() -> bool:
     """Test inizializzazione ROS2 bridge"""
     try:
-        from ros2_bridge_fixed import ROS2Bridge
+        from ros2_bridge_fixed import ROS2Bridge, ROS2_AVAILABLE
+        if not ROS2_AVAILABLE:
+            return False
         bridge = ROS2Bridge()
         if bridge.ensure_ros():
             return True
+        return False
+    except ImportError as e:
+        print(f"Errore import: {e}")
         return False
     except Exception as e:
         print(f"Errore inizializzazione: {e}")
@@ -50,7 +55,11 @@ def test_web_interface_files() -> dict:
         'remote_controller_py': False,
     }
     
-    project_root = os.path.expanduser('~/MekoAiAccelerator')
+    # Usa path relativo al progetto
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # Fallback a path espanso se non trovato
+    if not os.path.isdir(project_root):
+        project_root = os.path.expanduser('~/MekoAiAccelerator')
     
     web_interface = os.path.join(project_root, 'remote_ur_control', 'web_interface.py')
     ros2_bridge = os.path.join(project_root, 'ros2_bridge_fixed.py')
@@ -122,8 +131,20 @@ def main():
     else:
         print("⚠️ Porta 8080 occupata (web interface già in esecuzione?)")
     
+    # Riepilogo finale
+    all_ok = (
+        files['web_interface_py'] and 
+        files['ros2_bridge_py'] and 
+        files['remote_controller_py'] and
+        test_web_interface_import()
+    )
+    
     print("\n" + "=" * 60)
-    print("NOTA: Per avviare web interface:")
+    if all_ok:
+        print("✅ Tutti i test base superati!")
+    else:
+        print("⚠️ Alcuni test non superati - verificare i dettagli sopra")
+    print("\nNOTA: Per avviare web interface:")
     print("  cd ~/MekoAiAccelerator")
     print("  export UR_ROBOT_IP=192.168.10.194")
     print("  export WEB_HOST=0.0.0.0")
@@ -133,6 +154,13 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
 
 
 

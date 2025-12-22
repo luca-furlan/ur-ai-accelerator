@@ -1,0 +1,75 @@
+================================================================================
+COME CONNETTERSI A VNC - GUIDA RAPIDA
+================================================================================
+
+📍 INFORMAZIONI CONNESSIONE:
+--------------------------------------------------------------------------------
+IP:           192.168.10.191
+Porta:        5901
+Display:      :1
+Password:     easybot
+
+🔌 CLIENT VNC PER WINDOWS:
+--------------------------------------------------------------------------------
+
+OPZIONE 1: TightVNC Viewer (Consigliato)
+1. Scarica: https://www.tightvnc.com/download.php
+2. Installa "TightVNC Viewer" (NON il server)
+3. Apri TightVNC Viewer
+4. Inserisci: 192.168.10.191:5901
+5. Password: easybot
+
+OPZIONE 2: RealVNC Viewer
+1. Scarica: https://www.realvnc.com/download/viewer/
+2. Installa RealVNC Viewer
+3. Apri e connetti a: 192.168.10.191:5901
+4. Password: easybot
+
+OPZIONE 3: MobaXterm (include VNC integrato)
+1. Scarica: https://mobaxterm.mobatek.net/
+2. Installa MobaXterm
+3. Vai su Tools → VNC
+4. Inserisci: 192.168.10.191:5901
+
+================================================================================
+FIX VNC SE NON FUNZIONA:
+================================================================================
+
+Se il desktop non si avvia, esegui sulla macchina:
+
+1. Test con xterm (desktop minimale):
+   vncserver -kill :1
+   vncserver :1 -geometry 1280x720 -depth 24 -localhost no -xstartup /usr/bin/xterm
+
+2. Installa dipendenze XFCE:
+   sudo apt install -y xfce4 xfce4-goodies dbus-x11
+
+3. Riconfigura:
+   cd ~/MekoAiAccelerator
+   bash setup_vnc_semplice.sh
+
+================================================================================
+VERIFICA CONNESSIONE:
+================================================================================
+
+Sulla macchina AI Accelerator:
+   vncserver -list
+   # Dovresti vedere: :1
+
+Da Windows:
+   ping 192.168.10.191
+   # Dovrebbe rispondere
+
+================================================================================
+
+
+
+
+
+
+
+
+
+
+
+

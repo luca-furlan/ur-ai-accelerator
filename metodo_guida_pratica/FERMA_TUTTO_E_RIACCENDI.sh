@@ -36,3 +36,10 @@ echo "✅ FATTO! Ora puoi riavviare il driver con: ./START_RAPIDO.sh"
 echo "=================================================================================="
 
 
+
+
+
+
+
+
+

@@ -1,0 +1,66 @@
+================================================================================
+FIX ERRORE 500 - MESSAGGI CHIARI
+================================================================================
+
+Ho migliorato la gestione degli errori per mostrare messaggi più chiari quando
+si prova a controllare il robot.
+
+================================================================================
+COSA È STATO FIXATO
+================================================================================
+
+1. ✅ Verifica stato robot prima di inviare comandi
+   - Controlla se il programma è in PLAYING
+   - Controlla se il robot è in RUNNING
+   - Mostra messaggi chiari se non è pronto
+
+2. ✅ Gestione errori migliorata
+   - Messaggi più specifici per timeout di connessione
+   - Suggerimenti su cosa fare (avviare programma sul teach pendant)
+
+================================================================================
+COSA VEDRAI ORA
+================================================================================
+
+Se provi a controllare il robot quando non è in PLAYING, vedrai:
+   "Robot non in PLAYING (stato: STOPPED). Avvia il programma sul teach pendant."
+
+Invece di:
+   "Errore invio comando: 500"
+
+================================================================================
+PER USARE IL CONTROLLO
+================================================================================
+
+1. Sul teach pendant del robot:
+   - Avvia il programma "remote_control.urp" (o qualsiasi programma)
+   - Assicurati che sia in stato PLAYING
+
+2. Nella web interface:
+   - Dovresti vedere "Program State: PLAYING"
+   - Ora puoi usare joystick e controlli
+
+================================================================================
+RIACCENDI WEB INTERFACE
+================================================================================
+
+Il file è stato copiato. Riavvia la web interface:
+
+    ssh lab@192.168.10.191
+    pkill -f web_interface
+    cd ~/MekoAiAccelerator
+    export UR_ROBOT_IP=192.168.10.194
+    export WEB_PORT=8081
+    python3 -m remote_ur_control.web_interface
+
+================================================================================
+
+
+
+
+
+
+
+
+
+

@@ -151,3 +151,10 @@ DISABILITA ETHERNET/IP SUL ROBOT, POI RIAVVIA DRIVER ROS2!
 
 ================================================================================
 
+
+
+
+
+
+
+

@@ -1,0 +1,69 @@
+================================================================================
+SOLUZIONE: Pipeline Producer Overflowed - RTDE
+================================================================================
+
+Ho fixato il problema! La causa era che web interface E driver ROS2 usavano
+entrambi RTDE contemporaneamente, causando overflow.
+
+================================================================================
+PROBLEMA RISOLTO
+================================================================================
+
+✅ Web interface ora rileva se driver ROS2 è attivo
+✅ Se driver ROS2 attivo → NON usa RTDE (evita overflow)
+✅ Se driver ROS2 NON attivo → usa RTDE normalmente
+
+================================================================================
+COSA FARE ORA
+================================================================================
+
+OPZIONE 1: Usa SOLO ROS2 Driver (consigliato)
+-----------------------------------------------
+1. Ferma web interface:
+   pkill -f web_interface
+
+2. Avvia driver ROS2:
+   source /opt/ros/humble/setup.bash
+   source ~/ros2_ws/install/setup.bash
+   ros2 launch ur_robot_driver ur_control.launch.py \
+       ur_type:=ur5e \
+       robot_ip:=192.168.10.194 \
+       launch_rviz:=false
+
+3. Controlla robot via ROS2 topics (non web interface)
+
+OPZIONE 2: Usa SOLO Web Interface (socket, senza RTDE)
+-------------------------------------------------------
+1. Ferma driver ROS2:
+   pkill -f ur_robot_driver
+
+2. Riavvia web interface (ora non usa RTDE se ROS2 attivo):
+   cd ~/MekoAiAccelerator
+   export UR_ROBOT_IP=192.168.10.194
+   export WEB_PORT=8081
+   python3 -m remote_ur_control.web_interface
+
+3. Controlla robot via web interface
+
+================================================================================
+REGOLA D'ORO
+================================================================================
+
+⚠️  RTDE può essere usato da UN SOLO processo alla volta!
+
+- Driver UR ROS2 usa RTDE → NON avviare web interface con RTDE
+- Web interface usa RTDE → NON avviare driver UR ROS2
+
+Ora la web interface rileva automaticamente e disabilita RTDE se ROS2 è attivo!
+
+================================================================================
+
+
+
+
+
+
+
+
+
+

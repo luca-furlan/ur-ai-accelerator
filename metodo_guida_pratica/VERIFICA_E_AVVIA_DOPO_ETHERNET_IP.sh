@@ -147,3 +147,10 @@ if [ $? -ne 0 ]; then
     echo "  3. Verifica nessun altro processo RTDE attivo"
 fi
 
+
+
+
+
+
+
+

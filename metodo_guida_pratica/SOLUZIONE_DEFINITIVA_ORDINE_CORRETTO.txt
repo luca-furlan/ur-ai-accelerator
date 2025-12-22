@@ -138,3 +138,10 @@ Questo è il comportamento standard quando il driver usa robot_ip!
 
 ================================================================================
 
+
+
+
+
+
+
+

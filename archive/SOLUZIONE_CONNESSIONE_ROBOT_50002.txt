@@ -1,0 +1,153 @@
+================================================================================
+SOLUZIONE: ROBOT NON SI COLLEGA ALLA PORTA 50002
+================================================================================
+
+PROBLEMA:
+---------
+Il programma "remote_control" sul robot dice:
+"Non riesce a collegarsi al PC 192.168.10.191:50002"
+
+RISULTATO VERIFICA:
+-------------------
+[OK] Porta 50002 aperta sul server (driver ROS2 attivo)
+[OK] Server raggiungibile
+
+================================================================================
+SPIEGAZIONE:
+================================================================================
+
+Il flusso di connessione e:
+
+1. ROBOT (192.168.10.194)
+   - Esegue programma "remote_control.urp"
+   - Cerca di connettersi a: 192.168.10.191:50002
+   - Invia richiesta di connessione External Control
+
+2. SERVER (192.168.10.191)
+   - Driver ROS2 deve essere ATTIVO
+   - Porta 50002 deve essere IN ASCOLTO
+   - Deve accettare connessioni dal robot
+
+3. CONNESSIONE
+   - Robot -> Server: connessione TCP sulla porta 50002
+   - Server accetta e stabilisce sessione External Control
+
+================================================================================
+VERIFICA CONFIGURAZIONE PROGRAMMA SUL ROBOT:
+================================================================================
+
+Il programma "remote_control.urp" sul robot DEVE avere:
+
+1. IP CORRETTO:
+   - Deve essere: 192.168.10.191
+   - NON 192.168.10.194 (quello e l'IP del robot stesso!)
+
+2. PORTA CORRETTA:
+   - Deve essere: 50002
+   - NON 30002 o altre porte
+
+3. REMOTE CONTROL ATTIVO:
+   - Sul Teach Pendant: Settings > System > Remote Control
+   - Deve essere ATTIVO
+
+================================================================================
+COME VERIFICARE/CORREGGERE IL PROGRAMMA:
+================================================================================
+
+OPZIONE 1: Via VNC (raccomandato)
+----------------------------------
+1. Connettiti via VNC: vncviewer 192.168.10.194:5900
+2. Apri il programma "remote_control.urp"
+3. Verifica che nella configurazione External Control ci sia:
+   - IP: 192.168.10.191
+   - Porta: 50002
+4. Se e sbagliato, correggilo e SALVA
+
+OPZIONE 2: Via Teach Pendant fisico
+------------------------------------
+1. Apri programma "remote_control.urp"
+2. Verifica configurazione External Control
+3. Corretta IP e porta se necessario
+4. SALVA
+
+================================================================================
+VERIFICA CHE IL DRIVER ROS2 SIA ATTIVO:
+================================================================================
+
+Sul server (192.168.10.191):
+
+1. Connettiti: ssh lab@192.168.10.191
+
+2. Verifica processi:
+   ps aux | grep ur_ros2_control
+
+3. Verifica porta:
+   netstat -tuln | grep 50002
+   
+   Dovresti vedere:
+   tcp  0  0  0.0.0.0:50002  0.0.0.0:*  LISTEN
+
+4. Se NON e attivo, avvialo:
+   cd ~/MekoAiAccelerator
+   export UR_ROBOT_IP=192.168.10.194
+   ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.10.194 launch_rviz:=false initial_joint_controller:=forward_velocity_controller
+
+================================================================================
+ORDINE CORRETTO DI AVVIO:
+================================================================================
+
+1. SERVER: Avvia driver ROS2 (porta 50002 in ascolto)
+   ✅ FATTO - porta aperta
+
+2. ROBOT: Attiva Remote Control sul Teach Pendant
+   ⚠️  VERIFICA - deve essere attivo
+
+3. ROBOT: Carica programma "remote_control.urp"
+   ⚠️  VERIFICA - programma deve avere IP corretto
+
+4. ROBOT: Premi PLAY sul Teach Pendant
+   ⚠️  VERIFICA - programma deve essere in esecuzione
+
+5. CONNESSIONE: Robot si connette automaticamente alla porta 50002
+   ✅ Dovrebbe funzionare se tutto e configurato correttamente
+
+================================================================================
+PROBLEMI COMUNI:
+================================================================================
+
+1. IP SBAGLIATO NEL PROGRAMMA:
+   - Se il programma ha IP 192.168.10.194 invece di 192.168.10.191
+   - Il robot cerca di connettersi a se stesso!
+   - SOLUZIONE: Correggi IP nel programma
+
+2. PORTA SBAGLIATA:
+   - Se il programma ha porta 30002 invece di 50002
+   - Il robot si connette alla porta sbagliata
+   - SOLUZIONE: Correggi porta nel programma
+
+3. REMOTE CONTROL NON ATTIVO:
+   - Il robot rifiuta connessioni remote
+   - SOLUZIONE: Attiva Remote Control sul Teach Pendant
+
+4. DRIVER ROS2 NON ATTIVO:
+   - La porta 50002 non e in ascolto
+   - SOLUZIONE: Avvia driver ROS2 sul server
+
+5. FIREWALL BLOCCA CONNESSIONE:
+   - Il server blocca connessioni dal robot
+   - SOLUZIONE: Verifica firewall sul server
+
+================================================================================
+VERIFICA RAPIDA:
+================================================================================
+
+Esegui questo comando per verificare tutto:
+
+python verifica_vnc_e_poweron.py
+
+Poi connettiti via VNC e verifica:
+1. Remote Control attivo
+2. Programma remote_control.urp con IP corretto (192.168.10.191)
+3. Porta corretta (50002)
+
+================================================================================

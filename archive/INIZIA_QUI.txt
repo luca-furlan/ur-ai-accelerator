@@ -1,0 +1,247 @@
+================================================================================
+👉 INIZIA QUI - Sistema Vision + Robot
+================================================================================
+
+COSA HAI:
+  ✅ Sistema completo Camera Orbecc + YOLOv8 + Robot UR
+  ✅ Web interface per controllo remoto
+  ✅ TUTTO gira sull'AI Accelerator (Linux remoto)
+
+COSA FAI TU DA WINDOWS:
+  ✅ Solo aprire il browser
+  ✅ Nessuna installazione locale necessaria
+
+
+================================================================================
+🚀 3 PASSI PER INIZIARE
+================================================================================
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ PASSO 1: DEPLOY (solo prima volta)                                        │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Da Windows (usa Git Bash o WSL):
+
+  1. Apri terminale Git Bash o WSL
+  
+  2. Vai nella directory progetto:
+     cd /path/to/MekoAiAccelerator
+  
+  3. Configura IP AI Accelerator:
+     export AI_ACCELERATOR_IP=192.168.1.100    # ← MODIFICA CON IP REALE
+     export AI_ACCELERATOR_USER=user           # ← MODIFICA USERNAME
+  
+  4. Esegui deploy:
+     bash deploy_vision_completo.sh
+  
+  ✅ Tutti i file verranno copiati sull'AI Accelerator
+
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ PASSO 2: AVVIA SISTEMA (ogni volta che vuoi usarlo)                       │
+└────────────────────────────────────────────────────────────────────────────┘
+
+Su AI Accelerator (via SSH):
+
+  1. Connettiti via SSH:
+     ssh user@192.168.1.100
+  
+  2. Vai nella directory:
+     cd ~/MekoAiAccelerator
+  
+  3. Avvia TUTTO:
+     bash avvia_sistema_completo.sh
+  
+  ✅ Si avviano automaticamente:
+     • Camera Orbecc
+     • Vision YOLO Detector
+     • Motion Planning
+     • Robot Controller
+     • Web Interface
+
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ PASSO 3: USA DA WINDOWS (apri solo il browser!)                           │
+└────────────────────────────────────────────────────────────────────────────┘
+
+  1. Apri browser (Chrome/Firefox/Edge)
+  
+  2. Vai all'indirizzo:
+     http://192.168.1.100:5000
+     
+     (sostituisci 192.168.1.100 con IP reale AI Accelerator)
+  
+  ✅ Vedrai web interface con:
+     • Video feed camera con detections
+     • Lista oggetti rilevati
+     • Controlli per pick/stop robot
+
+
+================================================================================
+🎮 COME USARE
+================================================================================
+
+Dalla web interface nel browser:
+
+  1. VISUALIZZA DETECTIONS
+     → Vedi video camera con bounding boxes YOLO
+     → Lista oggetti rilevati in tempo reale
+  
+  2. SELEZIONA OGGETTO
+     → Digita classe oggetto (es: "bottle", "cup", "phone")
+     → Click "Select Class"
+  
+  3. PICK OGGETTO
+     → Click "Pick Target"
+     → Robot si muove automaticamente verso oggetto
+  
+  4. STOP EMERGENZA
+     → Click "Stop Robot" per fermare
+
+
+================================================================================
+🛑 FERMARE SISTEMA
+================================================================================
+
+Su AI Accelerator (via SSH):
+
+  bash ferma_sistema_completo.sh
+
+O semplicemente:
+
+  Ctrl+C nel terminale dove gira
+
+
+================================================================================
+📋 CHECKLIST PRIMA VOLTA
+================================================================================
+
+Prima di iniziare, verifica:
+
+  □ Hai IP dell'AI Accelerator (es: 192.168.1.100)
+  □ Hai username AI Accelerator (es: user)
+  □ Puoi fare SSH: ssh user@192.168.1.100
+  □ Camera Orbecc collegata via USB su AI Accelerator
+  □ Robot UR acceso e in rete (IP: 192.168.10.194)
+
+
+================================================================================
+❓ TROUBLESHOOTING
+================================================================================
+
+PROBLEMA: Deploy non funziona
+SOLUZIONE: 
+  • Verifica connessione: ping 192.168.1.100
+  • Verifica SSH: ssh user@192.168.1.100
+  • Usa deploy manuale con WinSCP se necessario
+
+PROBLEMA: Web interface non raggiungibile
+SOLUZIONE:
+  • Verifica sistema avviato su AI Accelerator
+  • Verifica URL corretto: http://AI_IP:5000
+  • Verifica firewall: sudo ufw allow 5000/tcp
+
+PROBLEMA: Camera non funziona
+SOLUZIONE:
+  • SSH su AI Accelerator
+  • Verifica USB: lsusb | grep Orbbec
+  • Verifica driver: ros2 topic list | grep camera
+
+PROBLEMA: Robot non risponde
+SOLUZIONE:
+  • Verifica robot acceso
+  • Verifica IP: ping 192.168.10.194
+  • Verifica controller attivo su teach pendant
+
+
+================================================================================
+📚 DOCUMENTAZIONE
+================================================================================
+
+File principali:
+
+  README_DEPLOY_FINALE.md     → Guida deploy completa
+  ARCHITETTURA_DEPLOY.md       → Schema architettura
+  README_VISION_ROBOT.md       → Dettagli tecnici
+  QUICK_START_VISION.md        → Tutorial step-by-step
+
+
+================================================================================
+💡 TIPS
+================================================================================
+
+1. SALVA BOOKMARK
+   Salva http://AI_ACCELERATOR_IP:5000 nei preferiti browser
+
+2. MANTIENI SESSIONE SSH ATTIVA
+   Usa screen o tmux:
+     screen -S vision
+     bash avvia_sistema_completo.sh
+     # Premi Ctrl+A poi D per detach
+     # Per rientrare: screen -r vision
+
+3. AUTO-START AL BOOT
+   Aggiungi a cron o systemd per avvio automatico
+
+4. MULTIPLE BROWSERS
+   Più persone possono connettersi simultaneamente
+
+
+================================================================================
+🎯 WORKFLOW TIPICO
+================================================================================
+
+MATTINA:
+  1. SSH su AI Accelerator
+  2. bash avvia_sistema_completo.sh
+  3. Apri browser su http://AI_IP:5000
+
+DURANTE GIORNO:
+  - Usa web interface per pick oggetti
+  - Monitor detections real-time
+  - Stop/restart quando necessario
+
+SERA:
+  - bash ferma_sistema_completo.sh
+  - Logout SSH
+
+
+================================================================================
+✅ COMANDI RAPIDI
+================================================================================
+
+DEPLOY (da Windows):
+  bash deploy_vision_completo.sh
+
+AVVIA (su AI Accelerator):
+  bash avvia_sistema_completo.sh
+
+FERMA (su AI Accelerator):
+  bash ferma_sistema_completo.sh
+
+TEST (su AI Accelerator):
+  python3 test_vision_system.py
+
+LOGS (su AI Accelerator):
+  tail -f /tmp/vision_system.log
+
+USA (da Windows):
+  http://192.168.1.100:5000
+
+
+================================================================================
+🎉 PRONTO!
+================================================================================
+
+Segui i 3 passi sopra e sei operativo in pochi minuti!
+
+Per domande, consulta:
+  README_DEPLOY_FINALE.md
+
+Buon lavoro! 🚀
+
+================================================================================
+
+
+
+

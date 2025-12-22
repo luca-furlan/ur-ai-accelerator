@@ -1,0 +1,89 @@
+================================================================================
+SOLUZIONE SEMPLICE - USA SOCKET DIRETTO
+================================================================================
+
+Il driver ROS2 sta crasando con segmentation fault e overflow RTDE.
+La soluzione più semplice è usare socket diretto invece di ROS2.
+
+================================================================================
+COSA PUOI CONTROLLARE ORA
+================================================================================
+
+✅ CONTROLLO VIA SOCKET DIRETTO (più semplice e affidabile)
+
+1. Sul Teach Pendant:
+   - Avvia programma NORMALE (NON External Control)
+   - Mettilo in PLAYING
+   - Verifica Remote Control attivo
+
+2. Su AI Accelerator:
+   - NON avviare driver ROS2 (causa problemi)
+   - Avvia SOLO web interface con socket
+
+3. Nella Web Interface:
+   - Apri: http://192.168.10.191:8081
+   - Usa joystick o controlli
+   - Il robot dovrebbe muoversi!
+
+================================================================================
+AVVIA WEB INTERFACE (SOCKET)
+================================================================================
+
+ssh lab@192.168.10.191
+cd ~/MekoAiAccelerator
+
+# Ferma tutto prima
+pkill -9 -f ur_robot_driver
+pkill -9 -f web_interface
+
+# Avvia SOLO web interface
+export UR_ROBOT_IP=192.168.10.194
+export WEB_PORT=8081
+python3 -m remote_ur_control.web_interface
+
+================================================================================
+PERCHÉ SOCKET È MIGLIORE
+================================================================================
+
+✅ Funziona sempre se programma è PLAYING
+✅ Nessun problema RTDE overflow
+✅ Nessun crash segmentation fault
+✅ Più semplice e diretto
+✅ Controllo fluido a 125Hz con servoj_velocity
+✅ Non richiede External Control URCap
+
+================================================================================
+COSA PUOI FARE CON SOCKET
+================================================================================
+
+✅ Controllo joystick fluido
+✅ Controllo joint per joint
+✅ Movimento cartesiano
+✅ MoveJ per movimenti programmati
+✅ Real-time status (joint positions, TCP pose)
+✅ Emergency stop
+
+TUTTO FUNZIONA CON SOCKET! Non serve ROS2 per controllare il robot.
+
+================================================================================
+QUANDO USARE ROS2
+================================================================================
+
+ROS2 è utile solo se:
+- Hai bisogno di integrazione MoveIt
+- Vuoi usare altri nodi ROS2 avanzati
+- Hai già configurato External Control URCap correttamente
+
+Per controllo base del robot → SOCKET è perfetto!
+
+================================================================================
+
+
+
+
+
+
+
+
+
+

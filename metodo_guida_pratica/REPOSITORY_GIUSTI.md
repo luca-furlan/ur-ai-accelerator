@@ -180,3 +180,10 @@ Questi due sono sufficienti per controllare il robot UR5e con ROS2!
 
 
 
+
+
+
+
+
+
+

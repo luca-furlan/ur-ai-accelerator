@@ -112,10 +112,30 @@ def main():
         print(f"⚠️ Open3D NON installato: {version}")
         print("   Installare: pip install open3d")
     
+    # Riepilogo
     print("\n" + "=" * 60)
+    all_installed = (
+        test_yolov8()[0] and 
+        test_opencv()[0] and 
+        test_open3d()[0]
+    )
+    if all_installed:
+        print("✅ Tutti i componenti AI installati")
+    elif test_opencv()[0]:
+        print("⚠️ Alcuni componenti AI mancanti (OpenCV presente)")
+    else:
+        print("❌ Componenti AI base mancanti")
+    print("=" * 60)
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
 
 
 

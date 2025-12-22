@@ -1,0 +1,179 @@
+================================================================================
+🔧 INSTALLAZIONE DIPENDENZE VISION SYSTEM
+================================================================================
+
+METODO 1: AUTOMATICO (RACCOMANDATO)
+================================================================================
+
+Su AI Accelerator (dopo deploy):
+
+  ssh lab@192.168.10.191
+  cd ~/MekoAiAccelerator
+  bash installa_dipendenze_vision.sh
+
+Questo script installa AUTOMATICAMENTE:
+  ✅ Tutti i pacchetti Python (YOLOv8, OpenCV, etc.)
+  ✅ Tutti i pacchetti ROS2 (cv_bridge, vision_msgs)
+  ✅ Driver camera Orbecc (opzionale)
+  ✅ Download modello YOLOv8
+  ✅ Test finale
+
+
+METODO 2: SETUP COMPLETO (tutto in uno)
+================================================================================
+
+Dopo deploy, esegui:
+
+  ssh lab@192.168.10.191
+  cd ~/MekoAiAccelerator
+  bash setup_vision_completo.sh
+
+Questo esegue:
+  1. Configurazione permessi
+  2. Installazione dipendenze (automatica)
+  3. Test sistema
+  4. Pronto all'uso!
+
+
+METODO 3: MANUALE (se automatico fallisce)
+================================================================================
+
+1. Python packages:
+
+   pip3 install ultralytics opencv-python numpy flask requests Pillow --user
+
+2. ROS2 packages:
+
+   sudo apt install -y ros-humble-cv-bridge ros-humble-vision-msgs
+
+3. Driver camera Orbecc:
+
+   cd ~/ros2_ws/src
+   git clone https://github.com/orbbec/OrbbecSDK_ROS2.git
+   cd ~/ros2_ws
+   colcon build --packages-select orbbec_camera
+   source install/setup.bash
+
+4. Download modello YOLO:
+
+   python3 -c "from ultralytics import YOLO; YOLO('yolov8n.pt')"
+
+
+VERIFICA INSTALLAZIONE
+================================================================================
+
+Esegui test:
+
+  python3 test_vision_system.py
+
+Output atteso:
+  ✅ Camera Orbecc         OK
+  ✅ YOLOv8                OK
+  ✅ ROS2                  OK
+  ✅ Vision Nodes          N/A (non ancora avviati)
+  ✅ Robot Connection      OK
+
+
+TROUBLESHOOTING
+================================================================================
+
+PROBLEMA: pip install fallisce
+SOLUZIONE:
+  pip3 install --upgrade pip --user
+  Poi riprova
+
+PROBLEMA: sudo apt richiede password
+SOLUZIONE:
+  Esegui come utente con privilegi sudo
+  Oppure chiedi admin di installare pacchetti ROS2
+
+PROBLEMA: colcon build fallisce
+SOLUZIONE:
+  sudo apt install python3-colcon-common-extensions
+  Poi riprova build
+
+PROBLEMA: Camera driver non compila
+SOLUZIONE:
+  Installa dipendenze build:
+  sudo apt install build-essential cmake git
+
+
+COSA VIENE INSTALLATO
+================================================================================
+
+Python Packages:
+  • ultralytics (YOLOv8)           - Object detection
+  • opencv-python (OpenCV)         - Computer vision
+  • numpy                          - Array operations
+  • flask                          - Web framework
+  • requests                       - HTTP library
+  • Pillow                         - Image processing
+
+ROS2 Packages:
+  • ros-humble-cv-bridge           - OpenCV ↔ ROS2 bridge
+  • ros-humble-vision-msgs         - Vision message types
+  • ros-humble-image-transport     - Image transport
+  • orbbec_camera                  - Driver camera Orbecc
+
+Modelli:
+  • yolov8n.pt                     - YOLOv8 nano model (~6MB)
+
+
+SPAZIO NECESSARIO
+================================================================================
+
+  Python packages:  ~2 GB
+  ROS2 packages:    ~50 MB
+  Camera driver:    ~100 MB (sorgenti + build)
+  Modelli YOLO:     ~6 MB (nano) - ~130 MB (xlarge)
+  
+  TOTALE:           ~2.2 GB
+
+
+TEMPO INSTALLAZIONE
+================================================================================
+
+  Python packages:  2-5 minuti
+  ROS2 packages:    1-2 minuti
+  Camera driver:    5-10 minuti (compilazione)
+  
+  TOTALE:           ~10-15 minuti
+
+
+DOPO INSTALLAZIONE
+================================================================================
+
+1. Test sistema:
+   python3 test_vision_system.py
+
+2. Avvia sistema:
+   ./avvia_web_interface_con_vision.sh
+
+3. Accedi da browser:
+   http://192.168.10.191:8080
+
+
+COMANDI RAPIDI
+================================================================================
+
+# Deploy + Installa (tutto in uno)
+# Da Windows:
+bash deploy_vision_completo.sh
+
+# Su AI Accelerator:
+bash setup_vision_completo.sh
+
+# Test:
+python3 test_vision_system.py
+
+# Avvia:
+./avvia_web_interface_con_vision.sh
+
+
+================================================================================
+Per problemi: controlla log installazione o installa manualmente
+================================================================================
+
+
+
+

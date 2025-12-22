@@ -102,13 +102,29 @@ def main():
     else:
         print("⚠️ OrbbecSDK Python non installato (opzionale)")
     
+    # Riepilogo
     print("\n" + "=" * 60)
-    print("NOTA: Per avviare la camera Orbbec:")
+    if topics and test_camera_connection():
+        print("✅ Camera Orbbec disponibile e funzionante")
+    elif topics:
+        print("⚠️ Topics Orbbec presenti ma camera non pubblica dati")
+    elif check_orbbec_ros2_package():
+        print("⚠️ Pacchetto Orbbec installato ma camera non avviata")
+    else:
+        print("❌ Camera Orbbec non configurata")
+    print("\nNOTA: Per avviare la camera Orbbec:")
     print("  ros2 launch orbbec_camera gemini_330_series.launch.py")
     print("=" * 60)
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
 
 
 

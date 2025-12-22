@@ -40,3 +40,10 @@ else
     echo "   ❌ Script VERIFICA_ROBOT_SSH.sh non trovato"
 fi
 
+
+
+
+
+
+
+

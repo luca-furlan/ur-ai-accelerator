@@ -98,3 +98,10 @@ echo ""
 echo "Log driver: tail -f /tmp/driver_ros2.log"
 echo ""
 
+
+
+
+
+
+
+

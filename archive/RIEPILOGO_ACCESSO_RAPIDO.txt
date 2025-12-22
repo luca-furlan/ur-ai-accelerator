@@ -1,0 +1,96 @@
+================================================================================
+ACCESSO RAPIDO AI ACCELERATOR
+================================================================================
+
+📍 INFORMAZIONI ACCESSO
+------------------------
+IP AI Accelerator:  192.168.10.191
+IP Robot UR:        192.168.10.194
+Utente SSH:         lab
+Password SSH:       easybot
+Porta VNC:          5901 (se configurato)
+
+🖥️ HARDWARE
+------------
+- NVIDIA Jetson AGX Orin (64GB)
+- AI Accelerator 1.0/1.1
+- Ubuntu 22.04.5 LTS
+- Kernel: 5.15.136-tegra (Jetson)
+
+📦 COMPONENTI INSTALLATI
+-------------------------
+✅ ROS 2 Humble (285 pacchetti)
+✅ Universal Robots ROS2 Driver
+✅ MuJoCo 3.3.7 + Menagerie (UR5e/UR10e)
+✅ YOLOv8 8.3.235 + PyTorch 2.9.1
+✅ OpenCV 4.12.0.88 + Open3D 0.18.0
+✅ MoveIt2 (15 pacchetti)
+✅ OrbbecSDK ROS2 (camera)
+✅ Web Interface (controllo robot)
+
+🔌 MODALITÀ ACCESSO
+--------------------
+
+1. SSH (Terminale)
+   ssh lab@192.168.10.191
+   Password: easybot
+
+2. VNC (Desktop Remoto)
+   IP: 192.168.10.191:5901
+   Utente: lab
+   Password: easybot
+   Client: TightVNC, RealVNC, Remmina
+
+3. X11 Forwarding (GUI via SSH)
+   ssh -X lab@192.168.10.191
+
+🚀 COMANDI RAPIDI
+------------------
+
+Setup Ambiente:
+  source /opt/ros/humble/setup.bash
+  source ~/ros2_ws/install/setup.bash
+  export UR_ROBOT_IP=192.168.10.194
+
+Avvia Driver Robot:
+  ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:=192.168.10.194
+
+Avvia Camera Orbbec:
+  ros2 launch orbbec_camera gemini_330_series.launch.py
+
+Avvia Web Interface:
+  cd ~/MekoAiAccelerator
+  python3 -m remote_ur_control.web_interface
+  Browser: http://192.168.10.191:8081
+
+Test MuJoCo:
+  python3 -m mujoco.viewer --mjcf ~/mujoco_menagerie/universal_robots_ur5e/scene.xml
+
+Verifica Sistema:
+  cd ~/MekoAiAccelerator
+  bash verifica_accesso.sh
+
+📂 DIRECTORY IMPORTANTI
+------------------------
+~/MekoAiAccelerator/          - File progetto
+~/ros2_ws/                    - Workspace ROS2
+~/mujoco_menagerie/           - Modelli MuJoCo
+
+📄 DOCUMENTAZIONE
+------------------
+~/MekoAiAccelerator/GUIDA_ACCESSO_AI_ACCELERATOR.md  - Guida completa
+~/MekoAiAccelerator/RIEPILOGO_FINALE_INSTALLAZIONE.md - Stato installazione
+
+================================================================================
+
+
+
+
+
+
+
+
+
+
+
+

@@ -324,3 +324,10 @@ echo "IMPORTANTE: Se il driver continua a crashare,"
 echo "verifica che EtherNet/IP sia DISABILITATO sul robot!"
 echo ""
 
+
+
+
+
+
+
+

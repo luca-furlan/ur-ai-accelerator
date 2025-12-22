@@ -166,3 +166,10 @@ echo "Per verificare porta:"
 echo "  netstat -tuln | grep 50002"
 echo ""
 
+
+
+
+
+
+
+

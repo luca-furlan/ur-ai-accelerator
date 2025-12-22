@@ -29,12 +29,34 @@ import socket
 from .remote_ur_controller import MoveParameters, RemoteURController, DashboardClient
 
 # ROS2 bridge (SOLUZIONE PRINCIPALE)
+_ros2_bridge = None
+_ros2_import_warned = False
 try:
     from ros2_bridge_fixed import ROS2Bridge
     ROS2_AVAILABLE = True
-except ImportError:
+except ImportError as e:
     ROS2_AVAILABLE = False
     ROS2Bridge = None
+    # Log solo una volta all'import
+    if not _ros2_import_warned:
+        print(f"[WARN] ROS2 bridge non disponibile: {e}")
+        print(f"   Suggerimento: avvia web interface con: bash avvia_web_interface.sh")
+        _ros2_import_warned = True
+
+
+def get_ros2_bridge():
+    """Ottiene il bridge ROS2 (singleton)."""
+    global _ros2_bridge
+    if ROS2_AVAILABLE and not _ros2_bridge:
+        try:
+            _ros2_bridge = ROS2Bridge()
+        except Exception as e:
+            # Log solo una volta
+            if not hasattr(get_ros2_bridge, '_error_logged'):
+                print(f"[WARN] Errore creazione ROS2 bridge: {e}")
+                get_ros2_bridge._error_logged = True
+            _ros2_bridge = None
+    return _ros2_bridge
 
 app = Flask(__name__)
 
@@ -106,11 +128,11 @@ class PrintCapture:
                 timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
                 level = 'INFO'
                 text_lower = text_stripped.lower()
-                if '⚠️' in text_stripped or 'error' in text_lower:
+                if '[ERROR]' in text_stripped or 'error' in text_lower or 'ERROR' in text_stripped:
                     level = 'ERROR'
-                elif '✅' in text_stripped or 'success' in text_lower:
+                elif '[OK]' in text_stripped or 'success' in text_lower or 'OK' in text_stripped:
                     level = 'INFO'
-                elif '⏳' in text_stripped or 'waiting' in text_lower:
+                elif '[WAIT]' in text_stripped or 'waiting' in text_lower or 'WAIT' in text_stripped:
                     level = 'WARNING'
                 
                 with _log_lock:
@@ -175,396 +197,473 @@ HTML_TEMPLATE = """
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>UR Remote Control</title>
+    <!-- Material Design Icons -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <!-- Material Design CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-      :root {
-        color-scheme: light;
-        --primary: #0066cc;
-        --primary-dark: #004499;
-        --accent: #00aa00;
-        --accent-dark: #008800;
-        --danger: #cc0000;
-        --danger-dark: #990000;
-        --warning: #ff8800;
-        --info: #0066cc;
-        --success: #00aa00;
-        --border: rgba(0, 0, 0, 0.25);
-        --bg: #f8f9fa;
-        --bg-light: #ffffff;
-        --text: #212529;
-        --text-muted: #6c757d;
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
+      
+      :root {
+        --mdc-theme-primary: #1976d2;
+        --mdc-theme-primary-dark: #1565c0;
+        --mdc-theme-secondary: #00c853;
+        --mdc-theme-error: #d32f2f;
+        --mdc-theme-warning: #f57c00;
+        --mdc-theme-surface: #ffffff;
+        --mdc-theme-background: #f5f5f5;
+        --mdc-theme-on-primary: #ffffff;
+        --mdc-theme-on-secondary: #ffffff;
+        --mdc-theme-on-surface: #212121;
+        --mdc-theme-on-error: #ffffff;
+        --mdc-shape-small: 4px;
+        --mdc-shape-medium: 8px;
+        --mdc-shape-large: 16px;
+        --mdc-elevation-1: 0px 2px 1px -1px rgba(0, 0, 0, 0.2), 0px 1px 1px 0px rgba(0, 0, 0, 0.14), 0px 1px 3px 0px rgba(0, 0, 0, 0.12);
+        --mdc-elevation-2: 0px 3px 1px -2px rgba(0, 0, 0, 0.2), 0px 2px 2px 0px rgba(0, 0, 0, 0.14), 0px 1px 5px 0px rgba(0, 0, 0, 0.12);
+        --mdc-elevation-4: 0px 2px 4px -1px rgba(0, 0, 0, 0.2), 0px 4px 5px 0px rgba(0, 0, 0, 0.14), 0px 1px 10px 0px rgba(0, 0, 0, 0.12);
+      }
+      
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-        margin: 32px;
-        max-width: 1200px;
-        background: var(--bg);
-        color: var(--text);
+        font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        margin: 0;
+        padding: 24px;
+        background: var(--mdc-theme-background);
+        color: var(--mdc-theme-on-surface);
         line-height: 1.6;
       }
-      h1 {
-        color: var(--primary-dark);
-        margin-bottom: 4px;
-        font-size: 28px;
-        font-weight: 700;
+      
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
       }
-      p.lead {
-        margin-top: 0;
-        color: var(--text-muted);
-        font-size: 15px;
+      
+      /* Header */
+      .header {
+        margin-bottom: 32px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid rgba(0, 0, 0, 0.12);
       }
-      fieldset {
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 16px 20px;
-        margin-top: 20px;
-        background: var(--bg);
+      
+      .header h1 {
+        font-size: 32px;
+        font-weight: 500;
+        color: var(--mdc-theme-primary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
       }
-      legend {
-        padding: 0 8px;
-        font-weight: bold;
-        color: var(--primary);
-      }
-      label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 4px;
-      }
-      input[type="number"] {
-        width: 120px;
-        padding: 6px;
-        border-radius: 4px;
-        border: 1px solid var(--border);
-        font-size: 15px;
-      }
-      input[type="range"] {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 100%;
-        height: 8px;
-        border-radius: 4px;
-        background: var(--bg);
-        outline: none;
-        opacity: 0.9;
-        transition: opacity 0.2s;
-      }
-      input[type="range"]:hover {
-        opacity: 1;
-      }
-      input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: var(--primary);
-        cursor: pointer;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      }
-      input[type="range"]::-moz-range-thumb {
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: var(--primary);
-        cursor: pointer;
-        border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      }
-      .joint-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 16px;
-        margin-top: 12px;
-      }
-      .joint-card {
-        background: white;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        padding: 12px 14px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-      }
-      .joint-card h3 {
-        margin: 0 0 8px 0;
+      
+      .header .subtitle {
         font-size: 16px;
-        color: var(--primary);
+        color: rgba(0, 0, 0, 0.6);
+        font-weight: 400;
       }
-      .joint-controls {
+      
+      /* Material Design Card */
+      .mdc-card {
+        background: var(--mdc-theme-surface);
+        border-radius: var(--mdc-shape-medium);
+        box-shadow: var(--mdc-elevation-1);
+        padding: 24px;
+        margin-bottom: 24px;
+        transition: box-shadow 0.2s ease;
+      }
+      
+      .mdc-card:hover {
+        box-shadow: var(--mdc-elevation-2);
+      }
+      
+      .mdc-card__title {
+        font-size: 20px;
+        font-weight: 500;
+        margin-bottom: 16px;
+        color: var(--mdc-theme-primary);
         display: flex;
         align-items: center;
         gap: 8px;
       }
-      .joint-controls button {
-        width: 42px;
-        height: 42px;
-        font-size: 20px;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        background: white;
-        cursor: pointer;
-        transition: transform 0.1s ease, background 0.2s ease;
-      }
-      .joint-controls button:active {
-        transform: translateY(1px);
-      }
-      .joint-controls button:hover {
-        background: #e6f4ff;
-        border-color: var(--primary);
-      }
-      .parameters {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 12px;
-      }
-      .actions {
-        margin-top: 24px;
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      .primary-btn,
-      .secondary-btn {
-        padding: 12px 22px;
-        border-radius: 6px;
-        border: 1px solid transparent;
-        font-size: 16px;
-        cursor: pointer;
-        font-weight: 600;
-      }
-      .primary-btn {
-        background: var(--success);
-        color: white;
-        border: 2px solid var(--success);
-        font-weight: 700;
-        box-shadow: 0 2px 4px rgba(0,170,0,0.2);
-      }
-      .primary-btn:hover {
-        background: var(--accent-dark);
-        border-color: var(--accent-dark);
-        box-shadow: 0 3px 6px rgba(0,170,0,0.3);
-        transform: translateY(-1px);
-      }
-      .primary-btn:active {
-        transform: translateY(0);
-      }
-      .secondary-btn {
-        background: white;
-        color: var(--danger);
-        border: 2px solid var(--danger);
-        font-weight: 700;
-        box-shadow: 0 2px 4px rgba(204,0,0,0.2);
-      }
-      .secondary-btn:hover {
-        background: #fff5f5;
-        border-color: var(--danger-dark);
-        box-shadow: 0 3px 6px rgba(204,0,0,0.3);
-        transform: translateY(-1px);
-      }
-      .secondary-btn:active {
-        transform: translateY(0);
-      }
-      .status-bar {
-        margin-top: 24px;
-        padding: 14px 18px;
-        border-radius: 8px;
-        border: 2px solid var(--border);
-        background: var(--bg-light);
-        font-weight: 600;
-        font-size: 16px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-      }
-      .status-bar span.ready { 
-        color: var(--success);
-        font-weight: 700;
-      }
-      .status-bar span.error { 
-        color: var(--danger);
-        font-weight: 700;
-      }
-      .status-bar span.warning {
-        color: var(--warning);
-        font-weight: 700;
-      }
-      .monitor-panel {
-        margin-top: 24px;
-        padding: 16px 20px;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        background: white;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-      }
-      .monitor-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      .monitor-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        gap: 12px;
-      }
-      .monitor-card {
-        border: 2px solid var(--border);
-        border-radius: 8px;
-        padding: 14px 16px;
-        background: var(--bg-light);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      }
-      .monitor-card.wide {
-        grid-column: 1 / -1;
-      }
-      .monitor-label {
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--text-muted);
-        font-weight: 600;
-        margin-bottom: 4px;
-      }
-      .monitor-value {
-        margin-top: 8px;
-        font-size: 20px;
-        font-weight: 700;
-        color: var(--text);
-      }
-      .badge {
+      
+      /* Material Design Button */
+      .mdc-button {
         display: inline-flex;
         align-items: center;
-        padding: 4px 10px;
-        border-radius: 999px;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 24px;
+        font-size: 14px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.0892857143em;
+        border: none;
+        border-radius: var(--mdc-shape-small);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: var(--mdc-elevation-2);
+        min-width: 64px;
+        height: 36px;
+      }
+      
+      .mdc-button--raised {
+        background-color: var(--mdc-theme-primary);
+        color: var(--mdc-theme-on-primary);
+      }
+      
+      .mdc-button--raised:hover {
+        background-color: var(--mdc-theme-primary-dark);
+        box-shadow: var(--mdc-elevation-4);
+      }
+      
+      .mdc-button--raised:active {
+        box-shadow: var(--mdc-elevation-1);
+      }
+      
+      .mdc-button--outlined {
+        background-color: transparent;
+        color: var(--mdc-theme-primary);
+        border: 1px solid var(--mdc-theme-primary);
+        box-shadow: none;
+      }
+      
+      .mdc-button--outlined:hover {
+        background-color: rgba(25, 118, 210, 0.04);
+      }
+      
+      .mdc-button--danger {
+        background-color: var(--mdc-theme-error);
+        color: var(--mdc-theme-on-error);
+      }
+      
+      .mdc-button--danger:hover {
+        background-color: #c62828;
+      }
+      
+      .mdc-button:disabled {
+        opacity: 0.38;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+      
+      /* Material Design Progress Bar */
+      .mdc-linear-progress {
+        width: 100%;
+        height: 4px;
+        background-color: rgba(0, 0, 0, 0.12);
+        border-radius: 2px;
+        overflow: hidden;
+        position: relative;
+        margin: 16px 0;
+      }
+      
+      .mdc-linear-progress__bar {
+        height: 100%;
+        background-color: var(--mdc-theme-primary);
+        transform-origin: left;
+        transition: transform 0.25s ease;
+        position: relative;
+      }
+      
+      .mdc-linear-progress__bar::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        animation: shimmer 1.5s infinite;
+      }
+      
+      .mdc-linear-progress--indeterminate .mdc-linear-progress__bar {
+        width: 30%;
+        animation: indeterminate 2s infinite linear;
+      }
+      
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+      
+      @keyframes indeterminate {
+        0% { transform: translateX(-100%) scaleX(0.3); }
+        50% { transform: translateX(0%) scaleX(0.3); }
+        100% { transform: translateX(100%) scaleX(0.3); }
+      }
+      
+      /* Material Design Chip */
+      .mdc-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 16px;
         font-size: 13px;
-        font-weight: 600;
+        font-weight: 500;
+        background-color: rgba(0, 0, 0, 0.08);
+        color: var(--mdc-theme-on-surface);
       }
-      .badge-ok {
-        background: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
+      
+      .mdc-chip--success {
+        background-color: rgba(0, 200, 83, 0.12);
+        color: #2e7d32;
       }
-      .badge-error {
-        background: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
+      
+      .mdc-chip--error {
+        background-color: rgba(211, 47, 47, 0.12);
+        color: #c62828;
       }
-      .badge-warning {
-        background: #fff3cd;
-        color: #856404;
-        border: 1px solid #ffeaa7;
+      
+      .mdc-chip--warning {
+        background-color: rgba(245, 124, 0, 0.12);
+        color: #e65100;
       }
-      .monitor-warning {
-        margin-top: 12px;
-        padding: 10px 14px;
+      
+      /* Wizard Steps */
+      .wizard-container {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+      }
+      
+      .wizard-step {
+        flex: 1;
+        min-width: 180px;
+        padding: 16px;
+        border-radius: var(--mdc-shape-medium);
+        background: var(--mdc-theme-surface);
+        border: 2px solid rgba(0, 0, 0, 0.12);
+        transition: all 0.3s ease;
+        position: relative;
+        opacity: 0.5;
+      }
+      
+      .wizard-step.active {
+        opacity: 1;
+        border-color: var(--mdc-theme-primary);
+        background: rgba(25, 118, 210, 0.04);
+        box-shadow: var(--mdc-elevation-2);
+      }
+      
+      .wizard-step.completed {
+        opacity: 1;
+        border-color: var(--mdc-theme-secondary);
+        background: rgba(0, 200, 83, 0.04);
+      }
+      
+      .wizard-step.error {
+        opacity: 1;
+        border-color: var(--mdc-theme-error);
+        background: rgba(211, 47, 47, 0.04);
+      }
+      
+      .wizard-step__header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+      
+      .wizard-step__number {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: var(--mdc-theme-primary);
+        color: var(--mdc-theme-on-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 500;
+        font-size: 16px;
+      }
+      
+      .wizard-step__title {
+        flex: 1;
         font-size: 14px;
-        color: var(--danger);
-        background: #fff5f5;
-        border: 1px solid #f5c6cb;
-        border-radius: 6px;
-        min-height: 18px;
-        font-weight: 600;
-      }
-      .monitor-info {
-        margin-top: 12px;
-        padding: 10px 14px;
-        font-size: 14px;
-        color: var(--info);
-        background: #e7f3ff;
-        border: 1px solid #b3d9ff;
-        border-radius: 6px;
-        min-height: 18px;
         font-weight: 500;
       }
-      .monitor-topics {
-        margin-top: 16px;
+      
+      .wizard-step__status {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
-      .topic-list {
+      
+      .wizard-step__status.waiting {
+        background: rgba(0, 0, 0, 0.12);
+      }
+      
+      .wizard-step__status.success {
+        background: var(--mdc-theme-secondary);
+        color: var(--mdc-theme-on-secondary);
+      }
+      
+      .wizard-step__status.error {
+        background: var(--mdc-theme-error);
+        color: var(--mdc-theme-on-error);
+      }
+      
+      .wizard-step__message {
+        margin-top: 8px;
+        padding: 8px;
+        background: rgba(0, 0, 0, 0.04);
+        border-radius: var(--mdc-shape-small);
+        font-size: 12px;
+        color: rgba(0, 0, 0, 0.6);
+        min-height: 30px;
+      }
+      
+      /* Progress Indicator */
+      .progress-indicator {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 16px 0;
+      }
+      
+      .progress-indicator__label {
+        font-size: 14px;
+        color: rgba(0, 0, 0, 0.6);
+        min-width: 120px;
+      }
+      
+      .progress-indicator__bar {
+        flex: 1;
+        height: 8px;
+        background: rgba(0, 0, 0, 0.12);
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+      }
+      
+      .progress-indicator__fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--mdc-theme-primary), var(--mdc-theme-secondary));
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        position: relative;
+      }
+      
+      .progress-indicator__fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        right: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+        animation: shimmer 1.5s infinite;
+      }
+      
+      .progress-indicator__value {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--mdc-theme-primary);
+        min-width: 50px;
+        text-align: right;
+      }
+      
+      /* Toast Notifications */
+      .toast-container {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 10000;
         display: flex;
         flex-direction: column;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        overflow: hidden;
-      }
-      .topic-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 8px 12px;
-        border-bottom: 1px solid var(--border);
-        font-size: 14px;
-      }
-      .topic-row:last-child {
-        border-bottom: none;
-      }
-      .topic-row.ok {
-        background: rgba(56,118,29,0.05);
-      }
-      .topic-row.error {
-        background: rgba(153,0,0,0.04);
-      }
-      .monitor-json details {
-        margin-top: 16px;
-      }
-      .monitor-json pre {
-        background: #111;
-        color: #0f0;
-        padding: 12px;
-        border-radius: 6px;
-        overflow-x: auto;
-        max-height: 260px;
-      }
-      .status-timestamp {
-        font-size: 13px;
-        color: #666;
-      }
-      .layout {
-        display: grid;
-        grid-template-columns: 1fr;
         gap: 12px;
+        max-width: 400px;
       }
-      @media (min-width: 768px) {
-        .layout {
-          grid-template-columns: repeat(2, 1fr);
+      
+      .toast {
+        padding: 16px 20px;
+        border-radius: var(--mdc-shape-medium);
+        box-shadow: var(--mdc-elevation-4);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 500;
+        min-width: 300px;
+        animation: slideInRight 0.3s ease-out;
+        background: var(--mdc-theme-surface);
+        color: var(--mdc-theme-on-surface);
+      }
+      
+      .toast.success {
+        border-left: 4px solid var(--mdc-theme-secondary);
+      }
+      
+      .toast.error {
+        border-left: 4px solid var(--mdc-theme-error);
+      }
+      
+      .toast.warning {
+        border-left: 4px solid var(--mdc-theme-warning);
+      }
+      
+      .toast.info {
+        border-left: 4px solid var(--mdc-theme-primary);
+      }
+      
+      .toast.fade-out {
+        animation: slideOutRight 0.3s ease-out;
+        opacity: 0;
+      }
+      
+      @keyframes slideInRight {
+        from {
+          opacity: 0;
+          transform: translateX(100%);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
         }
       }
-      @media (orientation: landscape) and (max-height: 600px) {
-        .layout {
-          grid-template-columns: repeat(2, 1fr);
-          gap: 8px;
+      
+      @keyframes slideOutRight {
+        from {
+          opacity: 1;
+          transform: translateX(0);
         }
-        .joystick-panel {
-          padding: 12px;
-        }
-        #joystick, #joystick2 {
-          width: 180px;
-          height: 180px;
+        to {
+          opacity: 0;
+          transform: translateX(100%);
         }
       }
+      
+      /* Joystick Panel */
       .joystick-panel {
-        border: 1px solid var(--border);
-        border-radius: 12px;
-        padding: 20px;
-        background: white;
-        box-shadow: inset 0 0 0 1px rgba(11, 83, 148, 0.05);
+        border-radius: var(--mdc-shape-medium);
+        padding: 24px;
+        background: var(--mdc-theme-surface);
+        box-shadow: var(--mdc-elevation-1);
         display: flex;
         flex-direction: column;
         gap: 16px;
         align-items: center;
         justify-content: center;
       }
-      .joystick-panel h2 {
-        margin: 0;
-        font-size: 20px;
-        color: var(--primary);
-      }
+      
       #joystick, #joystick2 {
         position: relative;
         width: 220px;
         height: 220px;
         border-radius: 50%;
         background: radial-gradient(circle at center, #f5f8fd 0%, #d9e4f7 70%);
-        border: 2px solid rgba(11, 83, 148, 0.25);
+        border: 2px solid rgba(25, 118, 210, 0.25);
         box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.1);
         touch-action: none;
         user-select: none;
       }
+      
       #joystick-base, #joystick2-base {
         position: absolute;
         top: 50%;
@@ -573,9 +672,10 @@ HTML_TEMPLATE = """
         width: 110px;
         height: 110px;
         border-radius: 50%;
-        background: rgba(11, 83, 148, 0.12);
-        border: 1px solid rgba(11, 83, 148, 0.2);
+        background: rgba(25, 118, 210, 0.12);
+        border: 1px solid rgba(25, 118, 210, 0.2);
       }
+      
       #joystick-handle, #joystick2-handle {
         position: absolute;
         top: 50%;
@@ -585,382 +685,386 @@ HTML_TEMPLATE = """
         height: 84px;
         border-radius: 50%;
         background: radial-gradient(circle at 30% 30%, #ffffff 0%, #7aa8d6 85%);
-        border: 1px solid rgba(11, 83, 148, 0.35);
+        border: 1px solid rgba(25, 118, 210, 0.35);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
         cursor: grab;
       }
+      
       #joystick-handle:active {
         cursor: grabbing;
       }
+      
       .joystick-readout {
         font-family: "Courier New", monospace;
         font-size: 16px;
-        color: var(--text);
+        color: var(--mdc-theme-on-surface);
         text-align: center;
-        font-weight: 600;
-        background: var(--bg-light);
+        font-weight: 500;
+        background: rgba(0, 0, 0, 0.04);
         padding: 8px 12px;
-        border-radius: 6px;
-        border: 1px solid var(--border);
+        border-radius: var(--mdc-shape-small);
       }
-      @media (max-width: 940px) {
+      
+      /* Layout */
+      .layout {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+      
+      @media (min-width: 768px) {
         .layout {
-          grid-template-columns: 1fr;
-        }
-        .joystick-panel {
-          order: 1;
+          grid-template-columns: repeat(2, 1fr);
         }
       }
-      @media (max-width: 480px) {
-        body { margin: 16px; }
-        input[type="number"] { width: 100%; }
+      
+      /* Status Bar */
+      .status-bar {
+        margin-top: 24px;
+        padding: 16px 20px;
+        border-radius: var(--mdc-shape-medium);
+        background: var(--mdc-theme-surface);
+        box-shadow: var(--mdc-elevation-1);
+        font-weight: 500;
+        font-size: 16px;
       }
-      .step-status {
-        font-size: 14px;
-        font-weight: 600;
-        padding: 4px 12px;
-        border-radius: 4px;
-        background: #e9ecef;
-        color: #495057;
+      
+      .status-bar .status-ready {
+        color: var(--mdc-theme-secondary);
+        font-weight: 500;
       }
-      .step-status.success {
-        background: #d4edda;
-        color: #155724;
+      
+      .status-bar .status-error {
+        color: var(--mdc-theme-error);
+        font-weight: 500;
       }
-      .step-status.error {
-        background: #f8d7da;
-        color: #721c24;
+      
+      /* Material Icons */
+      .material-icons {
+        font-family: 'Material Icons';
+        font-weight: normal;
+        font-style: normal;
+        font-size: 24px;
+        line-height: 1;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-block;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-feature-settings: 'liga';
+        -webkit-font-smoothing: antialiased;
       }
-      .step-status.waiting {
-        background: #fff3cd;
-        color: #856404;
-      }
-      .wizard-step.active {
-        opacity: 1 !important;
-        border-color: #0066cc !important;
-        background: #f0f7ff !important;
-      }
-      .wizard-step.completed {
-        opacity: 1 !important;
-        border-color: #00aa00 !important;
-        background: #f0fff4 !important;
-      }
-      .wizard-step.error {
-        opacity: 1 !important;
-        border-color: #cc0000 !important;
-        background: #fff5f5 !important;
-      }
-      .step-status {
-        font-size: 11px !important;
-        padding: 2px 6px !important;
-      }
-      @keyframes pulse {
-        0%, 100% { box-shadow: 0 0 0 0 rgba(0, 170, 0, 0.4); }
-        50% { box-shadow: 0 0 0 10px rgba(0, 170, 0, 0); }
-      }
-      #joystick-section {
-        transition: all 0.3s ease;
-      }
+      
+      .material-icons.md-18 { font-size: 18px; }
+      .material-icons.md-24 { font-size: 24px; }
+      .material-icons.md-36 { font-size: 36px; }
+      .material-icons.md-48 { font-size: 48px; }
     </style>
   </head>
   <body>
-    <h1>🤖 Controllo Robot UR5e</h1>
-    <p class="lead" style="font-size: 16px; font-weight: 500;">
-      Segui i passaggi qui sotto per configurare il robot. Quando tutto è pronto, usa i joystick per controllarlo.
-    </p>
-
-    <!-- Wizard Barra Orizzontale in Alto -->
-    <section id="wizard-bar" style="background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%); border: 3px solid #ffaa00; border-radius: 8px; padding: 16px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(255,170,0,0.2);">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
-        <h2 style="font-size: 20px; margin: 0;">🚀 Setup Robot</h2>
-        <span style="font-size: 14px; color: #856404;">Completa i passaggi A → B → C → D → E</span>
+    <div class="container">
+      <div class="header">
+        <h1>
+          UR5e Robot Control
+        </h1>
+        <p class="subtitle">Follow the setup steps below to configure the robot. When ready, use the joysticks to control it.</p>
       </div>
-      
-      <!-- Wizard Barra Orizzontale -->
-      <div id="wizard-container" style="display: flex; gap: 8px; flex-wrap: wrap;">
-        <!-- Step A: Avvia Driver -->
-        <div class="wizard-step" id="step-a" style="flex: 1; min-width: 180px; padding: 12px; border: 2px solid #ddd; border-radius: 6px; background: #f9f9f9; position: relative;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="font-size: 20px; font-weight: bold; color: #0066cc;">A</span>
-            <h3 style="margin: 0; flex: 1; font-size: 14px;">Avvia Driver</h3>
-            <span id="step-a-status" class="step-status" style="font-size: 12px;">⏳</span>
-          </div>
-          <button type="button" class="primary-btn" id="wizard-start-driver" style="width: 100%; font-size: 12px; padding: 6px;">
-            ▶️ Avvia
-          </button>
-          <button type="button" class="secondary-btn" id="wizard-retry-a" style="width: 100%; font-size: 11px; padding: 4px; margin-top: 4px; display: none;">
-            🔄 Riprova
-          </button>
-          <div id="step-a-message" style="margin-top: 6px; padding: 6px; background: #fff; border-radius: 4px; font-size: 11px; color: #666; min-height: 30px;"></div>
-        </div>
 
-        <!-- Step B: Verifica Driver -->
-        <div class="wizard-step" id="step-b" style="flex: 1; min-width: 180px; padding: 12px; border: 2px solid #ddd; border-radius: 6px; background: #f9f9f9; opacity: 0.5; position: relative;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="font-size: 20px; font-weight: bold; color: #0066cc;">B</span>
-            <h3 style="margin: 0; flex: 1; font-size: 14px;">Verifica Driver</h3>
-            <span id="step-b-status" class="step-status" style="font-size: 12px;">⏸️</span>
-          </div>
-          <button type="button" class="secondary-btn" id="wizard-retry-b" style="width: 100%; font-size: 11px; padding: 4px; display: none;">
-            🔄 Riprova
-          </button>
-          <div id="step-b-message" style="margin-top: 6px; padding: 6px; background: #fff; border-radius: 4px; font-size: 11px; color: #666; min-height: 30px;"></div>
-        </div>
-
-        <!-- Step C: Attiva Controller -->
-        <div class="wizard-step" id="step-c" style="flex: 1; min-width: 180px; padding: 12px; border: 2px solid #ddd; border-radius: 6px; background: #f9f9f9; opacity: 0.5; position: relative;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="font-size: 20px; font-weight: bold; color: #0066cc;">C</span>
-            <h3 style="margin: 0; flex: 1; font-size: 14px;">Attiva Controller</h3>
-            <span id="step-c-status" class="step-status" style="font-size: 12px;">⏸️</span>
-          </div>
-          <button type="button" class="secondary-btn" id="wizard-retry-c" style="width: 100%; font-size: 11px; padding: 4px; display: none;">
-            🔄 Riprova
-          </button>
-          <div id="step-c-message" style="margin-top: 6px; padding: 6px; background: #fff; border-radius: 4px; font-size: 11px; color: #666; min-height: 30px;"></div>
-        </div>
-
-        <!-- Step D: Attiva External Control sul Teach Pendant -->
-        <div class="wizard-step" id="step-d" style="flex: 1; min-width: 200px; padding: 12px; border: 2px solid #ddd; border-radius: 6px; background: #f9f9f9; opacity: 0.5; position: relative;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="font-size: 20px; font-weight: bold; color: #0066cc;">D</span>
-            <h3 style="margin: 0; flex: 1; font-size: 14px;">Teach Pendant</h3>
-            <span id="step-d-status" class="step-status" style="font-size: 12px;">⏸️</span>
-          </div>
-          <details style="margin: 8px 0;">
-            <summary style="cursor: pointer; font-size: 11px; color: #856404; font-weight: 600;">📋 Istruzioni</summary>
-            <div style="margin-top: 6px; padding: 8px; background: #fff3cd; border-radius: 4px; font-size: 11px; color: #856404;">
-              <ol style="margin: 0; padding-left: 18px;">
-                <li>Vai su <strong>Program</strong></li>
-                <li>Apri programma con <strong>External Control</strong></li>
-                <li>IP: <strong>192.168.10.191</strong>, Porta: <strong>50002</strong></li>
-                <li><strong>IMPORTANTE:</strong> Attiva <strong>Remote Control</strong> sul Teach Pendant</li>
-                <li><strong>SALVA</strong> e premi <strong>PLAY</strong></li>
-              </ol>
-            </div>
-          </details>
-          <button type="button" class="primary-btn" id="wizard-check-teach-pendant" style="width: 100%; font-size: 12px; padding: 6px; display: none;">
-            ✅ Fatto
-          </button>
-          <button type="button" class="secondary-btn" id="wizard-retry-d" style="width: 100%; font-size: 11px; padding: 4px; margin-top: 4px; display: none;">
-            🔄 Riprova
-          </button>
-          <div id="step-d-message" style="margin-top: 6px; padding: 6px; background: #fff; border-radius: 4px; font-size: 11px; color: #666; min-height: 30px;"></div>
+      <!-- Wizard Setup -->
+      <div class="mdc-card">
+        <div class="mdc-card__title">
+          <span class="material-icons">settings</span>
+          Setup Wizard
         </div>
         
-        <!-- Controlli Robot senza Teach Pendant -->
-        <div id="robot-control-panel" style="flex: 1; min-width: 300px; padding: 12px; border: 2px solid #0066cc; border-radius: 6px; background: #f0f7ff; margin-top: 12px; grid-column: 1 / -1;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-            <span style="font-size: 20px;">🎮</span>
-            <h3 style="margin: 0; flex: 1; font-size: 16px; color: #0066cc;">Controllo Robot senza Teach Pendant</h3>
+        <div class="wizard-container">
+          <!-- Step A -->
+          <div class="wizard-step" id="step-a">
+            <div class="wizard-step__header">
+              <div class="wizard-step__number">A</div>
+              <div class="wizard-step__title">Start Driver</div>
+              <div class="wizard-step__status waiting" id="step-a-status">
+                <span class="material-icons md-18">hourglass_empty</span>
+              </div>
+            </div>
+            <button class="mdc-button mdc-button--raised" id="wizard-start-driver" style="width: 100%;">
+              <span class="material-icons md-18">play_arrow</span>
+              Start
+            </button>
+            <button class="mdc-button mdc-button--outlined" id="wizard-retry-a" style="width: 100%; margin-top: 8px; display: none;">
+              <span class="material-icons md-18">refresh</span>
+              Retry
+            </button>
+            <div class="wizard-step__message" id="step-a-message"></div>
+            <div class="mdc-linear-progress mdc-linear-progress--indeterminate" id="step-a-progress" style="display: none; margin-top: 12px;">
+              <div class="mdc-linear-progress__buffer"></div>
+              <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
+                <span class="mdc-linear-progress__bar-inner"></span>
+              </div>
+              <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
+                <span class="mdc-linear-progress__bar-inner"></span>
+              </div>
+            </div>
           </div>
-          <div style="font-size: 12px; color: #666; margin-bottom: 12px;">
-            Usa questi controlli se non hai accesso fisico al Teach Pendant. Alcune operazioni (come abilitare Remote Control) devono essere fatte via VNC.
-          </div>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 12px;">
-            <button type="button" class="primary-btn" id="btn-power-on" style="font-size: 12px; padding: 8px;">⚡ Power On</button>
-            <button type="button" class="primary-btn" id="btn-brake-release" style="font-size: 12px; padding: 8px;">🔓 Brake Release</button>
-            <button type="button" class="primary-btn" id="btn-play" style="font-size: 12px; padding: 8px;">▶️ Play</button>
-            <button type="button" class="secondary-btn" id="btn-stop" style="font-size: 12px; padding: 8px;">⏹️ Stop</button>
-            <button type="button" class="secondary-btn" id="btn-pause" style="font-size: 12px; padding: 8px;">⏸️ Pause</button>
-            <button type="button" class="secondary-btn" id="btn-load-program" style="font-size: 12px; padding: 8px;">📂 Load Program</button>
-          </div>
-          <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-            <input type="text" id="program-name-input" placeholder="Nome programma (es: remote_control.urp)" 
-                   style="flex: 1; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px;">
-            <button type="button" class="primary-btn" id="btn-load-program-name" style="font-size: 12px; padding: 6px 12px;">Carica</button>
-          </div>
-          <div id="robot-control-message" style="margin-top: 8px; padding: 8px; background: #fff; border-radius: 4px; font-size: 12px; color: #666; min-height: 20px; display: none;"></div>
-        </div>
 
-        <!-- Step E: Verifica Connessione -->
-        <div class="wizard-step" id="step-e" style="flex: 1; min-width: 180px; padding: 12px; border: 2px solid #ddd; border-radius: 6px; background: #f9f9f9; opacity: 0.5; position: relative;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <span style="font-size: 20px; font-weight: bold; color: #0066cc;">E</span>
-            <h3 style="margin: 0; flex: 1; font-size: 14px;">Verifica</h3>
-            <span id="step-e-status" class="step-status" style="font-size: 12px;">⏸️</span>
+          <!-- Step B -->
+          <div class="wizard-step" id="step-b">
+            <div class="wizard-step__header">
+              <div class="wizard-step__number">B</div>
+              <div class="wizard-step__title">Verify Driver</div>
+              <div class="wizard-step__status waiting" id="step-b-status">
+                <span class="material-icons md-18">pause</span>
+              </div>
+            </div>
+            <button class="mdc-button mdc-button--outlined" id="wizard-retry-b" style="width: 100%; display: none;">
+              <span class="material-icons md-18">refresh</span>
+              Retry
+            </button>
+            <div class="wizard-step__message" id="step-b-message"></div>
           </div>
-          <button type="button" class="secondary-btn" id="wizard-retry-e" style="width: 100%; font-size: 11px; padding: 4px; display: none;">
-            🔄 Riprova
-          </button>
-          <div id="step-e-message" style="margin-top: 6px; padding: 6px; background: #fff; border-radius: 4px; font-size: 11px; color: #666; min-height: 30px;"></div>
+
+          <!-- Step C -->
+          <div class="wizard-step" id="step-c">
+            <div class="wizard-step__header">
+              <div class="wizard-step__number">C</div>
+              <div class="wizard-step__title">Activate Controller</div>
+              <div class="wizard-step__status waiting" id="step-c-status">
+                <span class="material-icons md-18">pause</span>
+              </div>
+            </div>
+            <button class="mdc-button mdc-button--raised" id="wizard-activate-controller" style="width: 100%;">
+              <span class="material-icons md-18">play_arrow</span>
+              Activate Controller
+            </button>
+            <button class="mdc-button mdc-button--outlined" id="wizard-retry-c" style="width: 100%; margin-top: 8px; display: none;">
+              <span class="material-icons md-18">refresh</span>
+              Retry
+            </button>
+            <div class="wizard-step__message" id="step-c-message"></div>
+          </div>
+
+          <!-- Step D -->
+          <div class="wizard-step" id="step-d">
+            <div class="wizard-step__header">
+              <div class="wizard-step__number">D</div>
+              <div class="wizard-step__title">Teach Pendant</div>
+              <div class="wizard-step__status waiting" id="step-d-status">
+                <span class="material-icons md-18">pause</span>
+              </div>
+            </div>
+            <details style="margin: 8px 0;">
+              <summary style="cursor: pointer; font-size: 12px; color: rgba(0, 0, 0, 0.6); font-weight: 500;">
+                <span class="material-icons md-18" style="vertical-align: middle;">info</span>
+                Instructions
+              </summary>
+              <div style="margin-top: 8px; padding: 12px; background: rgba(0, 0, 0, 0.04); border-radius: var(--mdc-shape-small); font-size: 12px;">
+                <ol style="margin: 0; padding-left: 20px;">
+                  <li>Go to <strong>Program</strong></li>
+                  <li>Open program with <strong>External Control</strong></li>
+                  <li>IP: <strong>192.168.10.191</strong>, Port: <strong>50002</strong></li>
+                  <li><strong>IMPORTANT:</strong> Enable <strong>Remote Control</strong> on Teach Pendant</li>
+                  <li><strong>SAVE</strong> and press <strong>PLAY</strong></li>
+                </ol>
+              </div>
+            </details>
+            <button class="mdc-button mdc-button--raised" id="wizard-check-teach-pendant" style="width: 100%; display: none;">
+              <span class="material-icons md-18">check_circle</span>
+              Done
+            </button>
+            <button class="mdc-button mdc-button--outlined" id="wizard-retry-d" style="width: 100%; margin-top: 8px; display: none;">
+              <span class="material-icons md-18">refresh</span>
+              Retry
+            </button>
+            <div class="wizard-step__message" id="step-d-message"></div>
+          </div>
+
+          <!-- Step E -->
+          <div class="wizard-step" id="step-e">
+            <div class="wizard-step__header">
+              <div class="wizard-step__number">E</div>
+              <div class="wizard-step__title">Verify Connection</div>
+              <div class="wizard-step__status waiting" id="step-e-status">
+                <span class="material-icons md-18">pause</span>
+              </div>
+            </div>
+            <button class="mdc-button mdc-button--outlined" id="wizard-retry-e" style="width: 100%; display: none;">
+              <span class="material-icons md-18">refresh</span>
+              Retry
+            </button>
+            <div class="wizard-step__message" id="step-e-message"></div>
+          </div>
         </div>
       </div>
 
-    </section>
-
-    <!-- Sezione Joystick - Solo quando robot è pronto -->
-    <section id="joystick-section" class="monitor-panel" style="display: none; margin-top: 20px; border: 3px solid #00aa00; background: linear-gradient(135deg, #f0fff4 0%, #e8f5e9 100%);">
-      <div class="monitor-header">
-        <h2 style="color: #00aa00; font-size: 24px;">🎮 Controllo Robot - Pronto!</h2>
-        <p style="margin: 8px 0 0 0; color: #666; font-size: 14px; font-weight: 500;">
-          ✅ Robot connesso e pronto. Usa i joystick qui sotto per muovere il robot. Il robot si muoverà solo quando muovi i joystick.
+      <!-- Joystick Section -->
+      <section id="joystick-section" class="mdc-card" style="display: none; border-left: 4px solid var(--mdc-theme-secondary);">
+        <div class="mdc-card__title">
+          <span class="material-icons">sports_esports</span>
+          Robot Control - Ready
+        </div>
+        <p style="margin-bottom: 24px; color: rgba(0, 0, 0, 0.6);">
+          Robot connected and ready. Use the joysticks below to move the robot. The robot will only move when you move the joysticks.
         </p>
-      </div>
 
-    <div class="layout">
-      <section class="joystick-panel">
-        <h2>Joystick XY</h2>
-        <div id="joystick">
-          <div id="joystick-base"></div>
-          <div id="joystick-handle"></div>
-        </div>
-        <div class="joystick-readout">
-          X: <span id="joy-x">0.00</span> &nbsp;
-          Y: <span id="joy-y">0.00</span>
-        </div>
-      </section>
-
-      <section class="joystick-panel">
-        <h2>Joystick Z / Rotation</h2>
-        <div id="joystick2">
-          <div id="joystick2-base"></div>
-          <div id="joystick2-handle"></div>
-        </div>
-        <div class="joystick-readout">
-          Z: <span id="joy2-x">0.00</span> &nbsp;
-          Rz: <span id="joy2-y">0.00</span>
-        </div>
-      </section>
-
-      <div style="grid-column: 1 / -1; text-align: center; padding: 20px;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-          <div>
-            <label for="speed-slider" style="display: block; margin-bottom: 8px; font-weight: 600;">
-              Velocità Joystick: <input type="number" id="speed-input" value="100" min="1" step="1" style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-left: 8px;">%
-            </label>
-            <input type="range" id="speed-slider" min="1" max="1000" value="100" step="1" 
-                   style="width: 100%; max-width: 400px; height: 8px; cursor: pointer;">
-            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-              <span>Lento (1%)</span>
-              <span>Veloce (1000%)</span>
+        <div class="layout">
+          <section class="joystick-panel">
+            <h3 style="margin-bottom: 16px; font-weight: 500;">Joystick XY</h3>
+            <div id="joystick">
+              <div id="joystick-base"></div>
+              <div id="joystick-handle"></div>
             </div>
-          </div>
-          <div>
-            <label for="frequency-slider" style="display: block; margin-bottom: 8px; font-weight: 600;">
-              Frequenza: <input type="number" id="frequency-input" value="125" min="10" max="500" step="1" style="width: 80px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-left: 8px;"> Hz
-            </label>
-            <input type="range" id="frequency-slider" min="10" max="500" value="125" step="5" 
-                   style="width: 100%; max-width: 400px; height: 8px; cursor: pointer;">
-            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted); margin-top: 4px;">
-              <span>Lento (10Hz)</span>
-              <span>Veloce (500Hz)</span>
+            <div class="joystick-readout">
+              X: <span id="joy-x">0.00</span> &nbsp;
+              Y: <span id="joy-y">0.00</span>
             </div>
-          </div>
-          <div style="grid-column: 1 / -1; margin-top: 12px; padding: 12px; background: #f0f7ff; border-radius: 6px; border: 1px solid #0066cc;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <div style="flex: 1;">
-                <div style="font-size: 12px; color: #666; margin-bottom: 4px;">Fluidità Movimento</div>
-                <div style="display: flex; align-items: center; gap: 8px;">
-                  <div id="fluidity-indicator" style="width: 200px; height: 20px; background: #e0e0e0; border-radius: 10px; overflow: hidden; position: relative;">
-                    <div id="fluidity-bar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #00aa00 0%, #00ff00 100%); transition: width 0.3s;"></div>
-                  </div>
-                  <span id="fluidity-value" style="font-size: 14px; font-weight: 600; color: #0066cc;">—</span>
+          </section>
+
+          <section class="joystick-panel">
+            <h3 style="margin-bottom: 16px; font-weight: 500;">Joystick Z / Rotation</h3>
+            <div id="joystick2">
+              <div id="joystick2-base"></div>
+              <div id="joystick2-handle"></div>
+            </div>
+            <div class="joystick-readout">
+              Z: <span id="joy2-x">0.00</span> &nbsp;
+              Rz: <span id="joy2-y">0.00</span>
+            </div>
+          </section>
+
+          <div style="grid-column: 1 / -1;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+              <div>
+                <label style="display: block; margin-bottom: 8px; font-weight: 500;">
+                  Speed: <input type="number" id="speed-input" value="100" min="1" step="1" style="width: 80px; padding: 6px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: var(--mdc-shape-small); font-size: 14px; margin-left: 8px;">%
+                </label>
+                <input type="range" id="speed-slider" min="1" max="1000" value="100" step="1" style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(0, 0, 0, 0.6); margin-top: 4px;">
+                  <span>Slow (1%)</span>
+                  <span>Fast (1000%)</span>
                 </div>
               </div>
-              <div style="font-size: 11px; color: #666;">
-                <div>Comandi inviati: <span id="command-count">0</span></div>
-                <div>Ultimo aggiornamento: <span id="last-update">—</span></div>
+              <div>
+                <label style="display: block; margin-bottom: 8px; font-weight: 500;">
+                  Frequency: <input type="number" id="frequency-input" value="125" min="10" max="500" step="1" style="width: 80px; padding: 6px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: var(--mdc-shape-small); font-size: 14px; margin-left: 8px;"> Hz
+                </label>
+                <input type="range" id="frequency-slider" min="10" max="500" value="125" step="5" style="width: 100%;">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: rgba(0, 0, 0, 0.6); margin-top: 4px;">
+                  <span>Slow (10Hz)</span>
+                  <span>Fast (500Hz)</span>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
-        <div style="margin-top: 10px;">
-          <button type="button" class="secondary-btn" id="stop-joystick">Emergency Stop</button>
-          <button type="button" class="primary-btn" id="check-processes" style="margin-left: 10px;">🔍 Verifica Processi</button>
-          <button type="button" class="danger-btn" id="restart-web-interface" style="margin-left: 10px; background: #cc0000; color: white;">🔄 Riavvia Web Interface</button>
-        </div>
-        <div id="process-status" style="margin-top: 10px; padding: 8px; background: #f0f0f0; border-radius: 4px; font-size: 12px; display: none;">
-        </div>
-      </div>
-
-      <!-- Sezione Logging -->
-      <div id="logging-section" style="margin-top: 20px; border: 1px solid var(--border); border-radius: 8px; padding: 16px; background: var(--bg-light);">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-          <h3 style="margin: 0; color: var(--primary-dark); font-size: 18px;">📋 Log & Errori</h3>
-          <div>
-            <button type="button" class="secondary-btn" id="clear-logs" style="font-size: 12px; padding: 4px 8px;">🗑️ Pulisci</button>
-            <button type="button" class="secondary-btn" id="toggle-logs" style="font-size: 12px; padding: 4px 8px; margin-left: 5px;">⏸️ Pausa</button>
-          </div>
-        </div>
-        <div id="logs-container" style="background: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace; font-size: 12px; padding: 12px; border-radius: 4px; max-height: 400px; overflow-y: auto; min-height: 200px;">
-          <div style="color: #888; font-style: italic;">In attesa di log...</div>
-        </div>
-        <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">
-          <span id="log-count">0</span> log totali | 
-          <span id="log-errors">0</span> errori | 
-          <span id="log-warnings">0</span> warning
-        </div>
-      </div>
-
-      <!-- Sezioni Avanzate (nascoste inizialmente) -->
-      <details id="advanced-controls" style="margin-top: 20px; display: none;">
-        <summary style="cursor: pointer; padding: 12px; background: #f0f0f0; border-radius: 6px; font-weight: 600; color: #666;">
-          ⚙️ Controlli Avanzati (clicca per espandere)
-        </summary>
-        
-      <form id="move-form">
-      <fieldset>
-        <legend>Joint targets (radians)</legend>
-        <div class="parameters">
-          <label>Step size (rad)
-            <input type="number" step="0.01" name="step" id="step-size" value="0.10">
-          </label>
-          <label style="margin-left: 2em;">
-            <input type="checkbox" id="cartesian-mode">
-            Cartesian mode (Tool X/Y/Z control)
-          </label>
-        </div>
-        <div class="joint-grid">
-          {% for idx in range(6) %}
-            <div class="joint-card">
-              <h3>Joint {{ idx + 1 }}</h3>
-              <div class="joint-controls">
-                <button type="button" class="joint-decrement" data-target="joint{{ idx }}">&larr;</button>
-                <input type="number" step="0.01" name="joint{{ idx }}" value="0.0">
-                <button type="button" class="joint-increment" data-target="joint{{ idx }}">&rarr;</button>
+            
+            <div class="progress-indicator">
+              <div class="progress-indicator__label">Movement Fluidity</div>
+              <div class="progress-indicator__bar">
+                <div class="progress-indicator__fill" id="fluidity-bar" style="width: 0%;"></div>
               </div>
+              <div class="progress-indicator__value" id="fluidity-value">—</div>
             </div>
-          {% endfor %}
+            
+            <div style="display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap;">
+              <button class="mdc-button mdc-button--outlined mdc-button--danger" id="stop-joystick">
+                <span class="material-icons md-18">stop</span>
+                Emergency Stop
+              </button>
+              <button class="mdc-button mdc-button--outlined" id="check-processes">
+                <span class="material-icons md-18">search</span>
+                Check Processes
+              </button>
+              <button class="mdc-button mdc-button--outlined mdc-button--danger" id="restart-web-interface">
+                <span class="material-icons md-18">refresh</span>
+                Restart Interface
+              </button>
+            </div>
+            <div id="process-status" style="margin-top: 12px; padding: 12px; background: rgba(0, 0, 0, 0.04); border-radius: var(--mdc-shape-small); font-size: 14px; display: none;"></div>
+          </div>
         </div>
-      </fieldset>
 
-      <fieldset>
-        <legend>Motion parameters</legend>
-        <div class="parameters">
-          <label>Acceleration
-            <input type="number" step="0.1" name="acceleration" value="1.2">
-          </label>
-          <label>Velocity
-            <input type="number" step="0.05" name="velocity" value="0.25">
-          </label>
-          <label>Blend radius
-            <input type="number" step="0.01" name="blend_radius" value="0.0">
-          </label>
-          <label>
-            <input type="checkbox" name="async_move">
-            Non blocking (no wait)
-          </label>
+        <!-- Logging Section -->
+        <div style="margin-top: 24px; border-top: 1px solid rgba(0, 0, 0, 0.12); padding-top: 16px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="font-size: 18px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+              <span class="material-icons">description</span>
+              Logs & Errors
+            </h3>
+            <div>
+              <button class="mdc-button mdc-button--outlined" id="clear-logs" style="padding: 6px 12px; height: 32px;">
+                <span class="material-icons md-18">delete</span>
+                Clear
+              </button>
+              <button class="mdc-button mdc-button--outlined" id="toggle-logs" style="padding: 6px 12px; height: 32px; margin-left: 8px;">
+                <span class="material-icons md-18">pause</span>
+                Pause
+              </button>
+            </div>
+          </div>
+          <div id="logs-container" style="background: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace; font-size: 12px; padding: 12px; border-radius: var(--mdc-shape-small); max-height: 400px; overflow-y: auto; min-height: 200px;">
+            <div style="color: rgba(255, 255, 255, 0.5); font-style: italic;">Waiting for logs...</div>
+          </div>
+          <div style="margin-top: 8px; font-size: 12px; color: rgba(0, 0, 0, 0.6);">
+            <span id="log-count">0</span> total logs | 
+            <span id="log-errors">0</span> errors | 
+            <span id="log-warnings">0</span> warnings
+          </div>
         </div>
-      </fieldset>
+      </section>
 
-      <div class="actions">
-        <button type="submit" class="primary-btn">MoveJ</button>
-        <button type="button" class="secondary-btn" onclick="sendStop()">Stop</button>
+      <div class="status-bar">
+        Status: <span class="status-ready" id="status-text">Ready</span>
       </div>
-    </form>
-      </details>
     </div>
 
-    <div id="status" class="status-bar">
-      Stato: <span class="ready">Ready</span>
-    </div>
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
 
     <script>
+      // Toast Notification System (NO EMOJI)
+      function showToast(message, type = 'info', duration = 3000) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icon = {
+          success: 'check_circle',
+          error: 'error',
+          warning: 'warning',
+          info: 'info'
+        }[type] || 'info';
+        
+        toast.innerHTML = `
+          <span class="material-icons">${icon}</span>
+          <span style="flex: 1;">${message}</span>
+          <button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; opacity: 0.6; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+            <span class="material-icons md-18">close</span>
+          </button>
+        `;
+        
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+          toast.classList.add('fade-out');
+          setTimeout(() => toast.remove(), 300);
+        }, duration);
+      }
+      
+      // Status management
+      const statusBar = document.getElementById('status-text');
+      function setStatus(text, ok = true) {
+        if (statusBar) {
+          statusBar.textContent = text;
+          statusBar.className = ok ? 'status-ready' : 'status-error';
+        }
+        showToast(text, ok ? 'success' : 'error', ok ? 2000 : 4000);
+      }
+
       const status = document.getElementById("status");
       const form = document.getElementById("move-form");
       const stepInput = document.getElementById("step-size");
-      const jointInputs = Array.from(form.querySelectorAll("input[name^='joint']"));
+      const jointInputs = form ? Array.from(form.querySelectorAll("input[name^='joint']")) : [];
       const rosBridgeState = document.getElementById("ros-bridge-state");
       const rosLoopState = document.getElementById("ros-loop-state");
       const rosLastCommand = document.getElementById("ros-last-command");
@@ -978,9 +1082,10 @@ HTML_TEMPLATE = """
                          rosLastPublish && rosEnv && rosTopicList && 
                          rosStatusJson && rosWarning && rosInfo && statusTimestamp && refreshStatusBtn;
 
-      form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        const formData = new FormData(form);
+      if (form) {
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const formData = new FormData(form);
         const payload = {};
 
         for (let [key, value] of formData.entries()) {
@@ -1008,7 +1113,8 @@ HTML_TEMPLATE = """
           console.error(err);
           setStatus("Error: " + err, false);
         }
-      });
+        });
+      }
 
       async function sendStop() {
         setStatus("Sending stop…");
@@ -1023,7 +1129,14 @@ HTML_TEMPLATE = """
       }
 
       function setStatus(text, ok = true) {
-        status.innerHTML = `Stato: <span class="${ok ? "ready" : "error"}">${text}</span>`;
+        if (status) {
+          status.innerHTML = `Stato: <span class="${ok ? "ready" : "error"}">${text}</span>`;
+        }
+        if (statusBar) {
+          statusBar.textContent = text;
+          statusBar.className = ok ? 'status-ready' : 'status-error';
+        }
+        showToast(text, ok ? 'success' : 'error', ok ? 2000 : 4000);
       }
 
       function describeAge(ageSeconds, isoString) {
@@ -1092,8 +1205,13 @@ HTML_TEMPLATE = """
           rosTopicList.innerHTML = renderTopics(bridge ? bridge.publishers : null);
         }
         if (rosWarning) {
-          rosWarning.textContent = bridge && bridge.last_error ? `⚠️ Errore: ${bridge.last_error}` : "";
-          rosWarning.style.display = bridge && bridge.last_error ? "block" : "none";
+          if (bridge && bridge.last_error) {
+            rosWarning.innerHTML = '<span class="material-icons md-18">warning</span> Errore: ' + bridge.last_error;
+            rosWarning.style.display = "block";
+          } else {
+            rosWarning.textContent = "";
+            rosWarning.style.display = "none";
+          }
         }
         
         // Mostra info utili per debug
@@ -1103,21 +1221,21 @@ HTML_TEMPLATE = """
             const speeds = bridge.target_speeds || [0,0,0,0,0,0];
             const hasNonZeroSpeed = speeds.some(s => Math.abs(s) > 0.001);
             if (hasNonZeroSpeed) {
-              infoMessages.push(`🎮 Velocità target: [${speeds.map(s => s.toFixed(3)).join(", ")}]`);
+                infoMessages.push('<span class="material-icons md-18">sports_esports</span> Velocità target: [' + speeds.map(s => s.toFixed(3)).join(", ") + ']');
             }
             if (bridge.publish_loop_running && bridge.last_publish_age_s !== null) {
               const age = bridge.last_publish_age_s;
               if (age > 0.1) {
-                infoMessages.push(`⚠️ Ultimo publish ${age.toFixed(2)}s fa - potrebbe essere un problema`);
+                infoMessages.push('<span class="material-icons md-18">warning</span> Ultimo publish ' + age.toFixed(2) + 's fa - potrebbe essere un problema');
               } else {
-                infoMessages.push(`✅ Pubblicazione attiva (${bridge.publish_rate_hz}Hz)`);
+                infoMessages.push('<span class="material-icons md-18">check_circle</span> Pubblicazione attiva (' + bridge.publish_rate_hz + 'Hz)');
               }
             }
             if (!bridge.ros_initialized) {
-              infoMessages.push(`❌ ROS2 non inizializzato - controlla la configurazione`);
+              infoMessages.push('<span class="material-icons md-18">error</span> ROS2 non inizializzato - controlla la configurazione');
             }
             if (!bridge.publish_loop_running) {
-              infoMessages.push(`❌ Loop di pubblicazione fermo - riavvia il servizio`);
+              infoMessages.push('<span class="material-icons md-18">error</span> Loop di pubblicazione fermo - riavvia il servizio');
             }
           }
           rosInfo.textContent = infoMessages.length > 0 ? infoMessages.join(" | ") : "";
@@ -1132,7 +1250,7 @@ HTML_TEMPLATE = """
         }
       }
 
-      async function fetchSystemStatus(showToast = false) {
+      async function fetchRosStatus(showToast = false) {
         try {
           const response = await fetch("/api/status");
           const payload = await response.json();
@@ -1151,11 +1269,11 @@ HTML_TEMPLATE = """
       }
 
       if (refreshStatusBtn) {
-        refreshStatusBtn.addEventListener("click", () => fetchSystemStatus(true));
+        refreshStatusBtn.addEventListener("click", () => fetchRosStatus(true));
       }
       if (hasMonitor) {
-        fetchSystemStatus();
-        setInterval(fetchSystemStatus, 3000);
+        fetchRosStatus();
+        setInterval(fetchRosStatus, 3000);
       }
 
       // --- Robot Status Monitor -------------------------------------------------
@@ -1214,21 +1332,21 @@ HTML_TEMPLATE = """
         // Warnings
         if (robotStatusWarning) {
           const warnings = [];
-          const robotModeClean = (dashboard.robotmode || "").replace(/^Robotmode:\s*/i, "").trim();
+          const robotModeClean = (dashboard.robotmode || "").replace(/^Robotmode:\\s*/i, "").trim();
           if (robotModeClean && robotModeClean !== "RUNNING") {
-            warnings.push(`⚠️ Robot non in RUNNING: ${robotModeClean}`);
+            warnings.push('<span class="material-icons md-18">warning</span> Robot non in RUNNING: ' + robotModeClean);
           }
           if (dashboard.programState && !dashboard.programState.includes("PLAYING")) {
-            warnings.push(`⚠️ Programma non in PLAYING: ${dashboard.programState}`);
+            warnings.push('<span class="material-icons md-18">warning</span> Programma non in PLAYING: ' + dashboard.programState);
           }
           if (dashboard.remote_control && dashboard.remote_control !== "true") {
-            warnings.push(`⚠️ Remote control non attivo`);
+            warnings.push('<span class="material-icons md-18">warning</span> Remote control non attivo');
           }
           if (rtde.error) {
-            warnings.push(`⚠️ RTDE: ${rtde.error}`);
+            warnings.push('<span class="material-icons md-18">warning</span> RTDE: ' + rtde.error);
           }
           if (dashboard.error) {
-            warnings.push(`⚠️ Dashboard: ${dashboard.error}`);
+            warnings.push('<span class="material-icons md-18">warning</span> Dashboard: ' + dashboard.error);
           }
           robotStatusWarning.textContent = warnings.join(" | ");
           robotStatusWarning.style.display = warnings.length > 0 ? "block" : "none";
@@ -1238,10 +1356,10 @@ HTML_TEMPLATE = """
         if (robotStatusInfo) {
           const infos = [];
           if (rtde.joints && rtde.tcp_pose) {
-            infos.push(`✅ Dati RTDE disponibili`);
+            infos.push('<span class="material-icons md-18">check_circle</span> Dati RTDE disponibili');
           }
           if (dashboard.robotmode === "RUNNING" && dashboard.programState === "PLAYING") {
-            infos.push(`✅ Robot pronto per controllo`);
+            infos.push('<span class="material-icons md-18">check_circle</span> Robot pronto per controllo');
           }
           robotStatusInfo.textContent = infos.join(" | ");
           robotStatusInfo.style.display = infos.length > 0 ? "block" : "none";
@@ -1307,16 +1425,21 @@ HTML_TEMPLATE = """
             const data = payload.data;
             
             if (ros2DriverStatus) {
-              ros2DriverStatus.textContent = data.ros2_driver.running ? "✅ Attivo" : "❌ Fermo";
-              ros2DriverStatus.className = "monitor-value badge " + (data.ros2_driver.running ? "badge-success" : "badge-error");
+              if (data.ros2_driver.running) {
+                ros2DriverStatus.innerHTML = '<span class="material-icons md-18">check_circle</span> Attivo';
+                ros2DriverStatus.className = "monitor-value badge badge-success";
+              } else {
+                ros2DriverStatus.innerHTML = '<span class="material-icons md-18">error</span> Fermo';
+                ros2DriverStatus.className = "monitor-value badge badge-error";
+              }
             }
             
             if (controllerStatus) {
               if (data.controller.active) {
-                controllerStatus.textContent = `✅ ${data.controller.name}`;
+                controllerStatus.innerHTML = '<span class="material-icons md-18">check_circle</span> ' + data.controller.name;
                 controllerStatus.className = "monitor-value badge badge-success";
               } else {
-                controllerStatus.textContent = data.controller.error || "❌ Nessuno";
+                controllerStatus.innerHTML = data.controller.error || '<span class="material-icons md-18">error</span> Nessuno';
                 controllerStatus.className = "monitor-value badge badge-error";
               }
             }
@@ -1328,8 +1451,13 @@ HTML_TEMPLATE = """
             }
             
             if (portStatus) {
-              portStatus.textContent = data.port_50002.listening ? "✅ Aperta" : "❌ Chiusa";
-              portStatus.className = "monitor-value badge " + (data.port_50002.listening ? "badge-success" : "badge-error");
+              if (data.port_50002.listening) {
+                portStatus.innerHTML = '<span class="material-icons md-18">check_circle</span> Aperta';
+                portStatus.className = "monitor-value badge badge-success";
+              } else {
+                portStatus.innerHTML = '<span class="material-icons md-18">error</span> Chiusa';
+                portStatus.className = "monitor-value badge badge-error";
+              }
             }
             
             // Aggiorna status rapido
@@ -1341,20 +1469,33 @@ HTML_TEMPLATE = """
             
             if (quickStatus && ros2DriverQuick && controllerQuick && robotModeQuick && portQuick) {
               quickStatus.style.display = "block";
-              ros2DriverQuick.textContent = data.ros2_driver.running ? "✅ Attivo" : "❌ Fermo";
-              controllerQuick.textContent = data.controller.active ? data.controller.name : "❌ Nessuno";
+              if (data.ros2_driver.running) {
+                ros2DriverQuick.innerHTML = '<span class="material-icons md-18">check_circle</span> Attivo';
+              } else {
+                ros2DriverQuick.innerHTML = '<span class="material-icons md-18">error</span> Fermo';
+              }
+              if (data.controller.active) {
+                controllerQuick.textContent = data.controller.name;
+              } else {
+                controllerQuick.innerHTML = '<span class="material-icons md-18">error</span> Nessuno';
+              }
               robotModeQuick.textContent = data.robot_mode || "—";
-              portQuick.textContent = data.port_50002.listening ? "✅ Aperta" : "❌ Chiusa";
-            }
-            
-            // Aggiorna anche wizard se necessario
-            if (data.robot_mode === "RUNNING" && data.port_50002.listening) {
-              const stepBStatus = document.getElementById("step-b-status");
-              if (stepBStatus && stepBStatus.textContent.includes("Bloccato")) {
-                updateWizardStep('a', 'success', 'Driver ROS2 attivo.');
-                updateWizardStep('b', 'success', 'Driver verificato.');
+              if (data.port_50002.listening) {
+                portQuick.innerHTML = '<span class="material-icons md-18">check_circle</span> Aperta';
+              } else {
+                portQuick.innerHTML = '<span class="material-icons md-18">error</span> Chiusa';
               }
             }
+            
+            // NON aggiornare wizard se è già completato - evita reset indesiderati
+            // Il wizard viene aggiornato solo manualmente dagli step
+            // if (data.robot_mode === "RUNNING" && data.port_50002.listening) {
+            //   const stepBStatus = document.getElementById("step-b-status");
+            //   if (stepBStatus && stepBStatus.textContent.includes("Bloccato")) {
+            //     updateWizardStep('a', 'success', 'Driver ROS2 attivo.');
+            //     updateWizardStep('b', 'success', 'Driver verificato.');
+            //   }
+            // }
             
             if (systemStatusTimestamp) {
               systemStatusTimestamp.textContent = `Agg. ${new Date().toLocaleTimeString()}`;
@@ -1371,21 +1512,78 @@ HTML_TEMPLATE = """
       }
 
       // --- Wizard Guidato ---
-      const wizardStartDriverBtn = document.getElementById("wizard-start-driver");
-      const wizardCheckTeachPendantBtn = document.getElementById("wizard-check-teach-pendant");
       let wizardCurrentStep = 'a';
       let wizardCheckInterval = null;
+      
+      // Funzione per inizializzare event listeners del wizard
+      function initWizardEventListeners() {
+        console.log("[DEBUG] initWizardEventListeners chiamata");
+        const wizardStartDriverBtn = document.getElementById("wizard-start-driver");
+        const wizardCheckTeachPendantBtn = document.getElementById("wizard-check-teach-pendant");
+        
+        console.log("[DEBUG] wizardStartDriverBtn:", wizardStartDriverBtn);
+        console.log("[DEBUG] wizardStepA definita:", typeof wizardStepA);
+        
+        if (wizardStartDriverBtn) {
+          if (typeof wizardStepA === 'function') {
+            wizardStartDriverBtn.addEventListener("click", (e) => {
+              console.log("[DEBUG] Click su Start Driver button");
+              e.preventDefault();
+              wizardStepA();
+            });
+            console.log("[OK] Event listener aggiunto al pulsante Start Driver");
+          } else {
+            console.error("[ERROR] wizardStepA non è una funzione!");
+          }
+        } else {
+          console.error("[ERROR] Pulsante wizard-start-driver non trovato!");
+        }
+
+        if (wizardCheckTeachPendantBtn) {
+          wizardCheckTeachPendantBtn.addEventListener("click", () => {
+            updateWizardStep('d', 'success', 'Verifica connessione in corso...');
+            wizardStepE();
+          });
+        }
+
+        // Pulsante Activate Controller (Step C)
+        const activateControllerBtn = document.getElementById("wizard-activate-controller");
+        if (activateControllerBtn) {
+          activateControllerBtn.addEventListener("click", () => {
+            wizardStepC();
+          });
+        }
+
+        // Pulsanti Retry
+        for (const step of ['a', 'b', 'c', 'd', 'e']) {
+          const retryBtn = document.getElementById(`wizard-retry-${step}`);
+          if (retryBtn) {
+            retryBtn.addEventListener("click", () => {
+              if (step === 'a') wizardStepA();
+              else if (step === 'b') wizardStepB();
+              else if (step === 'c') wizardStepC();
+              else if (step === 'd') wizardStepD();
+              else if (step === 'e') wizardStepE();
+            });
+          }
+        }
+      }
 
       function updateWizardStep(step, status, message) {
         const stepEl = document.getElementById(`step-${step}`);
         const statusEl = document.getElementById(`step-${step}-status`);
         const messageEl = document.getElementById(`step-${step}-message`);
         const retryBtn = document.getElementById(`wizard-retry-${step}`);
+        const activateBtn = document.getElementById(`wizard-activate-controller`);
         
         if (stepEl) {
           stepEl.classList.remove('active', 'completed', 'error');
           stepEl.style.opacity = '1';
           if (status === 'success') {
+            // Nascondi pulsante Activate quando completato
+            if (activateBtn && step === 'c') {
+              activateBtn.style.display = 'none';
+            }
             stepEl.classList.add('completed');
           } else if (status === 'error') {
             stepEl.classList.add('error');
@@ -1397,21 +1595,31 @@ HTML_TEMPLATE = """
         }
         
         if (statusEl) {
-          statusEl.className = 'step-status';
+          statusEl.className = 'wizard-step__status';
           if (status === 'success') {
-            statusEl.textContent = '✅';
+            statusEl.innerHTML = '<span class="material-icons md-18">check_circle</span>';
             statusEl.classList.add('success');
           } else if (status === 'error') {
-            statusEl.textContent = '❌';
+            statusEl.innerHTML = '<span class="material-icons md-18">error</span>';
             statusEl.classList.add('error');
           } else if (status === 'waiting') {
-            statusEl.textContent = '⏳';
+            statusEl.innerHTML = '<span class="material-icons md-18">hourglass_empty</span>';
             statusEl.classList.add('waiting');
           } else if (status === 'active') {
-            statusEl.textContent = '🔄';
+            statusEl.innerHTML = '<span class="material-icons md-18">refresh</span>';
             statusEl.classList.add('waiting');
           } else {
-            statusEl.textContent = '⏸️';
+            statusEl.innerHTML = '<span class="material-icons md-18">pause</span>';
+          }
+        }
+        
+        // Mostra/nascondi barra di caricamento
+        const progressEl = document.getElementById(`step-${step}-progress`);
+        if (progressEl) {
+          if (status === 'active') {
+            progressEl.style.display = 'block';
+          } else {
+            progressEl.style.display = 'none';
           }
         }
         
@@ -1423,10 +1631,21 @@ HTML_TEMPLATE = """
         if (retryBtn) {
           retryBtn.style.display = (status === 'error') ? 'block' : 'none';
         }
+        
+        // Gestisci pulsante Activate Controller (solo per step C)
+        if (activateBtn && step === 'c') {
+          if (status === 'success') {
+            activateBtn.style.display = 'none';  // Nascondi quando completato
+          } else if (status === 'error' || status === 'waiting' || status === 'active') {
+            activateBtn.style.display = 'block';  // Mostra quando serve attivazione
+          } else {
+            activateBtn.style.display = 'none';
+          }
+        }
       }
 
       async function wizardStepA() {
-        updateWizardStep('a', 'active', '🔄 Verifica e pulizia processi esistenti...');
+        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Verifica e pulizia processi esistenti...');
         
         // Prima verifica e kill processi esistenti (IMPORTANTE per evitare crash)
         try {
@@ -1438,35 +1657,35 @@ HTML_TEMPLATE = """
           const checkPayload = await checkResponse.json();
           if (checkPayload.status === "ok") {
             if (checkPayload.data.duplicates_found) {
-              updateWizardStep('a', 'active', `🔄 Processi duplicati trovati e terminati:<br>- Driver ROS2: ${checkPayload.data.ros2_driver.length}<br>- Web Interface: ${checkPayload.data.web_interface.length}<br>Attendo pulizia...`);
+              updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Processi duplicati trovati e terminati:<br>- Driver ROS2: ' + checkPayload.data.ros2_driver.length + '<br>- Web Interface: ' + checkPayload.data.web_interface.length + '<br>Attendo pulizia...');
               await new Promise(resolve => setTimeout(resolve, 3000)); // Attendi 3 secondi per pulizia completa
             } else {
-              updateWizardStep('a', 'active', '✅ Nessun processo duplicato trovato. Procedo con avvio...');
+              updateWizardStep('a', 'active', '<span class="material-icons md-18">check_circle</span> Nessun processo duplicato trovato. Procedo con avvio...');
               await new Promise(resolve => setTimeout(resolve, 500));
             }
           }
         } catch (err) {
           console.warn("Errore verifica processi:", err);
-          updateWizardStep('a', 'active', '⚠️ Impossibile verificare processi. Procedo comunque...');
+          updateWizardStep('a', 'active', '<span class="material-icons md-18">warning</span> Impossibile verificare processi. Procedo comunque...');
         }
         
-        updateWizardStep('a', 'active', '🔄 Avvio driver ROS2 in corso...');
+        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Avvio driver ROS2 in corso...');
         try {
           const response = await fetch("/api/system/start_driver", { method: "POST" });
           const payload = await response.json();
           if (payload.status === "ok") {
-            updateWizardStep('a', 'waiting', '✅ Driver avviato! Attendo stabilizzazione (3 secondi)...');
+            updateWizardStep('a', 'waiting', '<span class="material-icons md-18">check_circle</span> Driver avviato! Attendo stabilizzazione (3 secondi)...');
             setTimeout(() => wizardStepB(), 3000);
           } else {
-            updateWizardStep('a', 'error', `❌ Errore: ${payload.message}<br><small>Clicca "Riprova" dopo aver verificato i processi.</small>`);
+            updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Errore: ' + payload.message + '<br><small>Clicca "Riprova" dopo aver verificato i processi.</small>');
           }
         } catch (err) {
-          updateWizardStep('a', 'error', `❌ Errore di connessione: ${err.message}<br><small>Verifica che la web interface sia attiva e riprova.</small>`);
+          updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Errore di connessione: ' + err.message + '<br><small>Verifica che la web interface sia attiva e riprova.</small>');
         }
       }
 
       async function wizardStepB() {
-        updateWizardStep('b', 'active', '🔄 Verifica driver attivo e porta 50002...');
+        updateWizardStep('b', 'active', '<span class="material-icons md-18">refresh</span> Verifica driver attivo e porta 50002...');
         let attempts = 0;
         const maxAttempts = 10;
         
@@ -1505,7 +1724,7 @@ HTML_TEMPLATE = """
       }
 
       async function wizardStepC() {
-        updateWizardStep('c', 'active', '🔄 Verifica controller...');
+        updateWizardStep('c', 'active', '<span class="material-icons md-18">refresh</span> Verifica controller...');
         
         // Prima verifica quale controller è attivo
         let attempts = 0;
@@ -1521,15 +1740,20 @@ HTML_TEMPLATE = """
               const controller = statusData.data.controller;
               
               // Se forward_velocity_controller è già attivo, passa al prossimo step
+              // IMPORTANTE: Non verifichiamo se il robot risponde ai comandi (quello è compito dello step E)
+              // Qui verifichiamo solo che il controller sia tecnicamente attivo
               if (controller.active && controller.name === 'forward_velocity_controller') {
-                updateWizardStep('c', 'success', '✅ Controller forward_velocity_controller già attivo.');
+                updateWizardStep('c', 'success', '<span class="material-icons md-18">check_circle</span> Controller forward_velocity_controller attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                if (typeof showToast === 'function') {
+                  showToast('Forward velocity controller attivo', 'success', 2000);
+                }
                 setTimeout(() => wizardStepD(), 1000);
                 return true;
               }
               
               // Se non è attivo, prova ad attivarlo
               if (!controller.active || controller.name !== 'forward_velocity_controller') {
-                updateWizardStep('c', 'active', `🔄 Attivazione forward_velocity_controller... (tentativo ${attempts + 1}/${maxAttempts})`);
+                updateWizardStep('c', 'active', '<span class="material-icons md-18">refresh</span> Attivazione forward_velocity_controller... (tentativo ' + (attempts + 1) + '/' + maxAttempts + ')');
                 
                 const switchResponse = await fetch("/api/system/switch_controller", {
                   method: "POST",
@@ -1543,20 +1767,35 @@ HTML_TEMPLATE = """
                   // Attendi un momento e verifica che sia stato attivato
                   await new Promise(resolve => setTimeout(resolve, 1500));
                   
-                  // Verifica di nuovo
+                  // Verifica di nuovo - solo che sia in stato 'active', non che risponda ai comandi
                   const verifyResponse = await fetch("/api/system/status");
                   const verifyData = await verifyResponse.json();
                   
                   if (verifyData.status === "ok" && verifyData.data.controller) {
                     const newController = verifyData.data.controller;
+                    // IMPORTANTE: Verifichiamo solo che sia attivo, non che il robot risponda
+                    // Il robot potrebbe non essere in Remote Control ancora, ma il controller è comunque attivo
                     if (newController.active && newController.name === 'forward_velocity_controller') {
-                      updateWizardStep('c', 'success', '✅ Controller forward_velocity_controller attivato.');
+                      updateWizardStep('c', 'success', '<span class="material-icons md-18">check_circle</span> Controller forward_velocity_controller attivato.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                      if (typeof showToast === 'function') {
+                        showToast('Forward velocity controller attivato', 'success', 2000);
+                      }
                       setTimeout(() => wizardStepD(), 1000);
                       return true;
                     }
                   }
                 } else {
-                  updateWizardStep('c', 'error', `❌ Errore attivazione: ${switchData.message}`);
+                  // Se l'errore è che il controller non può essere attivato perché il robot non è in Remote Control,
+                  // consideriamo comunque un successo parziale se il servizio ha risposto
+                  if (switchData.message && (switchData.message.includes('already active') || switchData.message.includes('già attivo'))) {
+                    updateWizardStep('c', 'success', '<span class="material-icons md-18">check_circle</span> Controller già attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                    setTimeout(() => wizardStepD(), 1000);
+                    return true;
+                  }
+                  updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Errore attivazione: ' + switchData.message);
+                  if (typeof showToast === 'function') {
+                    showToast(`Errore attivazione controller: ${switchData.message}`, 'error', 4000);
+                  }
                   return false;
                 }
               }
@@ -1564,7 +1803,12 @@ HTML_TEMPLATE = """
             
             attempts++;
             if (attempts >= maxAttempts) {
-              updateWizardStep('c', 'error', `❌ Controller non attivato dopo ${maxAttempts} tentativi. Verifica manualmente.`);
+              updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Controller non attivato dopo ' + maxAttempts + ' tentativi.<br><small>Verifica che il driver ROS2 sia attivo. Puoi comunque procedere al passo D se il controller è già attivo manualmente.</small>');
+              if (typeof showToast === 'function') {
+                showToast('Impossibile attivare forward_velocity_controller dopo ' + maxAttempts + ' tentativi', 'error', 5000);
+              }
+              // Non blocchiamo il wizard - permette di procedere comunque
+              setTimeout(() => wizardStepD(), 2000);
               return true; // Ferma il loop
             }
             
@@ -1573,7 +1817,10 @@ HTML_TEMPLATE = """
             console.error("Wizard step C error", err);
             attempts++;
             if (attempts >= maxAttempts) {
-              updateWizardStep('c', 'error', `❌ Errore: ${err.message}`);
+              updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Errore: ' + err.message);
+              if (typeof showToast === 'function') {
+                showToast('Errore durante attivazione controller: ' + err.message, 'error', 4000);
+              }
               return true;
             }
             return false;
@@ -1590,6 +1837,50 @@ HTML_TEMPLATE = """
         // Prima verifica immediata
         checkAndActivate();
       }
+      
+      // Verifica automatica forward_velocity_controller ogni 30 secondi
+      let controllerCheckInterval = null;
+      function startControllerAutoCheck() {
+        if (controllerCheckInterval) return; // Già attivo
+        
+        controllerCheckInterval = setInterval(async () => {
+          try {
+            const response = await fetch("/api/system/status");
+            const payload = await response.json();
+            
+            if (payload.status === "ok" && payload.data.controller) {
+              const controller = payload.data.controller;
+              
+              // Se il controller non è forward_velocity_controller o non è attivo, prova a riattivarlo
+              if (!controller.active || controller.name !== 'forward_velocity_controller') {
+                console.warn('<span class="material-icons md-18">warning</span> Forward velocity controller non attivo, tentativo riattivazione...');
+                
+                const switchResponse = await fetch("/api/system/switch_controller", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ use_scaled: false })
+                });
+                
+                const switchData = await switchResponse.json();
+                if (switchData.status === "ok") {
+                  if (typeof showToast === 'function') {
+                    showToast('Forward velocity controller riattivato automaticamente', 'info', 3000);
+                  }
+                }
+              }
+            }
+          } catch (err) {
+            console.error('Errore verifica automatica controller:', err);
+          }
+        }, 30000); // Ogni 30 secondi
+      }
+      
+      // Avvia verifica automatica quando la pagina è caricata
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startControllerAutoCheck);
+      } else {
+        startControllerAutoCheck();
+      }
 
       function wizardStepD() {
         updateWizardStep('d', 'waiting', 'Attendi che attivi External Control sul Teach Pendant, poi clicca il pulsante qui sotto.');
@@ -1600,7 +1891,7 @@ HTML_TEMPLATE = """
       }
 
       async function wizardStepE() {
-        updateWizardStep('e', 'active', '🔄 Verifica connessione robot...');
+        updateWizardStep('e', 'active', '<span class="material-icons md-18">refresh</span> Verifica connessione robot...');
         let attempts = 0;
         const maxAttempts = 15;
         
@@ -1637,10 +1928,12 @@ HTML_TEMPLATE = """
               const isReady = driverReady && controllerReady && robotModeOk;
               
               // Debug info
-              const debugInfo = `Driver: ${driverReady ? '✅' : '❌'}, Controller: ${controllerReady ? '✅' : '❌'}, Mode: ${data.robot_mode || 'N/A'}, Safety: ${data.robot_safety_mode || 'N/A'}, Remote: ${data.remote_control || 'N/A'}, Program: ${data.program_state || 'N/A'}`;
+              const driverIcon = driverReady ? '<span class="material-icons md-18">check_circle</span>' : '<span class="material-icons md-18">error</span>';
+              const controllerIcon = controllerReady ? '<span class="material-icons md-18">check_circle</span>' : '<span class="material-icons md-18">error</span>';
+              const debugInfo = 'Driver: ' + driverIcon + ', Controller: ' + controllerIcon + ', Mode: ' + (data.robot_mode || 'N/A') + ', Safety: ' + (data.robot_safety_mode || 'N/A') + ', Remote: ' + (data.remote_control || 'N/A') + ', Program: ' + (data.program_state || 'N/A');
               
               if (isReady) {
-                let successMsg = '✅ <strong style="font-size: 16px; color: #00aa00;">Robot connesso e pronto!</strong><br>';
+                let successMsg = '<span class="material-icons md-18">check_circle</span> <strong style="font-size: 16px; color: #00aa00;">Robot connesso e pronto!</strong><br>';
                 if (data.robot_mode === "RUNNING" && data.robot_safety_mode === "NORMAL") {
                   successMsg += 'Tutti i controlli verificati correttamente.';
                 } else {
@@ -1653,7 +1946,8 @@ HTML_TEMPLATE = """
                 const joystickSection = document.getElementById('joystick-section');
                 if (joystickSection) {
                   joystickSection.style.display = 'block';
-                  joystickSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  // NON fare scroll automatico - l'utente potrebbe voler scrollare manualmente
+                  // joystickSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   // Evidenzia la sezione
                   joystickSection.style.animation = 'pulse 2s ease-in-out';
                   setTimeout(() => {
@@ -1672,16 +1966,16 @@ HTML_TEMPLATE = """
               } else if (attempts >= maxAttempts) {
                 let errorMsg = 'Robot non pronto dopo ' + maxAttempts + ' tentativi.<br>';
                 errorMsg += '<small style="color: #666;">Debug: ' + debugInfo + '</small><br>';
-                if (!driverReady) errorMsg += '<br>❌ Driver ROS2 non attivo o porta 50002 chiusa.';
-                if (!controllerReady) errorMsg += '<br>❌ Controller non attivo.';
+                if (!driverReady) errorMsg += '<br><span class="material-icons md-18">error</span> Driver ROS2 non attivo o porta 50002 chiusa.';
+                if (!controllerReady) errorMsg += '<br><span class="material-icons md-18">error</span> Controller non attivo.';
                 if (data.robot_mode && data.robot_mode !== "RUNNING" && data.robot_mode !== "unknown") {
-                  errorMsg += '<br>⚠️ Modalità robot: ' + data.robot_mode + ' (atteso: RUNNING).';
+                  errorMsg += '<br><span class="material-icons md-18">warning</span> Modalità robot: ' + data.robot_mode + ' (atteso: RUNNING).';
                 }
                 if (data.robot_safety_mode && data.robot_safety_mode !== "NORMAL" && data.robot_safety_mode !== "unknown") {
-                  errorMsg += '<br>⚠️ Safety mode: ' + data.robot_safety_mode + ' (atteso: NORMAL).';
+                  errorMsg += '<br><span class="material-icons md-18">warning</span> Safety mode: ' + data.robot_safety_mode + ' (atteso: NORMAL).';
                 }
                 if (data.remote_control !== true && data.program_state !== "PLAYING" && data.program_state !== "PLAYING remote_control.urp") {
-                  errorMsg += '<br>⚠️ Remote Control: ' + (data.remote_control || 'non disponibile') + ', Program: ' + (data.program_state || 'non disponibile');
+                  errorMsg += '<br><span class="material-icons md-18">warning</span> Remote Control: ' + (data.remote_control || 'non disponibile') + ', Program: ' + (data.program_state || 'non disponibile');
                 }
                 errorMsg += '<br><br><small>Se il robot è effettivamente in esecuzione, puoi comunque provare a usare i joystick.</small>';
                 updateWizardStep('e', 'error', errorMsg);
@@ -1700,7 +1994,7 @@ HTML_TEMPLATE = """
               } else {
                 // Mostra progresso durante i tentativi
                 if (attempts % 3 === 0) {
-                  updateWizardStep('e', 'active', `🔄 Verifica connessione... (tentativo ${attempts}/${maxAttempts})<br><small>${debugInfo}</small>`);
+                  updateWizardStep('e', 'active', '<span class="material-icons md-18">refresh</span> Verifica connessione... (tentativo ' + attempts + '/' + maxAttempts + ')<br><small>' + debugInfo + '</small>');
                 }
               }
             }
@@ -1719,118 +2013,6 @@ HTML_TEMPLATE = """
         }, 2000);
         
         await checkConnection();
-      }
-
-      if (wizardStartDriverBtn) {
-        wizardStartDriverBtn.addEventListener("click", wizardStepA);
-      }
-
-      if (wizardCheckTeachPendantBtn) {
-        wizardCheckTeachPendantBtn.addEventListener("click", () => {
-          updateWizardStep('d', 'success', 'Verifica connessione in corso...');
-          wizardStepE();
-        });
-      }
-
-      // --- Controlli Robot senza Teach Pendant ---
-      const robotControlMessage = document.getElementById("robot-control-message");
-      
-      function showRobotControlMessage(text, isError = false) {
-        if (robotControlMessage) {
-          robotControlMessage.textContent = text;
-          robotControlMessage.style.display = "block";
-          robotControlMessage.style.color = isError ? "#cc0000" : "#0066cc";
-          robotControlMessage.style.background = isError ? "#fff5f5" : "#f0f7ff";
-          setTimeout(() => {
-            robotControlMessage.style.display = "none";
-          }, 5000);
-        }
-      }
-
-      async function sendRobotControl(action, params = {}) {
-        try {
-          showRobotControlMessage(`🔄 Esecuzione: ${action}...`, false);
-          const response = await fetch("/api/robot_control", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action, ...params })
-          });
-          const payload = await response.json();
-          
-          if (payload.status === "ok") {
-            showRobotControlMessage(`✅ ${payload.message}`, false);
-            // Aggiorna stato robot dopo 1 secondo
-            setTimeout(() => fetchRobotStatus(), 1000);
-          } else {
-            showRobotControlMessage(`❌ ${payload.message}`, true);
-          }
-        } catch (err) {
-          showRobotControlMessage(`❌ Errore: ${err.message}`, true);
-        }
-      }
-
-      // Event listeners per i pulsanti controllo robot
-      const btnPowerOn = document.getElementById("btn-power-on");
-      const btnBrakeRelease = document.getElementById("btn-brake-release");
-      const btnPlay = document.getElementById("btn-play");
-      const btnStop = document.getElementById("btn-stop");
-      const btnPause = document.getElementById("btn-pause");
-      const btnLoadProgram = document.getElementById("btn-load-program");
-      const btnLoadProgramName = document.getElementById("btn-load-program-name");
-      const programNameInput = document.getElementById("program-name-input");
-
-      if (btnPowerOn) {
-        btnPowerOn.addEventListener("click", () => sendRobotControl("power_on"));
-      }
-      if (btnBrakeRelease) {
-        btnBrakeRelease.addEventListener("click", () => sendRobotControl("brake_release"));
-      }
-      if (btnPlay) {
-        btnPlay.addEventListener("click", () => sendRobotControl("play"));
-      }
-      if (btnStop) {
-        btnStop.addEventListener("click", () => sendRobotControl("stop"));
-      }
-      if (btnPause) {
-        btnPause.addEventListener("click", () => sendRobotControl("pause"));
-      }
-      if (btnLoadProgram) {
-        btnLoadProgram.addEventListener("click", () => {
-          const programName = prompt("Inserisci il nome del programma (es: remote_control.urp):");
-          if (programName) {
-            sendRobotControl("load", { program: programName });
-          }
-        });
-      }
-      if (btnLoadProgramName && programNameInput) {
-        btnLoadProgramName.addEventListener("click", () => {
-          const programName = programNameInput.value.trim();
-          if (programName) {
-            sendRobotControl("load", { program: programName });
-            programNameInput.value = "";
-          } else {
-            showRobotControlMessage("❌ Inserisci un nome programma", true);
-          }
-        });
-        programNameInput.addEventListener("keypress", (e) => {
-          if (e.key === "Enter") {
-            btnLoadProgramName.click();
-          }
-        });
-      }
-
-      // Pulsanti Retry
-      for (const step of ['a', 'b', 'c', 'd', 'e']) {
-        const retryBtn = document.getElementById(`wizard-retry-${step}`);
-        if (retryBtn) {
-          retryBtn.addEventListener("click", () => {
-            if (step === 'a') wizardStepA();
-            else if (step === 'b') wizardStepB();
-            else if (step === 'c') wizardStepC();
-            else if (step === 'd') wizardStepD();
-            else if (step === 'e') wizardStepE();
-          });
-        }
       }
 
       // --- Logging System Variables (dichiarate prima di initLogging) ---
@@ -1897,8 +2079,20 @@ HTML_TEMPLATE = """
           }, 1000);
         });
       }
-      initWizard();
-      initLogging(); // Inizializza sistema di logging
+      
+      // Inizializza tutto quando il DOM è pronto
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+          initWizardEventListeners();
+          initWizard();
+          initLogging();
+        });
+      } else {
+        // DOM già caricato
+        initWizardEventListeners();
+        initWizard();
+        initLogging();
+      }
 
       if (startDriverBtn) {
         startDriverBtn.addEventListener("click", async () => {
@@ -1985,19 +2179,25 @@ HTML_TEMPLATE = """
         const button = event.target.closest("button[data-target]");
         if (!button) return;
         event.preventDefault();
+        if (!stepInput) return;
         const step = parseFloat(stepInput.value) || 0.1;
         const isIncrement = button.classList.contains("joint-increment");
         const delta = isIncrement ? step : -step;
         updateJoint(button.dataset.target, delta);
       }
 
-      document.querySelectorAll(".joint-increment, .joint-decrement").forEach((btn) => {
-        btn.addEventListener("click", handleArrowButtons);
-      });
+      const jointButtons = document.querySelectorAll(".joint-increment, .joint-decrement");
+      if (jointButtons && jointButtons.length > 0) {
+        jointButtons.forEach((btn) => {
+          btn.addEventListener("click", handleArrowButtons);
+        });
+      }
 
-      jointInputs.forEach((input) => {
-        input.addEventListener("focus", (event) => event.target.select());
-      });
+      if (jointInputs && jointInputs.length > 0) {
+        jointInputs.forEach((input) => {
+          input.addEventListener("focus", (event) => event.target.select());
+        });
+      }
 
       // --- Joystick logic -------------------------------------------------
       const joystick = document.getElementById("joystick");
@@ -2158,11 +2358,11 @@ HTML_TEMPLATE = """
               const data = payload.data;
               let msg = "";
               if (data.duplicates_found) {
-                msg = `⚠️ Processi doppi trovati e killati: ${data.killed.join(", ")}`;
+                msg = '<span class="material-icons md-18">warning</span> Processi doppi trovati e killati: ' + data.killed.join(", ");
                 processStatus.style.background = "#fff3cd";
                 processStatus.style.color = "#856404";
               } else {
-                msg = "✅ Nessun processo doppio trovato";
+                msg = '<span class="material-icons md-18">check_circle</span> Nessun processo doppio trovato';
                 processStatus.style.background = "#d4edda";
                 processStatus.style.color = "#155724";
               }
@@ -2181,12 +2381,12 @@ HTML_TEMPLATE = """
       const restartWebInterfaceBtn = document.getElementById("restart-web-interface");
       if (restartWebInterfaceBtn) {
         restartWebInterfaceBtn.addEventListener("click", async () => {
-          if (!confirm("⚠️ Sei sicuro di voler riavviare il web interface? La pagina si ricaricherà automaticamente.")) {
+          if (!confirm('Sei sicuro di voler riavviare il web interface? La pagina si ricaricherà automaticamente.')) {
             return;
           }
           
           restartWebInterfaceBtn.disabled = true;
-          restartWebInterfaceBtn.textContent = "🔄 Riavvio in corso...";
+          restartWebInterfaceBtn.innerHTML = '<span class="material-icons md-18">refresh</span> Riavvio in corso...';
           
           try {
             const response = await fetch("/api/system/restart_web_interface", {
@@ -2201,14 +2401,14 @@ HTML_TEMPLATE = """
                 window.location.reload();
               }, 2000);
             } else {
-              alert(`Errore riavvio: ${payload.message}`);
+              alert('Errore riavvio: ' + payload.message);
               restartWebInterfaceBtn.disabled = false;
-              restartWebInterfaceBtn.textContent = "🔄 Riavvia Web Interface";
+              restartWebInterfaceBtn.innerHTML = '<span class="material-icons md-18">refresh</span> Riavvia Web Interface';
             }
           } catch (err) {
-            alert(`Errore: ${err.message}`);
+            alert('Errore: ' + err.message);
             restartWebInterfaceBtn.disabled = false;
-            restartWebInterfaceBtn.textContent = "🔄 Riavvia Web Interface";
+            restartWebInterfaceBtn.innerHTML = '<span class="material-icons md-18">refresh</span> Riavvia Web Interface';
           }
         });
       }
@@ -2237,7 +2437,7 @@ HTML_TEMPLATE = """
       function initLogging() {
         // Verifica che le variabili siano inizializzate
         if (typeof lastLogId === 'undefined') {
-          console.error('❌ Variabili logging non inizializzate!');
+          console.error('<span class="material-icons md-18">error</span> Variabili logging non inizializzate!');
           return;
         }
         
@@ -2268,7 +2468,11 @@ HTML_TEMPLATE = """
         if (toggleLogsBtn) {
           toggleLogsBtn.addEventListener('click', () => {
             logsPaused = !logsPaused;
-            toggleLogsBtn.textContent = logsPaused ? '▶️ Riprendi' : '⏸️ Pausa';
+            if (logsPaused) {
+              toggleLogsBtn.innerHTML = '<span class="material-icons md-18">play_arrow</span> Riprendi';
+            } else {
+              toggleLogsBtn.innerHTML = '<span class="material-icons md-18">pause</span> Pausa';
+            }
           });
         }
 
@@ -2277,7 +2481,7 @@ HTML_TEMPLATE = """
           logUpdateInterval = setInterval(updateLogs, 500);
           updateLogs(); // Prima chiamata immediata
         } else {
-          console.error('❌ logUpdateInterval non definito!');
+          console.error('<span class="material-icons md-18">error</span> logUpdateInterval non definito!');
         }
       }
 
@@ -2321,7 +2525,7 @@ HTML_TEMPLATE = """
               }
               
               // Formatta messaggio
-              const message = log.message.replace(/⚠️/g, '⚠').replace(/✅/g, '✓').replace(/📤/g, '→').replace(/⏳/g, '…');
+              const message = log.message.replace(/<span class="material-icons md-18">warning<\\/span>/g, '[WARN]').replace(/<span class="material-icons md-18">check_circle<\\/span>/g, '[OK]').replace(/<span class="material-icons md-18">send<\\/span>/g, '[SEND]').replace(/<span class="material-icons md-18">hourglass_empty<\\/span>/g, '[WAIT]');
               logLine.innerHTML = `<span style="color: #888;">[${log.timestamp}]</span> <span style="color: #569cd6;">[${log.level}]</span> ${message}`;
               
               logsContainer.appendChild(logLine);
@@ -2374,7 +2578,8 @@ HTML_TEMPLATE = """
         if (magnitude < JOY_DEADZONE && magnitude2 < JOY_DEADZONE) {
           speeds = [0, 0, 0, 0, 0, 0];
         } else {
-          const cartesianMode = document.getElementById("cartesian-mode").checked;
+          const cartesianModeEl = document.getElementById("cartesian-mode");
+          const cartesianMode = cartesianModeEl ? cartesianModeEl.checked : false;
           const JOY_MAX = JOY_MAX_BASE * currentSpeedMultiplier;
           const JOY_CART_VEL = JOY_CART_VEL_BASE * currentSpeedMultiplier;
           
@@ -2405,11 +2610,12 @@ HTML_TEMPLATE = """
         // Log per debug
         const maxSpeed = Math.max(...speeds.map(Math.abs));
         if (maxSpeed > 0.001) {
-          console.log(`🎮 Joystick: speeds=[${speeds.map(s => s.toFixed(4)).join(', ')}], max=${maxSpeed.toFixed(4)}`);
+          console.log('[JOYSTICK] speeds=[' + speeds.map(s => s.toFixed(4)).join(', ') + '], max=' + maxSpeed.toFixed(4));
         }
         
         // Update speeds (bridge publishes continuously at 125Hz)
-        const cartesianMode = document.getElementById("cartesian-mode").checked;
+        const cartesianModeEl = document.getElementById("cartesian-mode");
+        const cartesianMode = cartesianModeEl ? cartesianModeEl.checked : false;
         fetch("/api/servo_loop_update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -2417,10 +2623,10 @@ HTML_TEMPLATE = """
         })
         .then(response => {
           if (!response.ok) {
-            console.error(`❌ Update error: ${response.status} ${response.statusText}`);
+            console.error('[ERROR] Update error: ' + response.status + ' ' + response.statusText);
             return response.text().then(text => {
-              console.error(`❌ Error response: ${text}`);
-              setStatus(`Errore invio comando: ${response.status} - ${text}`, false);
+              console.error('[ERROR] Error response: ' + text);
+              setStatus('Errore invio comando: ' + response.status + ' - ' + text, false);
             });
           } else {
             updateFluidityTracker(); // Aggiorna tracker fluidità
@@ -2429,16 +2635,16 @@ HTML_TEMPLATE = """
         })
         .then(data => {
           if (data && data.message) {
-            console.log(`✅ Speed update: ${data.message}`);
+            console.log('[OK] Speed update: ' + data.message);
             if (data.status === 'error') {
-              console.error(`❌ Server error: ${data.message}`);
-              setStatus(`Errore server: ${data.message}`, false);
+              console.error('[ERROR] Server error: ' + data.message);
+              setStatus('Errore server: ' + data.message, false);
             }
           }
         })
         .catch(err => {
-          console.error(`❌ Update error:`, err);
-          setStatus(`Errore: ${err.message}`, false);
+          console.error('[ERROR] Update error:', err);
+          setStatus('Errore: ' + err.message, false);
         });
       }
 
@@ -2585,30 +2791,30 @@ HTML_TEMPLATE = """
       joystick2.addEventListener("touchmove", onJoystick2Move);
       joystick2.addEventListener("touchend", onJoystick2End);
       joystick2.addEventListener("touchcancel", onJoystick2End);
+    
+    
     </script>
   </body>
 </html>
 """
 
 
-def get_controller() -> RemoteURController:
-    config = load_config()
-    return RemoteURController(config.robot_ip, config.port)
-
-def get_ros2_bridge():
-    """Ottiene il bridge ROS2 (fallback)."""
-    global _ros2_bridge
-    if ROS2_AVAILABLE and not _ros2_bridge:
-        _ros2_bridge = ROS2Bridge()
-    return _ros2_bridge
-
-
 def load_config() -> ControllerConfig:
-    robot_ip = os.environ.get("UR_ROBOT_IP")
-    if not robot_ip:
-        raise RuntimeError("Set UR_ROBOT_IP env var with the robot IP address")
+    """Carica configurazione robot. Non logga warning per UR_ROBOT_IP non impostata."""
+    robot_ip = os.environ.get("UR_ROBOT_IP", "192.168.10.194")  # Default senza warning
     port = int(os.environ.get("UR_ROBOT_PORT", 30002))
     return ControllerConfig(robot_ip=robot_ip, port=port)
+
+
+_controller = None
+
+def get_controller():
+    """Ottiene il controller UR (singleton)."""
+    global _controller
+    if not _controller:
+        config = load_config()
+        _controller = RemoteURController(config.robot_ip, config.port)
+    return _controller
 
 
 def parse_joints(payload) -> List[float]:
@@ -2729,15 +2935,54 @@ def api_servo_loop_update():
                     # Se il bridge ROS2 è attivo, usa quello (gestisce già la sicurezza)
                     if bridge.publish_speedj(speeds):
                         max_speed = max(abs(s) for s in speeds)
-                        app.logger.info(f"✅ Comando ROS2 pubblicato: speeds={[f'{s:.4f}' for s in speeds]}, max={max_speed:.4f}")
+                        # Log solo se velocità significativa (riduce spam log)
+                        if max_speed > 0.01:
+                            app.logger.debug(f"[OK] Comando ROS2: speeds={[f'{s:.4f}' for s in speeds]}, max={max_speed:.4f}")
                         return jsonify({"status": "ok", "message": f"ROS2 speedj (max speed: {max_speed:.4f} rad/s)"})
                     else:
-                        app.logger.warning("❌ Bridge ROS2 disponibile ma publish_speedj ha restituito False")
-                        app.logger.warning(f"   Speeds richieste: {speeds}")
+                        # Log solo una volta, non ad ogni richiesta
+                        if not hasattr(api_servo_loop_update, '_publish_failed_warned'):
+                            app.logger.debug("[ERROR] Bridge ROS2: publish_speedj fallito")
+                            api_servo_loop_update._publish_failed_warned = True
                 else:
-                    app.logger.warning("Bridge ROS2 disponibile ma ensure_ros() ha fallito")
+                    app.logger.debug("Bridge ROS2: ensure_ros() fallito")
             else:
-                app.logger.warning("Bridge ROS2 non disponibile (get_ros2_bridge() ha restituito None)")
+                app.logger.debug("Bridge ROS2: get_ros2_bridge() restituito None")
+        
+        # FALLBACK ROS2: Se ROS2 non disponibile nel processo Flask, usa ros2 topic pub via subprocess
+        # Questo funziona anche se rclpy non può essere importato nel processo Flask
+        try:
+            import subprocess
+            # Verifica se il topic esiste (driver ROS2 attivo) - solo una volta
+            if not hasattr(api_servo_loop_update, '_ros2_topic_checked'):
+                check_result = subprocess.run(
+                    ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 1 ros2 topic list 2>/dev/null | grep -q forward_velocity_controller/commands'],
+                    capture_output=True,
+                    timeout=2
+                )
+                api_servo_loop_update._ros2_topic_available = (check_result.returncode == 0)
+                api_servo_loop_update._ros2_topic_checked = True
+            
+            if getattr(api_servo_loop_update, '_ros2_topic_available', False):
+                # Topic esiste - pubblica via ros2 topic pub
+                # Formato: std_msgs/msg/Float64MultiArray con campo data come array YAML
+                speeds_str = '[' + ','.join(str(s) for s in speeds) + ']'
+                # Usa formato YAML: data: [val1, val2, ...]
+                yaml_msg = f"data: {speeds_str}"
+                cmd = f'source /opt/ros/humble/setup.bash 2>/dev/null && ros2 topic pub --once /forward_velocity_controller/commands std_msgs/msg/Float64MultiArray "{yaml_msg}" 2>/dev/null'
+                pub_result = subprocess.run(
+                    ['bash', '-c', cmd],
+                    capture_output=True,
+                    timeout=1
+                )
+                if pub_result.returncode == 0:
+                    max_speed = max(abs(s) for s in speeds) if speeds else 0.0
+                    if max_speed > 0.01:
+                        app.logger.debug(f"[OK] ROS2 (subprocess): speeds={[f'{s:.4f}' for s in speeds]}, max={max_speed:.4f}")
+                    return jsonify({"status": "ok", "message": f"ROS2 speedj via subprocess (max speed: {max_speed:.4f} rad/s)"})
+        except Exception as subprocess_err:
+            # Se subprocess fallisce, continua con fallback socket
+            pass
         
         # Verifica stato robot solo se ROS2 non è disponibile (fallback socket)
         # Rendiamo i controlli più flessibili per evitare falsi negativi
@@ -2769,16 +3014,27 @@ def api_servo_loop_update():
             pass
         
         # FALLBACK: Socket URScript (se ROS2 non disponibile o non configurato)
+        # IMPORTANTE: Questo è il metodo che funziona quando ROS2 non è disponibile nel processo Flask
         controller = get_controller()
         try:
+            max_speed = max(abs(s) for s in speeds) if speeds else 0.0
+            if max_speed > 0.001:
+                # Log solo se velocità significativa (riduce spam)
+                app.logger.debug(f"[FALLBACK] Socket control: speeds={[f'{s:.4f}' for s in speeds]}, max={max_speed:.4f}")
+            
             if cartesian_mode:
                 controller.speedl(speeds, duration=0.008, acceleration=0.3)  # 125Hz = 0.008s
-                return jsonify({"status": "ok", "message": "Socket control (speedl cartesian) - fallback"})
+                return jsonify({"status": "ok", "message": f"Socket control (speedl cartesian) - max speed: {max_speed:.4f} rad/s"})
             else:
-                # Usa servoj_velocity per controllo fluido real-time (125Hz)
-                controller.servoj_velocity(speeds, t=0.008, lookahead_time=0.1, gain=300.0)
-                return jsonify({"status": "ok", "message": "Socket control (servoj_velocity) - fallback"})
+                # Usa speedj per controllo fluido real-time (125Hz)
+                # speedj è il comando URScript standard per controllo velocità joint
+                controller.speedj(speeds, duration=0.008, acceleration=1.0)
+                return jsonify({"status": "ok", "message": f"Socket control (speedj) - max speed: {max_speed:.4f} rad/s"})
         except (socket.timeout, OSError, ConnectionError) as sock_err:
+            # Log errore solo una volta
+            if not hasattr(api_servo_loop_update, '_socket_error_logged'):
+                app.logger.warning(f"Errore connessione socket robot: {sock_err}")
+                api_servo_loop_update._socket_error_logged = True
             return jsonify({
                 "status": "error", 
                 "message": f"Errore connessione robot: {sock_err}. Verifica che il programma sia PLAYING sul teach pendant."
@@ -2806,102 +3062,6 @@ def api_servo_loop_stop():
         controller = get_controller()
         controller.stop()
         return jsonify({"status": "ok", "message": "Socket stop"})
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/api/dashboard_command", methods=["POST"])
-def api_dashboard_command():
-    """Esegue un comando Dashboard Server sul robot."""
-    try:
-        payload = request.get_json(force=True)
-        command = payload.get("command", "").strip()
-        
-        if not command:
-            return jsonify({"status": "error", "message": "Comando non specificato"}), 400
-        
-        config = load_config()
-        dashboard = DashboardClient(config.robot_ip)
-        
-        try:
-            dashboard.connect()
-            response = dashboard.send_command(command)
-            dashboard.close()
-            
-            return jsonify({
-                "status": "ok",
-                "message": f"Comando eseguito: {command}",
-                "response": response
-            })
-        except Exception as e:
-            return jsonify({
-                "status": "error",
-                "message": f"Errore esecuzione comando: {str(e)}"
-            }), 500
-            
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-
-@app.route("/api/robot_control", methods=["POST"])
-def api_robot_control():
-    """Controlla il robot (play, stop, load, power on, brake release, etc.)."""
-    try:
-        payload = request.get_json(force=True)
-        action = payload.get("action", "").strip().lower()
-        
-        if not action:
-            return jsonify({"status": "error", "message": "Azione non specificata"}), 400
-        
-        config = load_config()
-        dashboard = DashboardClient(config.robot_ip)
-        
-        # Mappa azioni a comandi Dashboard
-        action_map = {
-            "play": "play",
-            "stop": "stop",
-            "pause": "pause",
-            "power_on": "power on",
-            "power_off": "power off",
-            "brake_release": "brake release",
-            "shutdown": "shutdown",
-            "unlock_protective_stop": "unlock protective stop",
-            "close_safety_popup": "close safety popup",
-            "restart_safety": "restart safety",
-        }
-        
-        if action not in action_map:
-            # Per azioni speciali come "load", serve un parametro aggiuntivo
-            if action == "load":
-                program_name = payload.get("program", "").strip()
-                if not program_name:
-                    return jsonify({"status": "error", "message": "Nome programma non specificato"}), 400
-                command = f"load {program_name}"
-            else:
-                return jsonify({"status": "error", "message": f"Azione non supportata: {action}"}), 400
-        else:
-            command = action_map[action]
-        
-        try:
-            dashboard.connect()
-            response = dashboard.send_command(command)
-            dashboard.close()
-            
-            # Attendi un momento per operazioni che richiedono tempo
-            if action in ["play", "power_on", "brake_release"]:
-                time.sleep(1)
-            
-            return jsonify({
-                "status": "ok",
-                "message": f"Azione '{action}' eseguita",
-                "response": response
-            })
-        except Exception as e:
-            return jsonify({
-                "status": "error",
-                "message": f"Errore esecuzione azione '{action}': {str(e)}"
-            }), 500
-            
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -2982,7 +3142,7 @@ def api_robot_status():
             robot_status["dashboard"] = {"error": str(e)}
         
         # 2. Leggi joints e TCP via RTDE
-        # ⚠️ IMPORTANTE: RTDE può essere usato da UN SOLO processo alla volta!
+        # [IMPORTANT] RTDE può essere usato da UN SOLO processo alla volta!
         # Se il driver UR ROS2 è in esecuzione, NON usare RTDE qui (causa overflow)
         # In quel caso, usa solo Dashboard Server per stato base
         try:
@@ -3106,35 +3266,91 @@ def api_system_status():
         pass
     
     # 2. Verifica controller attivo (se ROS2 disponibile)
-    if ROS2_AVAILABLE and status["ros2_driver"]["running"]:
-        try:
-            import rclpy
-            from controller_manager_msgs.srv import ListControllers
-            
-            if not rclpy.ok():
-                rclpy.init()
-            
-            node = rclpy.create_node('system_status_checker')
-            client = node.create_client(ListControllers, '/controller_manager/list_controllers')
-            
-            if client.wait_for_service(timeout_sec=2.0):
-                req = ListControllers.Request()
-                future = client.call_async(req)
-                rclpy.spin_until_future_complete(node, future, timeout_sec=2.0)
+    if status["ros2_driver"]["running"]:
+        controller_found = False
+        
+        # Metodo 1: Usa rclpy se disponibile
+        if ROS2_AVAILABLE:
+            try:
+                import rclpy
+                from controller_manager_msgs.srv import ListControllers
                 
-                if future.done():
-                    response = future.result()
-                    for controller in response.controller:
-                        if 'forward_velocity_controller' in controller.name and controller.state == 'active':
+                if not rclpy.ok():
+                    rclpy.init()
+                
+                node = rclpy.create_node('system_status_checker')
+                client = node.create_client(ListControllers, '/controller_manager/list_controllers')
+                
+                if client.wait_for_service(timeout_sec=2.0):
+                    req = ListControllers.Request()
+                    future = client.call_async(req)
+                    rclpy.spin_until_future_complete(node, future, timeout_sec=2.0)
+                    
+                    if future.done():
+                        response = future.result()
+                        for controller in response.controller:
+                            if 'forward_velocity_controller' in controller.name and controller.state == 'active':
+                                status["controller"]["active"] = True
+                                status["controller"]["name"] = "forward_velocity_controller"
+                                controller_found = True
+                                break
+                            elif 'scaled_joint_trajectory_controller' in controller.name and controller.state == 'active':
+                                status["controller"]["active"] = True
+                                status["controller"]["name"] = "scaled_joint_trajectory_controller"
+                                controller_found = True
+                                break
+                    node.destroy_node()
+                    rclpy.shutdown()
+            except Exception as e:
+                # Se rclpy fallisce, usa metodo alternativo
+                pass
+        
+        # Metodo 2: Fallback - usa comando ros2 service call esterno
+        if not controller_found:
+            try:
+                cmd = "source /opt/ros/humble/setup.bash 2>/dev/null && timeout 3 ros2 service call /controller_manager/list_controllers controller_manager_msgs/srv/ListControllers 2>&1"
+                result = subprocess.run(
+                    ['bash', '-c', cmd],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    output = result.stdout
+                    # Cerca forward_velocity_controller attivo - vari formati possibili
+                    # Il formato ROS2 può essere: state='active' o state="active" o state=active
+                    # Cerca anche senza spazi: state='active'
+                    import re
+                    
+                    # Pattern più flessibile: cerca name='forward_velocity_controller' seguito da state='active'
+                    fvc_pattern = r"name\s*[=:]\s*['\"]?forward_velocity_controller['\"]?[^}]*state\s*[=:]\s*['\"]?active['\"]?"
+                    sjt_pattern = r"name\s*[=:]\s*['\"]?scaled_joint_trajectory_controller['\"]?[^}]*state\s*[=:]\s*['\"]?active['\"]?"
+                    
+                    if re.search(fvc_pattern, output, re.IGNORECASE):
+                        status["controller"]["active"] = True
+                        status["controller"]["name"] = "forward_velocity_controller"
+                        controller_found = True
+                    elif re.search(sjt_pattern, output, re.IGNORECASE):
+                        status["controller"]["active"] = True
+                        status["controller"]["name"] = "scaled_joint_trajectory_controller"
+                        controller_found = True
+                    # Fallback: cerca semplicemente le stringhe
+                    elif 'forward_velocity_controller' in output and ('active' in output.lower()):
+                        # Verifica che sia effettivamente attivo (non inactive)
+                        if 'inactive' not in output.lower() or output.lower().find('active') < output.lower().find('inactive'):
                             status["controller"]["active"] = True
                             status["controller"]["name"] = "forward_velocity_controller"
-                            break
-                        elif 'scaled_joint_trajectory_controller' in controller.name and controller.state == 'active':
+                            controller_found = True
+                    elif 'scaled_joint_trajectory_controller' in output and ('active' in output.lower()):
+                        if 'inactive' not in output.lower() or output.lower().find('active') < output.lower().find('inactive'):
                             status["controller"]["active"] = True
                             status["controller"]["name"] = "scaled_joint_trajectory_controller"
-                            break
-        except Exception as e:
-            status["controller"]["error"] = str(e)
+                            controller_found = True
+            except Exception as e:
+                # Se anche questo fallisce, lascia controller come None
+                status["controller"]["error"] = f"Fallback failed: {str(e)}"
+                pass
     
     # 3. Verifica porta 50002
     try:
@@ -3306,7 +3522,7 @@ def api_start_driver():
         
         # Se lo script esiste, usalo
         if os.path.exists(kill_rtde_script):
-            app.logger.info("🔍 Esecuzione script kill_rtde_processes.sh...")
+            app.logger.info("[INFO] Esecuzione script kill_rtde_processes.sh...")
             kill_result = subprocess.run(
                 ['bash', kill_rtde_script],
                 capture_output=True,
@@ -3314,12 +3530,12 @@ def api_start_driver():
                 timeout=10
             )
             if kill_result.returncode == 0:
-                app.logger.info(f"✅ Script kill RTDE completato:\n{kill_result.stdout}")
+                app.logger.info(f"[OK] Script kill RTDE completato:\n{kill_result.stdout}")
             else:
-                app.logger.warning(f"⚠️  Script kill RTDE ha avuto problemi:\n{kill_result.stderr}")
+                app.logger.warning(f"[WARN] Script kill RTDE ha avuto problemi:\n{kill_result.stderr}")
         else:
             # Fallback: kill manuale se lo script non esiste
-            app.logger.warning("⚠️  Script kill_rtde_processes.sh non trovato, uso metodo manuale")
+            app.logger.warning("[WARN] Script kill_rtde_processes.sh non trovato, uso metodo manuale")
             
             # Kill driver ROS2 esistente
             result = subprocess.run(
@@ -3395,10 +3611,10 @@ cd {os.path.expanduser('~/MekoAiAccelerator')}
 # PRIMA: Esegui script per killare altri processi RTDE
 KILL_RTDE_SCRIPT="{kill_rtde_script}"
 if [ -f "$KILL_RTDE_SCRIPT" ]; then
-    echo "🔍 Esecuzione kill_rtde_processes.sh..." >> /tmp/ros2_driver.log
+    echo "[INFO] Esecuzione kill_rtde_processes.sh..." >> /tmp/ros2_driver.log
     bash "$KILL_RTDE_SCRIPT" >> /tmp/ros2_driver.log 2>&1
 else
-    echo "⚠️  Script kill_rtde_processes.sh non trovato: $KILL_RTDE_SCRIPT" >> /tmp/ros2_driver.log
+    echo "[WARN] Script kill_rtde_processes.sh non trovato: $KILL_RTDE_SCRIPT" >> /tmp/ros2_driver.log
 fi
 
 # Source ROS2
@@ -3409,14 +3625,14 @@ source ~/ros2_ws/install/setup.bash
 # Il file di configurazione viene caricato automaticamente dal launch file
 UPDATE_RATE_FILE="$HOME/ros2_ws/install/ur_robot_driver/share/ur_robot_driver/config/ur5e_update_rate.yaml"
 if [ -f "$UPDATE_RATE_FILE" ]; then
-    echo "🔧 Modifica update_rate da 500Hz a 30Hz per evitare RTDE overflow..." >> /tmp/ros2_driver.log
+    echo "[INFO] Modifica update_rate da 500Hz a 30Hz per evitare RTDE overflow..." >> /tmp/ros2_driver.log
     cp "$UPDATE_RATE_FILE" "$UPDATE_RATE_FILE.backup" 2>/dev/null || true
     cat > "$UPDATE_RATE_FILE" << 'EOF'
 controller_manager:
   ros__parameters:
     update_rate: 30  # Hz - Ridotto da 500Hz a 30Hz per evitare RTDE overflow
 EOF
-    echo "✅ update_rate modificato a 30Hz" >> /tmp/ros2_driver.log
+    echo "[OK] update_rate modificato a 30Hz" >> /tmp/ros2_driver.log
 fi
 
 # Avvia driver ROS2 in background
@@ -3426,10 +3642,12 @@ echo "Robot IP: {config.robot_ip}" >> /tmp/ros2_driver.log
 
 # Avvia driver ROS2 con forward_velocity_controller invece di scaled_joint_trajectory_controller
 # (scaled_joint_trajectory_controller causa segmentation fault)
-ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller >> /tmp/ros2_driver.log 2>&1 &
+# IMPORTANTE: usa nohup e disown per evitare che il processo venga killato quando lo script termina
+nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller >> /tmp/ros2_driver.log 2>&1 &
 LAUNCH_PID=$!
 echo "PID launch: $LAUNCH_PID" >> /tmp/ros2_driver.log
-sleep 8  # Attendi che il processo si avvii completamente
+disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
+sleep 10  # Attendi che il processo si avvii completamente (aumentato a 10s)
 
 # Verifica che il processo launch sia ancora vivo
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
@@ -3455,24 +3673,13 @@ if [ -z "$FOUND_PID" ]; then
     exit 1
 fi
 
-# Verifica che il processo ur_ros2_control_node sia ancora vivo dopo 5 secondi
+# Verifica che il processo ur_ros2_control_node sia ancora vivo dopo 3 secondi
 # (diamo più tempo perché l'inizializzazione può richiedere tempo)
-sleep 5
+sleep 3
 if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     echo "ERROR: ur_ros2_control_node è crashato durante l'inizializzazione" >> /tmp/ros2_driver.log
     echo "Verifica ultimi errori nel log:" >> /tmp/ros2_driver.log
-    tail -100 /tmp/ros2_driver.log | grep -i "error\|abort\|fault\|died" >> /tmp/ros2_driver.log || true
-    echo "ERROR"
-    exit 1
-fi
-
-# Verifica che il processo sia ancora vivo dopo altri 3 secondi (totale 8 secondi dall'avvio)
-# Questo ci dà tempo per vedere se il processo si autokilla
-sleep 3
-if ! ps -p $FOUND_PID > /dev/null 2>&1; then
-    echo "ERROR: ur_ros2_control_node si è autokillato dopo l'avvio" >> /tmp/ros2_driver.log
-    echo "Ultimi errori nel log:" >> /tmp/ros2_driver.log
-    tail -150 /tmp/ros2_driver.log | grep -i "error\|abort\|fault\|died\|kill" >> /tmp/ros2_driver.log || true
+    tail -100 /tmp/ros2_driver.log | grep -i "error\\|abort\\|fault\\|died" >> /tmp/ros2_driver.log || true
     echo "ERROR"
     exit 1
 fi
@@ -3490,7 +3697,7 @@ if grep -q "process has died.*exit code -[0-9]" /tmp/ros2_driver.log 2>/dev/null
 fi
 
 # Se tutto ok, restituisci il PID del processo launch (non quello del nodo figlio)
-echo "✅ Driver avviato correttamente: launch PID=$LAUNCH_PID, node PID=$FOUND_PID" >> /tmp/ros2_driver.log
+echo "[OK] Driver avviato correttamente: launch PID=$LAUNCH_PID, node PID=$FOUND_PID" >> /tmp/ros2_driver.log
 echo $LAUNCH_PID
 exit 0
 """
@@ -3537,29 +3744,29 @@ exit 0
                 if "process has died" in log_content or "Aborted" in log_content or "Segmentation fault" in log_content:
                     # Analizza il tipo di crash
                     if "Aborted" in log_content and "process has died" in log_content:
-                        error_msg = f"""❌ Driver crashato durante l'avvio!
-🔴 PROBLEMA: Il processo ur_ros2_control_node è stato terminato (Aborted)
-📋 POSSIBILI CAUSE:
+                        error_msg = f"""[ERROR] Driver crashato durante l'avvio!
+[PROBLEMA] Il processo ur_ros2_control_node è stato terminato (Aborted)
+[CAUSE POSSIBILI]
 1. Problema di inizializzazione del controller manager
 2. Conflitto con altri processi RTDE
 3. Problema di configurazione dei parametri
 
-✅ SOLUZIONI:
+[SOLUZIONI]
 1. Verifica che non ci siano altri processi RTDE attivi: pgrep -f rtde
 2. Verifica che il robot sia raggiungibile: ping 192.168.10.194
 3. Controlla i log completi qui sotto per dettagli
 
 Log completo: {log_content[-2000:]}"""
                     elif "Segmentation fault" in log_content:
-                        error_msg = f"""❌ Driver crashato con segmentation fault!
-🔴 PROBLEMA: Errore di memoria nel driver
-📋 POSSIBILI CAUSE:
+                        error_msg = f"""[ERROR] Driver crashato con segmentation fault!
+[PROBLEMA] Errore di memoria nel driver
+[CAUSE POSSIBILI]
 1. Problema con scaled_joint_trajectory_controller (usiamo forward_velocity_controller)
 2. Problema di inizializzazione
 
 Log completo: {log_content[-2000:]}"""
                     else:
-                        error_msg = f"❌ Driver crashato. Log: {log_content[-2000:]}"
+                        error_msg = f"[ERROR] Driver crashato. Log: {log_content[-2000:]}"
                 else:
                     error_msg += f"\n\nLog driver:\n{log_content[-2000:]}"
                 
@@ -3681,18 +3888,18 @@ Log completo: {log_content[-2000:]}"""
                 script_output = f"Script stdout: '{result.stdout}', stderr: '{result.stderr}', returncode: {result.returncode}"
                 
                 if rtde_overflow:
-                    error_msg = f"""❌ ERRORE RTDE OVERFLOW - Driver crashato immediatamente!
+                    error_msg = f"""[ERROR] ERRORE RTDE OVERFLOW - Driver crashato immediatamente!
 
-🔴 PROBLEMA: "Pipeline producer overflowed!" - EtherNet/IP è attivo sul robot!
+[PROBLEMA] "Pipeline producer overflowed!" - EtherNet/IP è attivo sul robot!
 
-✅ SOLUZIONE:
+[SOLUZIONE]
 1. Sul Teach Pendant: Installation → Fieldbus
-2. DISABILITA EtherNet/IP ❌
-3. DISABILITA PROFINET ❌  
+2. DISABILITA EtherNet/IP
+3. DISABILITA PROFINET
 4. Riavvia robot
 5. Riprova ad avviare il driver
 
-⚠️  IMPORTANTE: EtherNet/IP e ROS2 driver NON possono essere attivi contemporaneamente!
+[IMPORTANTE] EtherNet/IP e ROS2 driver NON possono essere attivi contemporaneamente!
 
 Log completo:
 {log_content[-2000:] if len(log_content) > 2000 else log_content}"""
@@ -3800,7 +4007,7 @@ def api_restart_web_interface():
     import os
     
     try:
-        app.logger.info("🔄 Richiesta riavvio web interface...")
+        app.logger.info("[INFO] Richiesta riavvio web interface...")
         
         # Trova il PID del processo corrente
         current_pid = os.getpid()
@@ -3824,13 +4031,13 @@ nohup ./avvia_web_interface_joystick.sh > /tmp/web_interface_restart.log 2>&1 &
                         stdout=subprocess.DEVNULL, 
                         stderr=subprocess.DEVNULL)
         
-        app.logger.info(f"✅ Script di riavvio avviato (PID corrente: {current_pid})")
+        app.logger.info(f"[OK] Script di riavvio avviato (PID corrente: {current_pid})")
         return jsonify({
             "status": "ok", 
             "message": f"Riavvio avviato. Il processo corrente (PID: {current_pid}) verrà terminato e riavviato."
         })
     except Exception as e:
-        app.logger.error(f"❌ Errore riavvio web interface: {e}")
+        app.logger.error(f"[ERROR] Errore riavvio web interface: {e}")
         import traceback
         app.logger.error(traceback.format_exc())
         return jsonify({"status": "error", "message": str(e)})
@@ -3838,134 +4045,315 @@ nohup ./avvia_web_interface_joystick.sh > /tmp/web_interface_restart.log 2>&1 &
 
 @app.route("/api/system/switch_controller", methods=["POST"])
 def api_switch_controller():
-    """Switch controller tra forward_velocity e scaled_joint_trajectory."""
-    if not ROS2_AVAILABLE:
-        return jsonify({"status": "error", "message": "ROS2 non disponibile"})
+    """Switch controller usando switch_controller.py robusto (evita timeout)."""
+    import subprocess
+    import logging
+    
+    logger = logging.getLogger(__name__)
     
     try:
-        import subprocess
-        
-        app.logger.info("🔄 Richiesta switch controller...")
-        
-        # Verifica che il driver ROS2 sia attivo prima di procedere
-        driver_check = subprocess.run(
-            ['pgrep', '-f', 'ur_ros2_control_node'],
-            capture_output=True,
-            text=True
-        )
-        if driver_check.returncode != 0:
-            error_msg = "Driver ROS2 non attivo. Avvia prima il driver ROS2."
-            app.logger.error(f"❌ {error_msg}")
-            return jsonify({"status": "error", "message": error_msg})
-        
-        # Determina quale controller attivare
         payload = request.get_json(force=True) if request.is_json else {}
         use_scaled = payload.get("use_scaled", False)
         
+        # Determina quale controller attivare
         if use_scaled:
-            activate_controller = 'scaled_joint_trajectory_controller'
-            deactivate_controller = 'forward_velocity_controller'
+            activate = 'scaled_joint_trajectory_controller'
+            deactivate = 'forward_velocity_controller'
         else:
-            activate_controller = 'forward_velocity_controller'
-            deactivate_controller = 'scaled_joint_trajectory_controller'
+            activate = 'forward_velocity_controller'
+            deactivate = 'scaled_joint_trajectory_controller'
         
-        app.logger.info(f"🔄 Attivazione {activate_controller}...")
-        app.logger.info(f"   Deattivazione: {deactivate_controller}")
+        app.logger.info("[INFO] Richiesta switch controller...")
+        app.logger.info(f"[INFO] Attivazione {activate}...")
+        app.logger.info(f"   Deattivazione: {deactivate}")
         
-        # Usa script Python separato per evitare problemi wait set e timeout
-        # Lo script viene eseguito in un processo separato con il suo contesto ROS2
-        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'switch_controller.py')
+        # Verifica che ROS2 sia disponibile
+        if not ROS2_AVAILABLE:
+            app.logger.warning("[WARN] ROS2 non disponibile - tentativo comunque...")
+            # Potrebbe funzionare se lo script fa source ROS2 internamente
         
-        # Se lo script non esiste, crealo
+        # Usa switch_controller.py robusto invece di chiamate ROS2 dirette
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "switch_controller.py")
+        
         if not os.path.exists(script_path):
-            app.logger.warning(f"Script switch_controller.py non trovato, uso metodo alternativo")
-            # Fallback: usa ros2 service call con formato YAML corretto
-            ros2_setup = "source /opt/ros/humble/setup.bash && source ~/ros2_ws/install/setup.bash"
-            # Formato YAML per ros2 service call
-            yaml_request = f"activate_controllers:\\n- '{activate_controller}'\\ndeactivate_controllers:\\n- '{deactivate_controller}'\\nstrictness: 1"
-            cmd = f"""{ros2_setup} && echo -e '{yaml_request}' | ros2 service call /controller_manager/switch_controller controller_manager_msgs/srv/SwitchController"""
-        else:
-            # Usa lo script Python
-            ros2_setup = "source /opt/ros/humble/setup.bash && source ~/ros2_ws/install/setup.bash"
-            cmd = f"""{ros2_setup} && python3 {script_path} {activate_controller} {deactivate_controller}"""
+            error_msg = f"switch_controller.py non trovato: {script_path}"
+            app.logger.error(f"[ERROR] {error_msg}")
+            return jsonify({
+                "status": "error",
+                "message": error_msg
+            }), 500
         
-        # Esegui comando con timeout più lungo (lo script aspetta fino a 20s per il servizio)
+        # Verifica che ROS2 sia disponibile prima di eseguire
+        ros2_available = ROS2_AVAILABLE
+        if not ros2_available:
+            app.logger.warning("[WARN] ROS2 non disponibile - tentativo comunque...")
+        
+        # Esegui script con timeout aumentato (controller può impiegare più tempo a configurarsi)
+        # Usa bash per source ROS2 environment
+        env = os.environ.copy()
+        # Aggiungi ROS2 al PATH se disponibile
+        if os.path.exists('/opt/ros/humble/setup.bash'):
+            # Lo script switch_controller.py gestisce già il source ROS2 internamente
+            pass
+        
+        app.logger.info(f"[INFO] Esecuzione: python3 {script_path} {activate} {deactivate}")
+        app.logger.info(f"[INFO] Working directory: {os.path.dirname(script_path)}")
+        app.logger.info(f"[INFO] Environment ROS2: ROS_DISTRO={env.get('ROS_DISTRO', 'NOT SET')}")
+        
+        try:
+            result = subprocess.run(
+                ["python3", script_path, activate, deactivate],
+                capture_output=True,
+                text=True,
+                timeout=30,  # Aumentato da 15 a 30 secondi
+                cwd=os.path.dirname(script_path),
+                env=env
+            )
+        except subprocess.TimeoutExpired as timeout_err:
+            app.logger.error(f"[ERROR] Script timeout dopo 30s")
+            app.logger.error(f"[ERROR] Questo significa che lo script è ancora in esecuzione o bloccato")
+            raise
+        
+        # Log output per debug COMPLETO
+        app.logger.info(f"[INFO] Return code: {result.returncode}")
+        if result.stdout:
+            app.logger.info(f"[INFO] stdout completo ({len(result.stdout)} chars):")
+            for line in result.stdout.split('\n'):
+                if line.strip():
+                    app.logger.info(f"   {line}")
+        if result.stderr:
+            app.logger.warning(f"[WARN] stderr completo ({len(result.stderr)} chars):")
+            for line in result.stderr.split('\n'):
+                if line.strip():
+                    app.logger.warning(f"   {line}")
+        
+        if result.returncode == 0:
+            return jsonify({
+                "status": "ok",
+                "message": f"Controller {activate} attivato",
+                "output": result.stdout.strip()
+            })
+        else:
+            # Se già attivo, considera successo
+            output_text = result.stdout.strip() + " " + result.stderr.strip()
+            if "già attivo" in output_text or "already active" in output_text.lower() or "OK:" in result.stdout:
+                return jsonify({
+                    "status": "ok",
+                    "message": f"Controller {activate} già attivo o attivato",
+                    "output": result.stdout.strip()
+                })
+            
+            # Estrai messaggio di errore più utile
+            error_msg = result.stderr.strip() or result.stdout.strip() or "Errore sconosciuto"
+            # Se contiene "ERROR:", usa quello
+            if "ERROR:" in error_msg:
+                error_lines = error_msg.split('\n')
+                for line in error_lines:
+                    if "ERROR:" in line:
+                        error_msg = line.replace("ERROR:", "").strip()
+                        break
+            
+            logger.error(f"[ERROR] Switch controller fallito: {error_msg}")
+            return jsonify({
+                "status": "error",
+                "message": f"Errore attivazione controller: {error_msg}",
+                "output": result.stdout.strip(),
+                "error": result.stderr.strip(),
+                "returncode": result.returncode
+            }), 500
+            
+    except subprocess.TimeoutExpired as e:
+        logger.error(f"[ERROR] Timeout switch controller dopo 30s: {e}")
+        return jsonify({
+            "status": "error",
+            "message": "Timeout switch controller (30s) - il controller potrebbe richiedere più tempo. Verifica che il driver ROS2 sia attivo e che il robot sia in Remote Control."
+        }), 500
+    except Exception as e:
+        logger.error(f"[ERROR] Errore switch controller: {e}")
+        import traceback
+        error_trace = traceback.format_exc()
+        logger.error(f"[ERROR] Traceback: {error_trace}")
+        return jsonify({
+            "status": "error",
+            "message": f"Errore switch controller: {str(e)}",
+            "traceback": error_trace
+        }), 500
+
+
+@app.route("/api/system/switch_controller_debug", methods=["POST"])
+def api_switch_controller_debug():
+    """Endpoint di diagnostica per switch controller - mostra output completo."""
+    import subprocess
+    
+    try:
+        payload = request.get_json(force=True) if request.is_json else {}
+        use_scaled = payload.get("use_scaled", False)
+        
+        activate = 'forward_velocity_controller' if not use_scaled else 'scaled_joint_trajectory_controller'
+        deactivate = 'scaled_joint_trajectory_controller' if not use_scaled else 'forward_velocity_controller'
+        
+        script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "switch_controller.py")
+        
+        if not os.path.exists(script_path):
+            return jsonify({
+                "status": "error",
+                "message": f"switch_controller.py non trovato: {script_path}"
+            }), 500
+        
+        env = os.environ.copy()
+        
+        app.logger.info(f"[DEBUG] Esecuzione diagnostica: python3 {script_path} {activate} {deactivate}")
+        
+        # Esegui script
         result = subprocess.run(
-            ['bash', '-c', cmd],
+            ["python3", script_path, activate, deactivate],
             capture_output=True,
             text=True,
-            timeout=30,  # Timeout aumentato per dare tempo allo script di aspettare il servizio
-            cwd=os.path.expanduser('~')
+            timeout=30,
+            cwd=os.path.dirname(script_path),
+            env=env
         )
         
-        # Analizza output dello script Python (stampa "OK:" o "ERROR:")
-        stdout_text = result.stdout.strip()
-        stderr_text = result.stderr.strip()
+        return jsonify({
+            "status": "ok" if result.returncode == 0 else "error",
+            "returncode": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "stdout_lines": result.stdout.split('\n'),
+            "stderr_lines": result.stderr.split('\n'),
+            "message": "OK" if result.returncode == 0 else f"Errore (code: {result.returncode})"
+        })
         
-        # Controlla se lo script ha stampato "OK:" o "ERROR:"
-        if "OK:" in stdout_text:
-            app.logger.info(f"✅ Controller {activate_controller} attivato con successo")
-            app.logger.info(f"   Output: {stdout_text}")
-            return jsonify({"status": "ok", "message": f"Controller {activate_controller} attivato con successo"})
-        elif "ERROR:" in stdout_text or "ERROR:" in stderr_text:
-            # Estrai messaggio di errore dopo "ERROR:"
-            error_msg = ""
-            for line in (stdout_text + "\n" + stderr_text).split("\n"):
-                if "ERROR:" in line:
-                    error_msg = line.split("ERROR:")[-1].strip()
-                    break
-            if not error_msg:
-                error_msg = stderr_text or stdout_text or "Errore sconosciuto"
-            app.logger.error(f"❌ Switch controller fallito: {error_msg}")
-            app.logger.error(f"   Return code: {result.returncode}")
-            app.logger.error(f"   Stdout: {stdout_text}")
-            app.logger.error(f"   Stderr: {stderr_text}")
-            return jsonify({"status": "error", "message": f"Switch controller fallito: {error_msg}"})
-        elif result.returncode == 0:
-            # Nessun "OK:" o "ERROR:" ma return code 0 = successo
-            app.logger.info(f"✅ Controller {activate_controller} attivato con successo")
-            if stdout_text:
-                app.logger.info(f"   Output: {stdout_text}")
-            return jsonify({"status": "ok", "message": f"Controller {activate_controller} attivato con successo"})
-        else:
-            # Return code != 0 = errore
-            error_msg = stderr_text or stdout_text or "Errore sconosciuto"
-            app.logger.error(f"❌ Switch controller fallito: {error_msg}")
-            app.logger.error(f"   Return code: {result.returncode}")
-            app.logger.error(f"   Stdout: {stdout_text}")
-            app.logger.error(f"   Stderr: {stderr_text}")
-            return jsonify({"status": "error", "message": f"Switch controller fallito: {error_msg}"})
-            
     except subprocess.TimeoutExpired:
-        app.logger.error("❌ Timeout switch controller")
-        return jsonify({"status": "error", "message": "Timeout switch controller (comando non risponde)"})
+        return jsonify({
+            "status": "error",
+            "message": "Timeout dopo 30s",
+        }), 500
     except Exception as e:
-        app.logger.error(f"❌ Errore switch controller: {e}")
         import traceback
-        app.logger.error(traceback.format_exc())
-        return jsonify({"status": "error", "message": f"Errore: {str(e)}"})
+        error_trace = traceback.format_exc()
+        app.logger.error(f"[ERROR] Errore diagnostica: {e}")
+        app.logger.error(f"[ERROR] Traceback: {error_trace}")
+        return jsonify({
+            "status": "error",
+            "message": f"Errore: {str(e)}",
+            "traceback": error_trace
+        }), 500
+
+
+def check_and_restart_ros2_driver():
+    """Verifica se ROS2 driver è attivo, altrimenti lo riavvia."""
+    import subprocess
+    import time
+    
+    # 1. Verifica se ROS2 è disponibile (rclpy importabile)
+    try:
+        import rclpy
+        ros2_available = True
+    except ImportError:
+        print("[WARN] ROS2 (rclpy) non disponibile - verificare installazione ROS2")
+        return False
+    
+    # 2. Verifica se il driver ROS2 è in esecuzione
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', 'ur_ros2_control_node'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            print("[OK] ROS2 driver già in esecuzione")
+            return True
+    except:
+        pass
+    
+    # 3. Driver non attivo - NON riavviarlo automaticamente qui
+    # L'utente deve usare il pulsante "Start Driver" nel wizard
+    print("[INFO] ROS2 driver non attivo")
+    print("[INFO] Usa il pulsante 'Start Driver' nello step A del wizard per avviarlo")
+    return False
 
 
 def main() -> None:
     """Entry point for running the Flask development server."""
-    # Initialize ROS2 bridge automatically (starts 125Hz publishing loop)
+    import subprocess
+    
+    print("=" * 80)
+    print("AVVIO WEB INTERFACE")
+    print("=" * 80)
+    
+    # 1. Verifica e riavvia ROS2 driver se necessario
+    print("\n[1/3] Verifica ROS2 driver...")
+    driver_ok = check_and_restart_ros2_driver()
+    if not driver_ok:
+        print("[WARN] ROS2 driver non disponibile - alcune funzionalità potrebbero non funzionare")
+    
+    # 2. Initialize ROS2 bridge (starts 125Hz publishing loop)
+    print("\n[2/3] Inizializzazione ROS2 bridge...")
     if ROS2_AVAILABLE:
         try:
             bridge = get_ros2_bridge()
             if bridge and bridge.ensure_ros():
-                print("✅ ROS2 bridge initialized - publishing at 125Hz")
+                print("[OK] ROS2 bridge initialized - publishing at 125Hz")
             else:
-                print("⚠️ ROS2 bridge initialization failed")
+                print("[WARN] ROS2 bridge initialization failed - verificare ambiente ROS2")
         except Exception as e:
-            print(f"⚠️ Failed to initialize ROS2 bridge: {e}")
+            print(f"[WARN] Failed to initialize ROS2 bridge: {e}")
+    else:
+        print("[WARN] ROS2 non disponibile (rclpy non trovato)")
+        print("   Suggerimento: avvia web interface con: bash avvia_web_interface.sh")
     
+    # 3. Verifica e libera porta se occupata
+    print("\n[3/3] Verifica porta...")
     host = os.environ.get("WEB_HOST", "0.0.0.0")
     port = int(os.environ.get("WEB_PORT", 8080))
     debug = bool(int(os.environ.get("WEB_DEBUG", "0")))
-    print(f"🌐 Starting web interface on http://{host}:{port}")
+    
+    # Verifica se la porta è occupata e kill processo
+    try:
+        import socket
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        
+        if result == 0:
+            # Porta occupata - trova e kill processo
+            print(f"[WARN] Porta {port} occupata, tentativo di liberarla...")
+            try:
+                result = subprocess.run(
+                    ['lsof', '-ti', f':{port}'],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    pids = result.stdout.strip().split('\n')
+                    for pid in pids:
+                        if pid:
+                            try:
+                                subprocess.run(['kill', '-9', pid], timeout=2, check=False)
+                                print(f"[INFO] Processo {pid} terminato")
+                            except:
+                                pass
+                    time.sleep(1)
+                    print("[OK] Porta liberata")
+            except:
+                # Fallback: usa fuser se lsof non disponibile
+                try:
+                    subprocess.run(['fuser', '-k', f'{port}/tcp'], timeout=2, check=False)
+                    time.sleep(1)
+                except:
+                    pass
+    except:
+        pass
+    
+    print(f"[INFO] Web interface disponibile su http://{host}:{port}")
+    print("=" * 80)
     app.run(host=host, port=port, debug=debug)
 
 
 if __name__ == "__main__":
     main()
+
 

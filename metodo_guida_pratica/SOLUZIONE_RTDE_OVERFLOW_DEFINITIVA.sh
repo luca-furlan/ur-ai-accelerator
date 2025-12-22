@@ -155,3 +155,10 @@ if [ $? -ne 0 ]; then
     echo "  tail -100 ~/.ros/log/latest/ur_ros2_control_node-*.log | grep -E 'overflow|RTDE|Variable'"
 fi
 
+
+
+
+
+
+
+

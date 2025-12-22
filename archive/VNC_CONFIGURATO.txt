@@ -1,0 +1,79 @@
+================================================================================
+✅ VNC SERVER CONFIGURATO
+================================================================================
+
+VNC Server attivo su AI Accelerator!
+
+================================================================================
+🌐 INFORMAZIONI CONNESSIONE
+================================================================================
+
+IP: 192.168.10.191
+Porta VNC: 5902
+Display: :2
+
+URL connessione: 192.168.10.191:5902
+
+================================================================================
+📋 COME CONNETTERSI DA WINDOWS
+================================================================================
+
+1. INSTALLA VNC VIEWER
+   
+   Opzioni:
+   - RealVNC Viewer: https://www.realvnc.com/en/connect/download/viewer/
+   - TightVNC Viewer: https://www.tightvnc.com/download.php
+   - TigerVNC Viewer: https://github.com/TigerVNC/tigervnc/releases
+
+2. AVVIA VNC VIEWER
+
+3. INSERISCI INDIRIZZO:
+   192.168.10.191:5902
+
+4. CLICCA CONNECT
+
+5. INSERISCI PASSWORD VNC (se richiesta)
+
+================================================================================
+🔧 COMANDI VNC
+================================================================================
+
+Avvia VNC:
+  ssh lab@192.168.10.191
+  vncserver :2 -geometry 1920x1080 -depth 24 -localhost no
+
+Ferma VNC:
+  vncserver -kill :2
+
+Lista sessioni:
+  vncserver -list
+
+Cambia password:
+  vncpasswd
+
+================================================================================
+⚠️ NOTA IMPORTANTE
+================================================================================
+
+Se VNC è configurato con -localhost, è accessibile solo da localhost.
+Per accesso remoto, deve essere avviato con -localhost no
+
+Se non riesci a connetterti:
+  1. Verifica firewall: sudo ufw allow 5902/tcp
+  2. Verifica che VNC sia avviato senza -localhost
+  3. Verifica porta: netstat -tlnp | grep 5902
+
+================================================================================
+✅ STATO ATTUALE
+================================================================================
+
+VNC Server: ✅ Attivo
+Display: :2
+Porta: 5902
+Processo: Xtigervnc (PID 6829)
+
+Pronto per connessione!
+
+================================================================================
+
+

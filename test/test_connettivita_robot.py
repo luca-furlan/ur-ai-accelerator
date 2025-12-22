@@ -31,10 +31,23 @@ def test_robot_rtde(robot_ip: str = '192.168.10.194') -> bool:
         rtde.disconnect()
         return state is not None
     except ImportError:
+        # Verifica se è installato ma non importabile (su aarch64)
+        import subprocess
+        try:
+            result = subprocess.run(['pip3', 'list'], capture_output=True, text=True, timeout=5)
+            if 'ur-rtde' in result.stdout:
+                print("⚠️ ur_rtde installato ma non importabile (probabile problema aarch64)")
+                return False
+        except:
+            pass
         print("⚠️ ur_rtde non installato")
         return False
     except Exception as e:
-        print(f"Errore RTDE: {e}")
+        error_msg = str(e)
+        if 'aarch64' in error_msg.lower() or 'arm' in error_msg.lower():
+            print(f"⚠️ ur_rtde errore su aarch64: {e}")
+        else:
+            print(f"Errore RTDE: {e}")
         return False
 
 def main():
@@ -46,22 +59,39 @@ def main():
     
     # Test socket
     print(f"\n1. Test connessione socket ({robot_ip}:30002)...")
-    if test_robot_connection(robot_ip):
+    socket_ok = test_robot_connection(robot_ip)
+    if socket_ok:
         print("✅ Socket connesso")
     else:
         print("❌ Socket NON connesso")
     
     # Test RTDE
     print(f"\n2. Test connessione RTDE ({robot_ip}:30004)...")
-    if test_robot_rtde(robot_ip):
+    rtde_ok = test_robot_rtde(robot_ip)
+    if rtde_ok:
         print("✅ RTDE connesso")
     else:
         print("❌ RTDE NON connesso")
     
+    # Riepilogo
     print("\n" + "=" * 60)
+    if socket_ok and rtde_ok:
+        print("✅ Tutti i test superati!")
+    elif socket_ok or rtde_ok:
+        print("⚠️ Alcuni test non superati")
+    else:
+        print("❌ Nessun test superato - robot non raggiungibile?")
+    print("=" * 60)
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
 
 
 

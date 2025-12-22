@@ -26,6 +26,33 @@ print()
 # Cambia directory
 os.chdir(os.path.expanduser('~/MekoAiAccelerator'))
 
+# Source ROS2 environment per rendere rclpy disponibile
+print("Setup ROS2 environment...")
+ros2_setup = '/opt/ros/humble/setup.bash'
+ros2_ws_setup = os.path.expanduser('~/ros2_ws/install/setup.bash')
+
+if os.path.exists(ros2_setup):
+    # Estrai variabili d'ambiente da ROS2 setup
+    import subprocess
+    try:
+        cmd = f'bash -c "source {ros2_setup} && env"'
+        if os.path.exists(ros2_ws_setup):
+            cmd = f'bash -c "source {ros2_setup} && source {ros2_ws_setup} && env"'
+        
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key] = value
+            print("✅ ROS2 environment loaded")
+        else:
+            print("⚠️ Warning: Could not source ROS2 setup")
+    except Exception as e:
+        print(f"⚠️ Warning: Could not source ROS2 setup: {e}")
+else:
+    print("⚠️ Warning: ROS2 setup.bash not found")
+
 # Avvia web interface
 print("Avvio web interface...")
 print(f"URL: http://{os.environ['WEB_HOST']}:{os.environ['WEB_PORT']}")
@@ -44,6 +71,13 @@ except Exception as e:
     import traceback
     traceback.print_exc()
     sys.exit(1)
+
+
+
+
+
+
+
 
 
 

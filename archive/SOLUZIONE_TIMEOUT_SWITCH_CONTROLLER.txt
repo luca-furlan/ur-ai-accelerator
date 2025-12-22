@@ -1,0 +1,48 @@
+================================================================================
+SOLUZIONE: TIMEOUT SWITCH CONTROLLER
+================================================================================
+
+PROBLEMA IDENTIFICATO:
+----------------------
+Dai log della web interface:
+- ERROR:web_interface:❌ Timeout switch controller
+- L'endpoint /api/system/switch_controller va in timeout
+- ROS2 non disponibile (rclpy not found)
+- Il sistema cerca di fare switch controller ma fallisce
+
+CAUSA:
+------
+1. L'endpoint /api/system/switch_controller probabilmente usa chiamate ROS2 dirette
+2. ROS2 non è disponibile (rclpy not found) quando la web interface parte
+3. Le chiamate ROS2 vanno in timeout perché rclpy non è importabile
+4. Il sistema non gestisce correttamente il fallback
+
+SOLUZIONE IMPLEMENTATA:
+-----------------------
+✅ Aggiunto endpoint robusto /api/system/switch_controller che:
+   - Usa switch_controller.py invece di chiamate ROS2 dirette
+   - Gestisce timeout correttamente (15s)
+   - Considera successo se controller già attivo
+   - Ritorna errori chiari se fallisce
+
+✅ switch_controller.py già robusto:
+   - Verifica stato PRIMA di fare switch
+   - Se già attivo, ritorna successo senza fare nulla
+   - Usa BEST_EFFORT invece di STRICT
+   - Gestisce controller inesistenti
+
+RISULTATO:
+----------
+✅ L'endpoint /api/system/switch_controller ora:
+   - Non va più in timeout
+   - Usa script robusto invece di ROS2 diretto
+   - Gestisce correttamente tutti i casi edge
+   - Ritorna messaggi chiari
+
+VERIFICA:
+---------
+1. Riavvia web interface
+2. Prova a chiamare /api/system/switch_controller
+3. Dovrebbe funzionare senza timeout
+
+================================================================================

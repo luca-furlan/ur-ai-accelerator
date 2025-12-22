@@ -1,0 +1,75 @@
+================================================================================
+📊 STATO CONNESSIONI AI ACCELERATOR
+================================================================================
+
+Data: 11 Dicembre 2025
+IP: 192.168.10.191
+
+================================================================================
+✅ VNC SERVER
+================================================================================
+
+Stato: ✅ ATTIVO
+Display: :2
+Porta: 5902
+Accesso: REMOTO (0.0.0.0:5902)
+Processo: Xtigervnc (PID 7345)
+
+CONNESSIONE:
+  URL: 192.168.10.191:5902
+  Porta raggiungibile: ✅ SÌ
+
+Per connettersi:
+  1. Installa VNC Viewer su Windows
+  2. Connettiti a: 192.168.10.191:5902
+  3. Inserisci password VNC
+
+================================================================================
+❌ WEB INTERFACE
+================================================================================
+
+Stato: ❌ NON IN ESECUZIONE
+Porta: 8080 (non attiva)
+
+Per avviare:
+  ssh lab@192.168.10.191
+  cd ~/MekoAiAccelerator
+  ./avvia_web_interface_joystick.sh
+  
+  oppure
+  
+  ./avvia_vision_completo.sh
+
+URL quando attivo:
+  http://192.168.10.191:8080
+
+================================================================================
+🔧 COMANDI RAPIDI
+================================================================================
+
+Verifica VNC:
+  ssh lab@192.168.10.191 "vncserver -list"
+
+Avvia Web Interface:
+  ssh lab@192.168.10.191 "cd ~/MekoAiAccelerator && ./avvia_web_interface_joystick.sh"
+
+Verifica porte:
+  ssh lab@192.168.10.191 "netstat -tlnp | grep -E ':(8080|5902)'"
+
+================================================================================
+✅ RIEPILOGO
+================================================================================
+
+✅ VNC: PRONTO per connessione (porta 5902)
+❌ Web Interface: NON attivo (avviare manualmente)
+
+Per vedere il desktop remoto:
+  → Connettiti via VNC a: 192.168.10.191:5902
+
+Per usare web interface:
+  → Avvia prima: ./avvia_web_interface_joystick.sh
+  → Poi accedi: http://192.168.10.191:8080
+
+================================================================================
+
+

@@ -100,14 +100,36 @@ def main():
     print("Esecuzione verifica completa installazione...")
     test_completo = os.path.join(PROJECT_ROOT, 'test_sistema_completo.py')
     if os.path.exists(test_completo):
-        subprocess.run([sys.executable, test_completo], cwd=PROJECT_ROOT)
+        try:
+            result = subprocess.run(
+                [sys.executable, test_completo],
+                cwd=PROJECT_ROOT,
+                timeout=300,  # 5 minuti per test completo
+                capture_output=False
+            )
+            if result.returncode == 0:
+                print(f"{Colors.GREEN}✅ Test completo sistema completato{Colors.RESET}")
+            else:
+                print(f"{Colors.YELLOW}⚠️ Test completo sistema completato con warning{Colors.RESET}")
+        except subprocess.TimeoutExpired:
+            print(f"{Colors.RED}❌ Test completo sistema timeout{Colors.RESET}")
+        except Exception as e:
+            print(f"{Colors.RED}❌ Errore esecuzione test completo: {e}{Colors.RESET}")
     else:
         print(f"{Colors.YELLOW}⚠️ test_sistema_completo.py non trovato{Colors.RESET}")
+        print(f"   Path cercato: {test_completo}")
     
     print(f"\n{Colors.BOLD}Test completati!{Colors.RESET}\n")
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
 
 
 

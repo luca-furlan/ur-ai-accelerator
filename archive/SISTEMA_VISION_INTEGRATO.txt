@@ -1,0 +1,356 @@
+================================================================================
+✅ SISTEMA VISION + ROBOT INTEGRATO - INSTALLAZIONE COMPLETATA
+================================================================================
+
+Data: 11 Dicembre 2025
+Sistema: Camera Orbecc + YOLOv8 + MoveIt2 + Robot UR
+
+================================================================================
+📦 COMPONENTI INSTALLATI
+================================================================================
+
+1. ROS2 NODES
+   ✅ vision_yolo_detector.py         - Detection YOLOv8 con camera Orbecc
+   ✅ moveit_vision_controller.py     - Motion planning MoveIt2
+   ✅ vision_robot_coordinator.py     - Coordinatore sistema
+
+2. WEB INTERFACE
+   ✅ vision_web_api.py               - API REST per controllo vision
+   ✅ integra_vision_web_interface.py - Script integrazione automatica
+
+3. LAUNCH SYSTEM
+   ✅ launch_vision_robot_system.py   - Launch file ROS2 completo
+   ✅ avvia_vision_robot_system.sh    - Script avvio automatico
+   ✅ ferma_vision_robot_system.sh    - Script stop sistema
+
+4. TESTING & DOCS
+   ✅ test_vision_system.py           - Test completo sistema
+   ✅ README_VISION_ROBOT.md          - Documentazione completa
+   ✅ QUICK_START_VISION.md           - Quick start guide
+   ✅ VISION_SYSTEM_COMPLETE.md       - Overview e reference
+
+================================================================================
+🚀 QUICK START
+================================================================================
+
+ARCHITETTURA:
+  - TUTTO sull'AI Accelerator (Linux remoto)
+  - Da Windows: solo browser → http://AI_ACCELERATOR_IP:5000
+
+1. DEPLOY DA WINDOWS (prima volta)
+   
+   # Con Git Bash/WSL
+   export AI_ACCELERATOR_IP=192.168.1.100
+   export AI_ACCELERATOR_USER=user
+   bash deploy_vision_completo.sh
+   
+   # Oppure copia file manualmente via WinSCP
+
+2. INSTALLAZIONE DIPENDENZE SU AI ACCELERATOR (prima volta)
+   
+   # Python packages
+   pip install ultralytics opencv-python numpy
+   
+   # ROS2 packages
+   sudo apt install ros-humble-cv-bridge ros-humble-vision-msgs
+   
+   # Camera Orbecc driver
+   cd ~/ros2_ws/src
+   git clone https://github.com/orbbec/OrbbecSDK_ROS2.git
+   cd ~/ros2_ws
+   colcon build --packages-select orbecc_camera
+   source install/setup.bash
+
+3. TEST SISTEMA SU AI ACCELERATOR
+   
+   # SSH su AI Accelerator
+   ssh user@192.168.1.100
+   cd ~/MekoAiAccelerator
+   python3 test_vision_system.py
+
+4. AVVIO SISTEMA SU AI ACCELERATOR
+   
+   # SSH su AI Accelerator
+   ssh user@192.168.1.100
+   cd ~/MekoAiAccelerator
+   bash avvia_sistema_completo.sh
+   
+   # TUTTO si avvia: Vision + Robot + Web Interface
+
+5. USO DA WINDOWS
+   
+   # Apri browser:
+   http://192.168.1.100:5000
+   
+   # Fatto! Sistema pronto
+
+4. VISUALIZZA DETECTIONS
+   
+   # Monitor detections
+   ros2 topic echo /vision/detections_3d
+   
+   # Visualizza video annotato
+   ros2 run rqt_image_view rqt_image_view /vision/annotated_image
+
+5. PICK OGGETTO (manuale)
+   
+   # Seleziona bottiglia
+   curl -X POST localhost:5000/api/vision/select_class -d '{"class":"bottle"}'
+   
+   # Pick
+   curl -X POST localhost:5000/api/vision/pick_target
+
+6. STOP SISTEMA
+   
+   bash ferma_vision_robot_system.sh
+
+================================================================================
+📡 ARCHITETTURA
+================================================================================
+
+Hardware Reale
+    ↓
+Camera Orbecc (RGB + Depth)
+    ↓
+YOLOv8 Object Detection
+    ↓
+Coordinate 3D Calculation
+    ↓
+MoveIt2 Motion Planning
+    ↓
+Robot UR Control (RTDE)
+    ↓
+Movimento Robot
+
+================================================================================
+🎯 FEATURES
+================================================================================
+
+✅ Object detection real-time con YOLOv8 (80 classi COCO)
+✅ Calcolo automatico coordinate 3D da RGB-D
+✅ Integrazione completa con ROS2 Humble
+✅ Motion planning con MoveIt2
+✅ Controllo diretto robot UR via RTDE
+✅ Web interface con REST API
+✅ Safe mode con limiti velocità
+✅ Visualizzazione video annotato
+✅ Sistema modulare e configurabile
+✅ Modalità automatica e manuale
+✅ Test suite completo
+
+================================================================================
+📊 ROS2 TOPICS
+================================================================================
+
+PUBBLICATI:
+  /vision/detections          - Detections 2D (vision_msgs)
+  /vision/detections_3d       - Detections 3D + coordinate (JSON)
+  /vision/annotated_image     - Video con bounding boxes
+  /vision/selected_target     - Target selezionato (PoseStamped)
+  /vision/system_status       - Status sistema
+  /vision/controller_status   - Status controller
+  /vision/coordinator_response - Risposte comandi
+
+SOTTOSCRITTI:
+  /camera/color/image_raw     - RGB camera
+  /camera/depth/image_raw     - Depth camera
+  /camera/color/camera_info   - Camera intrinsics
+  /vision/coordinator_command - Comandi sistema
+
+================================================================================
+🌐 WEB API ENDPOINTS
+================================================================================
+
+GET  /api/vision/status         - Status sistema vision
+GET  /api/vision/detections     - Ultime detections
+POST /api/vision/start          - Avvia vision system
+POST /api/vision/stop           - Ferma vision system
+POST /api/vision/pick_target    - Pick oggetto selezionato
+POST /api/vision/select_class   - Seleziona classe target
+GET  /api/vision/camera/info    - Info camera
+
+================================================================================
+🔧 CONFIGURAZIONE
+================================================================================
+
+Variabili ambiente (su Linux):
+
+export ROBOT_IP=192.168.10.194      # IP robot UR
+export AUTO_MODE=false               # Modalità automatica
+export YOLO_MODEL=yolov8n.pt        # Modello YOLO
+export CONFIDENCE=0.5                # Threshold confidence
+
+Modelli YOLO:
+  yolov8n.pt - Nano (velocissimo) ⭐ RACCOMANDATO
+  yolov8s.pt - Small (veloce)
+  yolov8m.pt - Medium
+  yolov8l.pt - Large (lento ma accurato)
+  yolov8x.pt - XLarge (lentissimo)
+
+================================================================================
+🎮 USE CASES
+================================================================================
+
+1. PICK & PLACE MANUALE
+   - Avvia sistema
+   - Sistema rileva oggetti
+   - Utente seleziona target via web
+   - Robot esegue pick
+
+2. PICK & PLACE AUTOMATICO
+   - Avvia in auto_mode
+   - Sistema rileva e seleziona target automaticamente
+   - Robot si muove automaticamente
+
+3. SOLO DETECTION (no robot)
+   - Detection e visualizzazione
+   - Nessun movimento robot
+   - Utile per testing
+
+================================================================================
+🛡️ SICUREZZA
+================================================================================
+
+Safe Mode (default):
+  • Velocità max: 0.1 m/s
+  • Accelerazione max: 0.05 m/s²
+  • Distanza min oggetti: 0.1 m
+  • Distanza max oggetti: 2.0 m
+  • Stop automatico su errori
+
+Stop Emergenza:
+  • Ctrl+C sulla shell
+  • bash ferma_vision_robot_system.sh
+  • curl -X POST localhost:5000/api/vision/stop
+  • ros2 topic pub /vision/coordinator_command '{data: "{\"command\": \"stop\"}"}'
+
+================================================================================
+📚 DOCUMENTAZIONE
+================================================================================
+
+README_VISION_ROBOT.md      - Documentazione completa (architettura, API, config)
+QUICK_START_VISION.md       - Quick start e tutorial step-by-step
+VISION_SYSTEM_COMPLETE.md   - Overview e reference rapido
+test_vision_system.py       - Test e verifica componenti
+
+================================================================================
+🔍 TROUBLESHOOTING
+================================================================================
+
+Camera non funziona:
+  → lsusb | grep Orbbec
+  → ros2 topic list | grep camera
+  → ros2 launch orbecc_camera gemini_330_series.launch.py
+
+YOLO troppo lento:
+  → export YOLO_MODEL=yolov8n.pt
+  → Usa modello nano (più veloce)
+
+Robot non risponde:
+  → ping 192.168.10.194
+  → python3 remote_ur_control/check_robot_status.py
+  → Verifica External Control URCap attivo
+
+Vision nodes non partono:
+  → source /opt/ros/humble/setup.bash
+  → export PYTHONPATH=$(pwd):$PYTHONPATH
+  → Riavvia sistema
+
+================================================================================
+⚠️ IMPORTANTE - DEPLOY E USO
+================================================================================
+
+ARCHITETTURA:
+  
+  ┌──────────────────────────────────┐
+  │   AI ACCELERATOR (Linux remoto)  │
+  │                                  │
+  │   • ROS2 + Camera + Vision       │
+  │   • Robot Control                │
+  │   • Web Interface Flask (:5000)  │
+  └───────────────┬──────────────────┘
+                  │ HTTP
+                  ↓
+  ┌──────────────────────────────────┐
+  │   WINDOWS (tua macchina)         │
+  │                                  │
+  │   • Solo Browser Web             │
+  │   • http://AI_IP:5000           │
+  └──────────────────────────────────┘
+
+DEPLOY (una volta):
+
+  1. Da Windows (Git Bash/WSL):
+     export AI_ACCELERATOR_IP=192.168.1.100
+     bash deploy_vision_completo.sh
+  
+  2. Su AI Accelerator (via SSH):
+     cd ~/MekoAiAccelerator
+     chmod +x *.sh
+     python3 test_vision_system.py
+
+AVVIO (ogni volta):
+
+  1. SSH su AI Accelerator:
+     ssh user@192.168.1.100
+     cd ~/MekoAiAccelerator
+     bash avvia_sistema_completo.sh
+  
+  2. Su Windows - apri browser:
+     http://192.168.1.100:5000
+
+================================================================================
+✅ CHECKLIST DEPLOYMENT
+================================================================================
+
+Su AI Accelerator (Linux):
+
+□ ROS2 Humble installato e sourced
+□ Camera Orbecc driver installato (orbecc_camera)
+□ Python packages installati (ultralytics, opencv, numpy)
+□ ROS2 packages installati (cv-bridge, vision-msgs)
+□ File vision_*.py presenti
+□ File launch_vision_robot_system.py presente
+□ Script *.sh presenti e eseguibili
+□ Camera Orbecc collegata via USB
+□ Robot UR raggiungibile in rete
+□ Test sistema completato (test_vision_system.py)
+
+================================================================================
+🎉 CONCLUSIONE
+================================================================================
+
+Sistema Vision + Robot completamente integrato e pronto all'uso!
+
+Componenti:
+  ✅ 3 ROS2 nodes
+  ✅ Web API integration
+  ✅ Launch system completo
+  ✅ Test suite
+  ✅ Documentazione completa
+
+Per iniziare:
+  1. Trasferisci file su Linux/AI Accelerator
+  2. Installa dipendenze
+  3. Esegui test: python3 test_vision_system.py
+  4. Avvia sistema: bash avvia_vision_robot_system.sh
+  5. Enjoy! 🚀
+
+================================================================================
+📞 SUPPORTO
+================================================================================
+
+Documentazione: README_VISION_ROBOT.md
+Quick Start: QUICK_START_VISION.md
+Test Sistema: python3 test_vision_system.py
+
+Per problemi:
+  1. Verifica logs: tail -f /tmp/*.log
+  2. Verifica topics: ros2 topic list
+  3. Verifica nodes: ros2 node list
+  4. Test componenti: python3 test_vision_system.py
+
+================================================================================
+
+Buon lavoro! 🎉
+

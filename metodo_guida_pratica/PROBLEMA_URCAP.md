@@ -148,3 +148,10 @@ Nella cartella `metodo_guida_pratica`:
 Usa il file nuovo se quello vecchio dà problemi!
 
 
+
+
+
+
+
+
+

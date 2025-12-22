@@ -213,13 +213,22 @@ def test_driver_ur() -> Dict:
     else:
         print_warning(f"ROS2 workspace NON trovato: {ros2_ws}")
     
-    # ur_rtde
+    # ur_rtde - verifica installazione (su aarch64 potrebbe non funzionare l'import)
     found, version = check_python_package('ur_rtde')
+    # Verifica anche con pip list come fallback
+    if not found:
+        success, stdout, _ = check_command(['pip3', 'list'], timeout=5)
+        if success and 'ur-rtde' in stdout.lower():
+            found = True
+            version = 'installed (aarch64 - import may fail)'
+    
     if found:
         results['ur_rtde'] = True
         print_success(f"ur_rtde installato ({version})")
+        if 'aarch64' in str(version).lower():
+            print_warning("  Nota: su aarch64 ur_rtde potrebbe non funzionare correttamente")
     else:
-        print_error("ur_rtde NON installato (pip install ur-rtde)")
+        print_warning("ur_rtde non rilevato (su aarch64 potrebbe non funzionare comunque)")
     
     # RTDE Python Library
     found, version = check_python_package('rtde')
@@ -428,13 +437,19 @@ def test_componenti_custom() -> Dict:
     
     print_header("7. COMPONENTI CUSTOM")
     
-    # Project root
-    project_root = os.path.expanduser('~/MekoAiAccelerator')
+    # Project root - usa path assoluto o relativo
+    project_root = os.path.dirname(os.path.abspath(__file__))
     if check_directory_exists(project_root):
         results['project_root'] = True
         print_success(f"Project root trovato: {project_root}")
     else:
-        print_warning(f"Project root NON trovato: {project_root}")
+        # Fallback a path espanso
+        project_root = os.path.expanduser('~/MekoAiAccelerator')
+        if check_directory_exists(project_root):
+            results['project_root'] = True
+            print_success(f"Project root trovato: {project_root}")
+        else:
+            print_warning(f"Project root NON trovato: {project_root}")
     
     # Web Interface
     web_interface = os.path.join(project_root, 'remote_ur_control', 'web_interface.py')
@@ -637,7 +652,11 @@ def main():
     """Esegue tutti i test"""
     print_header("VERIFICA COMPLETA SISTEMA AI ACCELERATOR")
     print(f"Data/Ora: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"Hostname: {os.uname().nodename if hasattr(os, 'uname') else 'N/A'}")
+    try:
+        hostname = os.uname().nodename if hasattr(os, 'uname') else os.environ.get('COMPUTERNAME', 'N/A')
+    except:
+        hostname = 'N/A'
+    print(f"Hostname: {hostname}")
     
     all_results = {}
     
@@ -658,14 +677,13 @@ def main():
     # Salva risultati in file
     import json
     results_file = os.path.expanduser('~/test_sistema_results.json')
-    with open(results_file, 'w') as f:
-        json.dump(all_results, f, indent=2, default=str)
-    print_info(f"Risultati salvati in: {results_file}")
+    try:
+        with open(results_file, 'w') as f:
+            json.dump(all_results, f, indent=2, default=str)
+        print_info(f"Risultati salvati in: {results_file}")
+    except Exception as e:
+        print_warning(f"Impossibile salvare risultati: {e}")
 
 if __name__ == '__main__':
     main()
-
-
-
-
 

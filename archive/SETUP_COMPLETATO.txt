@@ -1,0 +1,78 @@
+================================================================================
+✅ SETUP COMPLETATO AUTOMATICAMENTE SU AI ACCELERATOR!
+================================================================================
+
+Data: 11 Dicembre 2025
+Target: lab@192.168.10.191:~/MekoAiAccelerator
+
+================================================================================
+📦 FILE INSTALLATI
+================================================================================
+
+✅ vision_yolo_detector.py          - Nodo ROS2 per detection YOLOv8
+✅ vision_robot_coordinator.py       - Coordinatore sistema vision
+✅ remote_ur_control/vision_web_api.py - API REST per vision
+✅ avvia_vision_completo.sh          - Script avvio completo
+✅ integra_vision_api.py             - Script integrazione (già eseguito)
+
+================================================================================
+🔧 CONFIGURAZIONE COMPLETATA
+================================================================================
+
+✅ File Python trasferiti su AI Accelerator
+✅ Permessi eseguibili configurati
+✅ Vision API integrata in web_interface.py
+✅ Script avvio creato
+✅ ROS2 packages verificati (cv_bridge, vision_msgs già installati)
+✅ Backup web_interface.py creato
+
+================================================================================
+🚀 COME USARE
+================================================================================
+
+Su AI Accelerator:
+
+  1. SSH:
+     ssh lab@192.168.10.191
+
+  2. Vai nella directory:
+     cd ~/MekoAiAccelerator
+
+  3. Avvia sistema completo:
+     ./avvia_vision_completo.sh
+
+  4. Da Windows, apri browser:
+     http://192.168.10.191:8080
+
+================================================================================
+📡 NUOVE API DISPONIBILI
+================================================================================
+
+Dopo avvio, nella web interface sono disponibili:
+
+  GET  /api/vision/status         - Status sistema vision
+  GET  /api/vision/detections     - Detections real-time
+  POST /api/vision/pick_target    - Pick oggetto rilevato
+  POST /api/vision/select_class   - Seleziona classe target
+
+================================================================================
+📝 NOTE
+================================================================================
+
+- YOLOv8 verrà scaricato automaticamente al primo avvio
+- Camera Orbecc: se driver installato, si avvia automaticamente
+- Log: /tmp/vision.log, /tmp/coordinator.log, /tmp/camera.log
+
+================================================================================
+✅ TUTTO PRONTO!
+================================================================================
+
+Sistema completamente configurato e pronto all'uso!
+
+Per avviare: ./avvia_vision_completo.sh
+
+================================================================================
+
+
+
+

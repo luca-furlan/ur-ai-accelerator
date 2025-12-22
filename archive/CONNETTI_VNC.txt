@@ -1,0 +1,58 @@
+================================================================================
+🖥️ CONNESSIONE VNC AL ROBOT/AI ACCELERATOR
+================================================================================
+
+IP: 192.168.10.191
+Porta VNC: 5901
+Display: :1
+
+================================================================================
+📋 COME CONNETTERSI DA WINDOWS
+================================================================================
+
+OPZIONE 1: VNC Viewer (Raccomandato)
+  1. Scarica VNC Viewer: https://www.realvnc.com/en/connect/download/viewer/
+  2. Installa e avvia VNC Viewer
+  3. Inserisci: 192.168.10.191:5901
+  4. Clicca Connect
+  5. Inserisci password VNC (se richiesta)
+
+OPZIONE 2: TightVNC Viewer
+  1. Scarica: https://www.tightvnc.com/download.php
+  2. Installa TightVNC Viewer
+  3. Avvia e connettiti a: 192.168.10.191:5901
+
+OPZIONE 3: TigerVNC Viewer
+  1. Scarica: https://github.com/TigerVNC/tigervnc/releases
+  2. Installa TigerVNC Viewer
+  3. Connettiti a: 192.168.10.191:5901
+
+================================================================================
+🔧 COMANDI VNC
+================================================================================
+
+Avvia VNC:
+  ssh lab@192.168.10.191
+  vncserver :1 -geometry 1920x1080 -depth 24
+
+Ferma VNC:
+  vncserver -kill :1
+
+Lista sessioni:
+  vncserver -list
+
+Cambia password VNC:
+  vncpasswd
+
+================================================================================
+⚠️ NOTA
+================================================================================
+
+Se VNC non è ancora avviato, esegui:
+  ssh lab@192.168.10.191 "vncserver :1"
+
+Poi connettiti con VNC Viewer a: 192.168.10.191:5901
+
+================================================================================
+
+

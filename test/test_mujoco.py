@@ -113,13 +113,30 @@ def main():
         print("❌ MuJoCo Menagerie NON trovato")
         print("   Installare: git clone https://github.com/google-deepmind/mujoco_menagerie.git ~/mujoco_menagerie")
     
+    # Riepilogo
     print("\n" + "=" * 60)
-    print("NOTA: Per visualizzare un modello:")
+    if installed and menagerie['menagerie_exists']:
+        if menagerie['ur5e_exists'] or menagerie['ur10e_exists']:
+            print("✅ MuJoCo installato e modelli disponibili")
+        else:
+            print("⚠️ MuJoCo installato ma modelli UR mancanti")
+    elif installed:
+        print("⚠️ MuJoCo installato ma Menagerie mancante")
+    else:
+        print("❌ MuJoCo non installato")
+    print("\nNOTA: Per visualizzare un modello:")
     print("  python -m mujoco.viewer --mjcf ~/mujoco_menagerie/universal_robots_ur5e/scene.xml")
     print("=" * 60)
 
 if __name__ == '__main__':
     main()
+
+
+
+
+
+
+
 
 
 

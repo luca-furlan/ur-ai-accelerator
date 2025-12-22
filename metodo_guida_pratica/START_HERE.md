@@ -97,3 +97,10 @@ cd ~/MekoAiAccelerator/metodo_guida_pratica
 
 
 
+
+
+
+
+
+
+

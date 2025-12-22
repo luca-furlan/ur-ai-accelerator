@@ -1,0 +1,104 @@
+================================================================================
+✅ VNC SERVER PRONTO E CONFIGURATO!
+================================================================================
+
+VNC Server attivo e accessibile da remoto!
+
+================================================================================
+🌐 INFORMAZIONI CONNESSIONE
+================================================================================
+
+IP:           192.168.10.191
+Porta VNC:    5902
+Display:      :2
+Accesso:      REMOTO (0.0.0.0:5902) ✅
+
+URL:          192.168.10.191:5902
+
+================================================================================
+📥 COME CONNETTERSI DA WINDOWS
+================================================================================
+
+METODO 1: RealVNC Viewer (Raccomandato)
+  1. Scarica: https://www.realvnc.com/en/connect/download/viewer/
+  2. Installa RealVNC Viewer
+  3. Avvia VNC Viewer
+  4. Inserisci: 192.168.10.191:5902
+  5. Clicca Connect
+  6. Inserisci password VNC
+
+METODO 2: TightVNC Viewer
+  1. Scarica: https://www.tightvnc.com/download.php
+  2. Installa TightVNC Viewer
+  3. Connettiti a: 192.168.10.191:5902
+
+METODO 3: TigerVNC Viewer
+  1. Scarica: https://github.com/TigerVNC/tigervnc/releases
+  2. Installa TigerVNC Viewer
+  3. Connettiti a: 192.168.10.191:5902
+
+================================================================================
+🔧 COMANDI VNC (su AI Accelerator)
+================================================================================
+
+Avvia VNC:
+  ssh lab@192.168.10.191
+  vncserver :2 -geometry 1920x1080 -depth 24 -localhost no
+
+Ferma VNC:
+  vncserver -kill :2
+
+Lista sessioni:
+  vncserver -list
+
+Cambia password:
+  vncpasswd
+
+Verifica stato:
+  netstat -tlnp | grep 5902
+
+================================================================================
+✅ STATO ATTUALE
+================================================================================
+
+✅ VNC Server: ATTIVO
+✅ Display: :2
+✅ Porta: 5902
+✅ Accesso: REMOTO
+✅ Processo: Xtigervnc (PID 7345)
+✅ Porta in ascolto: 0.0.0.0:5902
+
+PRONTO PER CONNESSIONE!
+
+================================================================================
+⚠️ TROUBLESHOOTING
+================================================================================
+
+Se non riesci a connetterti:
+
+1. Verifica firewall:
+   ssh lab@192.168.10.191
+   sudo ufw allow 5902/tcp
+   sudo ufw status
+
+2. Verifica porta raggiungibile:
+   Da Windows: Test-NetConnection -ComputerName 192.168.10.191 -Port 5902
+
+3. Verifica VNC attivo:
+   ssh lab@192.168.10.191 "vncserver -list"
+
+4. Riavvia VNC se necessario:
+   ssh lab@192.168.10.191 "vncserver -kill :2 && vncserver :2 -localhost no"
+
+================================================================================
+🎯 PROSSIMI PASSI
+================================================================================
+
+1. Installa VNC Viewer su Windows
+2. Connettiti a: 192.168.10.191:5902
+3. Inserisci password VNC
+4. Dovresti vedere il desktop remoto!
+
+================================================================================
+
+
