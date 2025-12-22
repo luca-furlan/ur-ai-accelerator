@@ -17,6 +17,8 @@ from typing import Dict, List
 import threading
 import time
 import logging
+import math
+import numpy as np
 from collections import deque
 from datetime import datetime
 
@@ -71,6 +73,12 @@ _camera_frame_lock = threading.Lock()
 _camera_subscriber_node = None
 _camera_subscriber_thread = None
 _camera_bridge = None
+
+# Vision detections subscriber (per YOLO)
+_latest_detections = None
+_detections_lock = threading.Lock()
+_detections_subscriber_node = None
+_detections_subscriber_thread = None
 
 def _init_camera_subscriber():
     """Inizializza subscriber ROS2 per camera stream."""
@@ -148,6 +156,68 @@ def _init_camera_subscriber():
         app.logger.warning(f"[CAMERA] Import error (cv_bridge o rclpy non disponibili): {e}")
     except Exception as e:
         app.logger.error(f"[CAMERA] Errore inizializzazione subscriber: {e}")
+
+def _init_detections_subscriber():
+    """Inizializza subscriber ROS2 per detections YOLO."""
+    global _detections_subscriber_node, _detections_subscriber_thread
+    
+    if not ROS2_AVAILABLE or _detections_subscriber_node is not None:
+        return
+    
+    try:
+        import rclpy
+        from std_msgs.msg import String
+        import json
+        
+        try:
+            try:
+                if not rclpy.ok():
+                    rclpy.init()
+            except RuntimeError as e:
+                if 'must only be called once' in str(e) or 'already initialized' in str(e).lower():
+                    pass
+                else:
+                    raise
+        except Exception as e:
+            app.logger.warning(f"[DETECTIONS] Errore inizializzazione rclpy: {e}")
+            return
+        
+        class DetectionsSubscriberNode:
+            def __init__(self):
+                self.node = rclpy.create_node('detections_subscriber')
+                self.subscription = self.node.create_subscription(
+                    String,
+                    '/vision/detections_3d',
+                    self.detections_callback,
+                    10
+                )
+                app.logger.info("[DETECTIONS] Subscriber inizializzato per /vision/detections_3d")
+            
+            def detections_callback(self, msg):
+                global _latest_detections
+                try:
+                    data = json.loads(msg.data)
+                    with _detections_lock:
+                        _latest_detections = data.get('detections', [])
+                except Exception as e:
+                    app.logger.error(f"[DETECTIONS] Errore parsing detections: {e}")
+        
+        _detections_subscriber_node = DetectionsSubscriberNode()
+        
+        def spin_node():
+            try:
+                rclpy.spin(_detections_subscriber_node.node)
+            except Exception as e:
+                app.logger.error(f"[DETECTIONS] Errore spin node: {e}")
+        
+        _detections_subscriber_thread = threading.Thread(target=spin_node, daemon=True)
+        _detections_subscriber_thread.start()
+        app.logger.info("[DETECTIONS] Thread subscriber avviato")
+        
+    except ImportError as e:
+        app.logger.warning(f"[DETECTIONS] Import error (rclpy non disponibile): {e}")
+    except Exception as e:
+        app.logger.error(f"[DETECTIONS] Errore inizializzazione subscriber: {e}")
 
 # Sistema di logging centralizzato
 _log_buffer = deque(maxlen=1000)  # Mantieni ultimi 1000 log
@@ -1201,6 +1271,13 @@ HTML_TEMPLATE = """
                 <span class="material-icons md-18">stop</span>
                 Stop Vision System
               </button>
+            </div>
+            <div style="margin-top: 12px;">
+              <button class="mdc-button mdc-button--raised" id="approach-object" style="width: 100%;">
+                <span class="material-icons md-18">near_me</span>
+                Avvicinati al Pezzo (20cm)
+              </button>
+              <div id="approach-status" style="margin-top: 8px; padding: 8px; background: rgba(0, 0, 0, 0.04); border-radius: 4px; font-size: 12px; display: none;"></div>
             </div>
           </div>
         </section>
@@ -3493,10 +3570,11 @@ HTML_TEMPLATE = """
           const data = await response.json();
           if (data.status === "ok" && data.detections && data.detections.length > 0) {
             if (detectionsContainer) {
-              detectionsContainer.innerHTML = data.detections.map(det => {
-                return `<div style="padding: 8px; margin-bottom: 4px; background: rgba(0, 0, 0, 0.06); border-radius: var(--mdc-shape-small);">
+              detectionsContainer.innerHTML = data.detections.map((det, idx) => {
+                const pos = det.position || {};
+                return `<div style="padding: 8px; margin-bottom: 4px; background: rgba(0, 0, 0, 0.06); border-radius: var(--mdc-shape-small); cursor: pointer;" onclick="selectDetection(${idx})" id="detection-${idx}">
                   <strong>${det.class_name}</strong> (${(det.confidence * 100).toFixed(1)}%)<br>
-                  <small>Position: [${det.position.map(p => p.toFixed(3)).join(", ")}]</small>
+                  <small>Position: [${(pos.x || 0).toFixed(3)}, ${(pos.y || 0).toFixed(3)}, ${(pos.z || 0).toFixed(3)}] m</small>
                 </div>`;
               }).join("");
             }
@@ -3505,6 +3583,19 @@ HTML_TEMPLATE = """
           }
         } catch (err) {
           console.error("Detections fetch error:", err);
+        }
+      }
+      
+      let selectedDetectionIndex = -1;
+      function selectDetection(idx) {
+        selectedDetectionIndex = idx;
+        // Evidenzia detection selezionata
+        document.querySelectorAll('[id^="detection-"]').forEach(el => {
+          el.style.background = 'rgba(0, 0, 0, 0.06)';
+        });
+        const selected = document.getElementById(`detection-${idx}`);
+        if (selected) {
+          selected.style.background = 'rgba(25, 118, 210, 0.2)';
         }
       }
       
@@ -3560,6 +3651,58 @@ HTML_TEMPLATE = """
       
       if (detectionsContainer) {
         detectionsInterval = setInterval(fetchDetections, 2000);
+      }
+      
+      // Approach Object Button
+      const approachBtn = document.getElementById("approach-object");
+      const approachStatus = document.getElementById("approach-status");
+      if (approachBtn) {
+        approachBtn.addEventListener("click", async () => {
+          approachBtn.disabled = true;
+          if (approachStatus) {
+            approachStatus.style.display = "block";
+            approachStatus.textContent = "Calcolo posizione target...";
+            approachStatus.style.background = "rgba(255, 193, 7, 0.1)";
+            approachStatus.style.color = "#856404";
+          }
+          
+          try {
+            const response = await fetch("/api/vision/approach_object", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                distance: 0.20,  // 20cm
+                selected_index: selectedDetectionIndex >= 0 ? selectedDetectionIndex : null
+              })
+            });
+            
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("Robot si sta avvicinando al pezzo", "success", 3000);
+              if (approachStatus) {
+                approachStatus.textContent = "✓ " + (data.message || "Movimento in corso...");
+                approachStatus.style.background = "rgba(0, 200, 83, 0.1)";
+                approachStatus.style.color = "#2e7d32";
+              }
+            } else {
+              showToast("Errore: " + data.message, "error", 4000);
+              if (approachStatus) {
+                approachStatus.textContent = "✗ Errore: " + data.message;
+                approachStatus.style.background = "rgba(211, 47, 47, 0.1)";
+                approachStatus.style.color = "#c62828";
+              }
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+            if (approachStatus) {
+              approachStatus.textContent = "✗ Errore: " + err.message;
+              approachStatus.style.background = "rgba(211, 47, 47, 0.1)";
+              approachStatus.style.color = "#c62828";
+            }
+          } finally {
+            approachBtn.disabled = false;
+          }
+        });
       }
     
     
@@ -5373,30 +5516,32 @@ def api_plan_move():
 @app.route("/api/vision/detections", methods=["GET"])
 def api_detections():
     """Restituisce le ultime detections dalla vision system."""
-    try:
-        # Verifica se c'è un topic detections attivo
-        import subprocess
-        result = subprocess.run(
-            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 1 ros2 topic echo /vision/detections_3d --once 2>/dev/null'],
-            capture_output=True,
-            text=True,
-            timeout=3
-        )
-        
-        if result.returncode == 0 and result.stdout:
-            # TODO: Parse detections from ROS2 topic
-            # Per ora restituiamo dati mock
+    # Inizializza subscriber se non già fatto
+    if _detections_subscriber_node is None:
+        _init_detections_subscriber()
+    
+    # Restituisci ultime detections
+    with _detections_lock:
+        if _latest_detections:
+            # Formatta per frontend
+            formatted_detections = []
+            for det in _latest_detections:
+                formatted_detections.append({
+                    'class_name': det.get('class', 'unknown'),
+                    'confidence': det.get('confidence', 0.0),
+                    'position': det.get('position_3d', {}),
+                    'bbox_2d': det.get('bbox_2d', {}),
+                    'center_2d': det.get('center_2d', {})
+                })
             return jsonify({
                 "status": "ok",
-                "detections": []  # TODO: implementare parsing
+                "detections": formatted_detections
             })
         else:
             return jsonify({
                 "status": "ok",
                 "detections": []
             })
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)})
 
 
 @app.route("/api/vision/start", methods=["POST"])
@@ -5424,14 +5569,57 @@ def api_vision_start():
                 "message": "Orbbec camera not running. Start camera first using 'Start Camera' button."
             })
         
-        # TODO: Avvia nodo YOLO/detections se disponibile
-        # Per ora restituiamo messaggio informativo
+        # Verifica se YOLO detector è già attivo
+        yolo_running = subprocess.run(
+            ['pgrep', '-f', 'vision_yolo_detector'],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        
+        if yolo_running.returncode != 0:
+            # Avvia nodo YOLO detector
+            script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "vision_yolo_detector.py")
+            if not os.path.exists(script_path):
+                return jsonify({
+                    "status": "error",
+                    "message": f"YOLO detector script not found: {script_path}"
+                })
+            
+            # Avvia in background
+            cmd = f'source /opt/ros/humble/setup.bash 2>/dev/null && python3 {script_path} > /tmp/yolo_detector.log 2>&1 &'
+            subprocess.Popen(
+                ['bash', '-c', cmd],
+                shell=False
+            )
+            
+            # Attendi un momento per verificare avvio
+            import time
+            time.sleep(2)
+            
+            # Verifica se si è avviato
+            yolo_check = subprocess.run(
+                ['pgrep', '-f', 'vision_yolo_detector'],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            
+            if yolo_check.returncode != 0:
+                return jsonify({
+                    "status": "error",
+                    "message": "Failed to start YOLO detector. Check logs: tail -f /tmp/yolo_detector.log"
+                })
+        
+        # Inizializza subscriber detections
+        _init_detections_subscriber()
+        
         return jsonify({
             "status": "ok",
-            "message": "Vision system ready. Camera is active. YOLO detection node integration pending.",
+            "message": "Vision system started. YOLO detector active.",
             "data": {
                 "camera_active": True,
-                "yolo_available": False  # TODO: verificare se YOLO è disponibile
+                "yolo_running": True
             }
         })
     except Exception as e:
@@ -5445,11 +5633,26 @@ def api_vision_start():
 @app.route("/api/vision/stop", methods=["POST"])
 def api_vision_stop():
     """Ferma il sistema vision completo."""
-    # TODO: Implementare stop vision system
-    return jsonify({
-        "status": "ok",
-        "message": "Vision system stopped"
-    })
+    try:
+        import subprocess
+        # Ferma nodo YOLO detector
+        result = subprocess.run(
+            ['pkill', '-f', 'vision_yolo_detector'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        return jsonify({
+            "status": "ok",
+            "message": "Vision system stopped"
+        })
+    except Exception as e:
+        app.logger.error(f"Vision stop error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error stopping vision system: {str(e)}"
+        })
 
 
 @app.route("/api/system/health_check", methods=["GET"])
@@ -5900,6 +6103,8 @@ def main() -> None:
             
             # Inizializza camera subscriber
             _init_camera_subscriber()
+            # Inizializza detections subscriber
+            _init_detections_subscriber()
         except Exception as e:
             print(f"[WARN] Failed to initialize ROS2 bridge: {e}")
     else:
