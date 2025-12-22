@@ -8,8 +8,32 @@ echo "FERMATA COMPLETA WEB INTERFACE"
 echo "=========================================="
 echo ""
 
-# 1. Ferma watchdog PRIMA di tutto (IMPORTANTE!)
-echo "[1/4] Fermo watchdog..."
+# 1. Ferma processi vision gestiti dalla web interface
+echo "[1/5] Fermo processi vision..."
+if pgrep -f orbbec_camera > /dev/null; then
+    pkill -f orbbec_camera
+    echo "✅ Camera Orbbec fermata"
+else
+    echo "ℹ️  Camera Orbbec non attiva"
+fi
+
+if pgrep -f vision_yolo_detector > /dev/null; then
+    pkill -f vision_yolo_detector
+    echo "✅ YOLO detector fermato"
+else
+    echo "ℹ️  YOLO detector non attivo"
+fi
+
+if pgrep -f moveit.launch.py > /dev/null; then
+    pkill -f moveit.launch.py
+    echo "✅ MoveIt fermato"
+else
+    echo "ℹ️  MoveIt non attivo"
+fi
+echo ""
+
+# 2. Ferma watchdog PRIMA di tutto (IMPORTANTE!)
+echo "[2/5] Fermo watchdog..."
 pkill -f watchdog_web_interface
 pkill -f "bash.*watchdog_web_interface"
 sleep 2
@@ -30,8 +54,8 @@ else
 fi
 echo ""
 
-# 2. Ferma web interface
-echo "[2/4] Fermo web interface..."
+# 3. Ferma web interface
+echo "[3/5] Fermo web interface..."
 pkill -f web_interface
 pkill -f "python.*web_interface"
 sleep 2
@@ -52,8 +76,18 @@ else
 fi
 echo ""
 
-# 3. Libera porta 8080
-echo "[3/4] Libero porta 8080..."
+# 4. Ferma driver ROS2 (se attivo)
+echo "[4/5] Fermo driver ROS2..."
+if pgrep -f ur_ros2_control_node > /dev/null; then
+    pkill -f ur_ros2_control_node
+    echo "✅ Driver ROS2 fermato"
+else
+    echo "ℹ️  Driver ROS2 non attivo"
+fi
+echo ""
+
+# 5. Libera porta 8080
+echo "[5/5] Libero porta 8080..."
 PORT=${WEB_PORT:-8080}
 if lsof -i :$PORT > /dev/null 2>&1; then
     fuser -k $PORT/tcp 2>/dev/null || lsof -ti :$PORT | xargs kill -9 2>/dev/null
@@ -64,8 +98,8 @@ else
 fi
 echo ""
 
-# 4. Verifica finale
-echo "[4/4] Verifica finale..."
+# 6. Verifica finale
+echo "[6/6] Verifica finale..."
 WATCHDOG_RUNNING=$(pgrep -f watchdog_web_interface | wc -l)
 WEB_RUNNING=$(pgrep -f web_interface | wc -l)
 PORT_OCCUPIED=$(lsof -i :$PORT 2>/dev/null | wc -l)
