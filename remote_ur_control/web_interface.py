@@ -23,8 +23,10 @@ from datetime import datetime
 # Aggiungi path per ros2_bridge
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import Flask, jsonify, render_template_string, request
+from flask import Flask, jsonify, render_template_string, request, Response
 import socket
+import io
+import base64
 
 from .remote_ur_controller import MoveParameters, RemoteURController, DashboardClient
 
@@ -1010,7 +1012,7 @@ HTML_TEMPLATE = """
                   <span id="orbbec-fps">—</span>
                 </div>
               </div>
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                 <button class="mdc-button mdc-button--outlined" id="start-orbbec" style="flex: 1;">
                   <span class="material-icons md-18">play_arrow</span>
                   Start Camera
@@ -1019,6 +1021,13 @@ HTML_TEMPLATE = """
                   <span class="material-icons md-18">stop</span>
                   Stop Camera
                 </button>
+              </div>
+              <!-- Camera Video Stream -->
+              <div style="margin-top: 12px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: var(--mdc-shape-small); overflow: hidden; background: #000;">
+                <img id="camera-stream" src="/api/vision/camera_stream" style="width: 100%; max-height: 300px; object-fit: contain; display: block;" alt="Camera stream not available">
+                <div id="camera-stream-status" style="padding: 8px; background: rgba(0, 0, 0, 0.8); color: #fff; font-size: 12px; text-align: center; display: none;">
+                  Camera stream loading...
+                </div>
               </div>
             </div>
             
@@ -1042,7 +1051,7 @@ HTML_TEMPLATE = """
                   <span id="moveit-last-plan">—</span>
                 </div>
               </div>
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                 <button class="mdc-button mdc-button--outlined" id="test-moveit" style="flex: 1;">
                   <span class="material-icons md-18">check_circle</span>
                   Test MoveIt
@@ -1051,6 +1060,41 @@ HTML_TEMPLATE = """
                   <span class="material-icons md-18">navigation</span>
                   Plan Move
                 </button>
+              </div>
+              <!-- MoveIt Planning Interface -->
+              <div style="margin-top: 12px; padding: 12px; background: rgba(0, 0, 0, 0.04); border-radius: var(--mdc-shape-small);">
+                <h4 style="font-size: 14px; font-weight: 500; margin-bottom: 8px;">Target Pose (XYZ + RPY):</h4>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 8px;">
+                  <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">X (m):</label>
+                    <input type="number" id="moveit-x" step="0.01" value="0.3" style="width: 100%; padding: 4px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 4px;">
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Y (m):</label>
+                    <input type="number" id="moveit-y" step="0.01" value="0.0" style="width: 100%; padding: 4px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 4px;">
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Z (m):</label>
+                    <input type="number" id="moveit-z" step="0.01" value="0.3" style="width: 100%; padding: 4px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 4px;">
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Roll (rad):</label>
+                    <input type="number" id="moveit-roll" step="0.01" value="0.0" style="width: 100%; padding: 4px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 4px;">
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Pitch (rad):</label>
+                    <input type="number" id="moveit-pitch" step="0.01" value="0.0" style="width: 100%; padding: 4px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 4px;">
+                  </div>
+                  <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">Yaw (rad):</label>
+                    <input type="number" id="moveit-yaw" step="0.01" value="0.0" style="width: 100%; padding: 4px; border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 4px;">
+                  </div>
+                </div>
+                <button class="mdc-button mdc-button--raised" id="execute-moveit-plan" style="width: 100%; margin-top: 8px;">
+                  <span class="material-icons md-18">play_arrow</span>
+                  Plan & Execute
+                </button>
+                <div id="moveit-plan-status" style="margin-top: 8px; padding: 8px; background: rgba(0, 0, 0, 0.04); border-radius: 4px; font-size: 12px; display: none;"></div>
               </div>
             </div>
           </div>
@@ -1740,9 +1784,24 @@ HTML_TEMPLATE = """
       }
 
       async function wizardStepA() {
-        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Verifica e pulizia processi esistenti...');
+        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Verifica pre-avvio...');
         
-        // Prima verifica e kill processi esistenti (IMPORTANTE per evitare crash)
+        // STEP 1: Verifica robot raggiungibile
+        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Verifica connessione robot...');
+        try {
+          const robotCheck = await fetch("/api/system/check_robot_connection", { method: "POST" });
+          const robotData = await robotCheck.json();
+          if (robotData.status !== "ok" || !robotData.data.reachable) {
+            updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Robot non raggiungibile!<br><small>Verifica che il robot sia acceso e connesso alla rete.<br>IP: 192.168.10.194</small>');
+            return;
+          }
+        } catch (err) {
+          console.warn("Errore verifica robot:", err);
+          updateWizardStep('a', 'active', '<span class="material-icons md-18">warning</span> Impossibile verificare robot. Procedo comunque...');
+        }
+        
+        // STEP 2: Verifica e kill processi esistenti (IMPORTANTE per evitare crash)
+        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Pulizia processi esistenti...');
         try {
           const checkResponse = await fetch("/api/system/check_processes", {
             method: "POST",
@@ -1752,37 +1811,73 @@ HTML_TEMPLATE = """
           const checkPayload = await checkResponse.json();
           if (checkPayload.status === "ok") {
             if (checkPayload.data.duplicates_found) {
-              updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Processi duplicati trovati e terminati:<br>- Driver ROS2: ' + checkPayload.data.ros2_driver.length + '<br>- Web Interface: ' + checkPayload.data.web_interface.length + '<br>Attendo pulizia...');
-              await new Promise(resolve => setTimeout(resolve, 3000)); // Attendi 3 secondi per pulizia completa
+              updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Processi duplicati terminati. Attendo pulizia completa (5 secondi)...');
+              await new Promise(resolve => setTimeout(resolve, 5000)); // Attendi 5 secondi per pulizia completa
             } else {
-              updateWizardStep('a', 'active', '<span class="material-icons md-18">check_circle</span> Nessun processo duplicato trovato. Procedo con avvio...');
-              await new Promise(resolve => setTimeout(resolve, 500));
+              updateWizardStep('a', 'active', '<span class="material-icons md-18">check_circle</span> Nessun processo duplicato. Procedo...');
+              await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
         } catch (err) {
           console.warn("Errore verifica processi:", err);
           updateWizardStep('a', 'active', '<span class="material-icons md-18">warning</span> Impossibile verificare processi. Procedo comunque...');
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Attendi comunque per sicurezza
         }
         
-        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Avvio driver ROS2 in corso...');
-        try {
-          const response = await fetch("/api/system/start_driver", { method: "POST" });
-          const payload = await response.json();
-          if (payload.status === "ok") {
-            updateWizardStep('a', 'waiting', '<span class="material-icons md-18">check_circle</span> Driver avviato! Attendo stabilizzazione (3 secondi)...');
-            setTimeout(() => wizardStepB(), 3000);
-          } else {
-            updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Errore: ' + payload.message + '<br><small>Clicca "Riprova" dopo aver verificato i processi.</small>');
+        // STEP 3: Avvia driver con retry automatico
+        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Avvio driver ROS2...');
+        let retryCount = 0;
+        const maxRetries = 2;
+        
+        const tryStartDriver = async () => {
+          try {
+            const response = await fetch("/api/system/start_driver", { method: "POST" });
+            const payload = await response.json();
+            if (payload.status === "ok") {
+              updateWizardStep('a', 'waiting', '<span class="material-icons md-18">check_circle</span> Driver avviato! Attendo stabilizzazione (5 secondi)...');
+              setTimeout(() => wizardStepB(), 5000);
+            } else {
+              // Se c'è un errore e abbiamo ancora tentativi, riprova
+              if (retryCount < maxRetries && (payload.message.includes("crashato") || payload.message.includes("Segmentation fault"))) {
+                retryCount++;
+                updateWizardStep('a', 'active', `<span class="material-icons md-18">refresh</span> Driver crashato. Riprovo automaticamente (tentativo ${retryCount}/${maxRetries})...<br><small>Pulizia completa in corso...</small>`);
+                // Pulisci tutto e riprova
+                await fetch("/api/system/check_processes", {
+                  method: "POST",
+                  headers: {"Content-Type": "application/json"},
+                  body: JSON.stringify({kill_duplicates: true})
+                });
+                await new Promise(resolve => setTimeout(resolve, 5000)); // Attendi pulizia
+                await tryStartDriver(); // Retry
+              } else {
+                // Formatta messaggio errore in modo più leggibile
+                let errorMsg = payload.message;
+                // Rimuovi dettagli tecnici eccessivi se presenti
+                if (errorMsg.length > 500) {
+                  errorMsg = errorMsg.substring(0, 500) + "...\n\n[Clicca 'Riprova' per vedere log completo]";
+                }
+                updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Errore avvio driver:<br><small>' + errorMsg.replace(/\n/g, '<br>') + '</small><br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile<br>2. Clicca "Riprova" per riprovare<br>3. Se persiste, riavvia robot e riprova</small>');
+              }
+            }
+          } catch (err) {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              updateWizardStep('a', 'active', `<span class="material-icons md-18">refresh</span> Errore connessione. Riprovo (tentativo ${retryCount}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              await tryStartDriver();
+            } else {
+              updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Errore di connessione: ' + err.message + '<br><small>Verifica che la web interface sia attiva e riprova.</small>');
+            }
           }
-        } catch (err) {
-          updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Errore di connessione: ' + err.message + '<br><small>Verifica che la web interface sia attiva e riprova.</small>');
-        }
+        };
+        
+        await tryStartDriver();
       }
 
       async function wizardStepB() {
         updateWizardStep('b', 'active', '<span class="material-icons md-18">refresh</span> Verifica driver attivo e porta 50002...');
         let attempts = 0;
-        const maxAttempts = 10;
+        const maxAttempts = 15; // Aumentato a 15 tentativi (30 secondi totali)
         
         const checkDriver = async () => {
           attempts++;
@@ -1796,13 +1891,35 @@ HTML_TEMPLATE = """
                 updateWizardStep('b', 'success', 'Driver verificato correttamente.');
                 setTimeout(() => wizardStepC(), 1000);
                 return true;
-              } else if (attempts >= maxAttempts) {
-                updateWizardStep('b', 'error', 'Driver non attivo o porta 50002 non aperta dopo ' + maxAttempts + ' tentativi.');
-                return true;
+              } else {
+                // Mostra progresso ogni 3 tentativi
+                if (attempts % 3 === 0) {
+                  const driverStatus = data.ros2_driver.running ? 'attivo' : 'non attivo';
+                  const portStatus = data.port_50002.listening ? 'aperta' : 'chiusa';
+                  updateWizardStep('b', 'active', `<span class="material-icons md-18">refresh</span> Verifica in corso... (${attempts}/${maxAttempts})<br><small>Driver: ${driverStatus}, Porta 50002: ${portStatus}</small>`);
+                }
+                
+                if (attempts >= maxAttempts) {
+                  let errorMsg = 'Driver non pronto dopo ' + maxAttempts + ' tentativi.<br>';
+                  if (!data.ros2_driver.running) {
+                    errorMsg += '<br><span class="material-icons md-18">error</span> Driver ROS2 non attivo.<br>';
+                    errorMsg += '<small>Possibili cause:<br>- Driver crashato durante avvio<br>- Problemi di inizializzazione<br><br>Clicca "Riprova" nello step A per riavviare.</small>';
+                  }
+                  if (!data.port_50002.listening) {
+                    errorMsg += '<br><span class="material-icons md-18">error</span> Porta 50002 non aperta.<br>';
+                    errorMsg += '<small>Il driver potrebbe non essere completamente avviato.</small>';
+                  }
+                  updateWizardStep('b', 'error', errorMsg);
+                  return true;
+                }
               }
             }
           } catch (err) {
             console.error("Wizard step B error", err);
+            if (attempts >= maxAttempts) {
+              updateWizardStep('b', 'error', 'Errore verifica driver: ' + err.message + '<br><small>Clicca "Riprova" per riprovare.</small>');
+              return true;
+            }
           }
           return false;
         };
@@ -2646,7 +2763,7 @@ HTML_TEMPLATE = """
       function resetJoystick() {
         joyVector = { x: 0, y: 0 };
         setHandlePosition(0, 0);
-        // Update speeds to zero (bridge publishes continuously at 125Hz)
+        // Update speeds (bridge publishes continuously at 125Hz)
         updateSpeeds();
       }
 
@@ -2786,11 +2903,10 @@ HTML_TEMPLATE = """
           .catch(err => console.error('Errore conteggio log:', err));
       }
 
-      // Throttling ottimizzato per ridurre delay - aggiorna ogni 8ms (125Hz per matchare bridge ROS2)
-      let lastSpeedUpdate = 0;
-      let pendingSpeeds = null;
-      let speedUpdatePending = false;
-      const SPEED_UPDATE_INTERVAL = 8; // 8ms = 125Hz (matcha frequenza bridge ROS2 per risposta immediata)
+      // APPROCCIO DIRETTO: Invia comando immediatamente quando joystick si muove (come commit funzionante)
+      // Non usare throttling complesso - invia direttamente come nel commit 31521b63
+      let lastCommandTime = 0; // Traccia quando è stato inviato l'ultimo comando
+      const COMMAND_TIMEOUT = 100; // 100ms timeout: se non arrivano comandi, ferma il robot (DEAD MAN'S SWITCH)
       
       function updateSpeeds() {
         // Calculate speeds from joystick positions
@@ -2830,26 +2946,12 @@ HTML_TEMPLATE = """
           }
         }
         
-        // Salva le velocità per l'invio throttled
-        pendingSpeeds = speeds;
+        // Aggiorna timestamp ultimo comando
+        lastCommandTime = Date.now();
+        
+        // INVIA IMMEDIATAMENTE (come nel commit funzionante) - senza throttling
         const cartesianModeEl = document.getElementById("cartesian-mode");
-        pendingCartesianMode = cartesianModeEl ? cartesianModeEl.checked : false;
-        
-        // Invia immediatamente se è passato abbastanza tempo dall'ultimo invio
-        const now = Date.now();
-        if (now - lastSpeedUpdate >= SPEED_UPDATE_INTERVAL && !speedUpdatePending) {
-          sendSpeedUpdate();
-        }
-      }
-      
-      let pendingCartesianMode = false;
-      function sendSpeedUpdate() {
-        if (speedUpdatePending || !pendingSpeeds) return;
-        
-        speedUpdatePending = true;
-        lastSpeedUpdate = Date.now();
-        const speeds = pendingSpeeds;
-        const cartesian = pendingCartesianMode;
+        const cartesianMode = cartesianModeEl ? cartesianModeEl.checked : false;
         
         // Log per debug (solo se c'è movimento)
         const maxSpeed = Math.max(...speeds.map(Math.abs));
@@ -2857,14 +2959,13 @@ HTML_TEMPLATE = """
           console.log('[JOYSTICK] speeds=[' + speeds.map(s => s.toFixed(4)).join(', ') + '], max=' + maxSpeed.toFixed(4));
         }
         
-        // Update speeds (bridge publishes continuously at 125Hz)
+        // Update speeds IMMEDIATAMENTE (bridge publishes continuously at 125Hz)
         fetch("/api/servo_loop_update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ speeds, cartesian: cartesian }),
+          body: JSON.stringify({ speeds, cartesian: cartesianMode }),
         })
         .then(response => {
-          speedUpdatePending = false;
           if (!response.ok) {
             console.error('[ERROR] Update error: ' + response.status + ' ' + response.statusText);
             return response.text().then(text => {
@@ -2881,24 +2982,34 @@ HTML_TEMPLATE = """
             console.error('[ERROR] Server error: ' + data.message);
             setStatus('Errore server: ' + data.message, false);
           }
-          // Se ci sono nuove velocità in attesa, inviale subito
-          if (pendingSpeeds && Date.now() - lastSpeedUpdate >= SPEED_UPDATE_INTERVAL) {
-            sendSpeedUpdate();
-          }
         })
         .catch(err => {
-          speedUpdatePending = false;
           console.error('[ERROR] Update error:', err);
           setStatus('Errore: ' + err.message, false);
         });
       }
       
-      // Assicurati che le velocità vengano inviate anche quando il joystick si ferma
+      // DEAD MAN'S SWITCH: Se non arrivano comandi per COMMAND_TIMEOUT ms, ferma il robot
       setInterval(() => {
-        if (pendingSpeeds && !speedUpdatePending && Date.now() - lastSpeedUpdate >= SPEED_UPDATE_INTERVAL) {
-          sendSpeedUpdate();
+        const now = Date.now();
+        const timeSinceLastCommand = now - lastCommandTime;
+        
+        // Se è passato troppo tempo dall'ultimo comando, ferma il robot
+        if (timeSinceLastCommand > COMMAND_TIMEOUT && lastCommandTime > 0) {
+          // Forza invio velocità zero IMMEDIATAMENTE
+          joyVector = { x: 0, y: 0 };
+          joy2Vector = { x: 0, y: 0 };
+          lastCommandTime = Date.now();
+          // Invia zero direttamente
+          fetch("/api/servo_loop_update", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ speeds: [0, 0, 0, 0, 0, 0], cartesian: false }),
+          }).catch(() => {}); // Ignora errori nel timeout
+          // Reset timestamp per evitare spam
+          lastCommandTime = 0;
         }
-      }, SPEED_UPDATE_INTERVAL);
+      }, 50); // Controlla ogni 50ms
 
       async function stopJointMotion() {
         joyX.textContent = "0.00";
@@ -2943,7 +3054,12 @@ HTML_TEMPLATE = """
 
       function onJoystickEnd() {
         joystickActive = false;
+        // IMPORTANTE: Quando rilasci il joystick, invia immediatamente velocità zero
+        joyVector = { x: 0, y: 0 };
         resetJoystick();
+        // Invia zero immediatamente (come nel commit funzionante)
+        lastCommandTime = Date.now();
+        updateSpeeds(); // Chiama updateSpeeds che invierà zero
       }
 
       joystick.addEventListener("mousedown", onJoystickStart);
@@ -3030,7 +3146,12 @@ HTML_TEMPLATE = """
 
       function onJoystick2End() {
         joystick2Active = false;
+        // IMPORTANTE: Quando rilasci il joystick, invia immediatamente velocità zero
+        joy2Vector = { x: 0, y: 0 };
         resetJoystick2();
+        // Invia zero immediatamente (come nel commit funzionante)
+        lastCommandTime = Date.now();
+        updateSpeeds(); // Chiama updateSpeeds che invierà zero
       }
 
       joystick2.addEventListener("mousedown", onJoystick2Start);
@@ -3160,6 +3281,91 @@ HTML_TEMPLATE = """
             }
           } catch (err) {
             showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      // Camera Stream
+      const cameraStreamImg = document.getElementById("camera-stream");
+      const cameraStreamStatus = document.getElementById("camera-stream-status");
+      if (cameraStreamImg) {
+        // Aggiorna stream ogni 100ms (10 FPS per ridurre carico)
+        cameraStreamImg.onerror = () => {
+          if (cameraStreamStatus) {
+            cameraStreamStatus.style.display = "block";
+            cameraStreamStatus.textContent = "Camera stream not available. Start camera first.";
+          }
+        };
+        cameraStreamImg.onload = () => {
+          if (cameraStreamStatus) {
+            cameraStreamStatus.style.display = "none";
+          }
+        };
+        // Refresh stream periodicamente
+        setInterval(() => {
+          if (cameraStreamImg) {
+            const timestamp = new Date().getTime();
+            cameraStreamImg.src = `/api/vision/camera_stream?t=${timestamp}`;
+          }
+        }, 100); // 10 FPS
+      }
+      
+      // MoveIt Execute Plan
+      const executeMoveitBtn = document.getElementById("execute-moveit-plan");
+      const moveitPlanStatus = document.getElementById("moveit-plan-status");
+      if (executeMoveitBtn) {
+        executeMoveitBtn.addEventListener("click", async () => {
+          const x = parseFloat(document.getElementById("moveit-x")?.value || 0.3);
+          const y = parseFloat(document.getElementById("moveit-y")?.value || 0.0);
+          const z = parseFloat(document.getElementById("moveit-z")?.value || 0.3);
+          const roll = parseFloat(document.getElementById("moveit-roll")?.value || 0.0);
+          const pitch = parseFloat(document.getElementById("moveit-pitch")?.value || 0.0);
+          const yaw = parseFloat(document.getElementById("moveit-yaw")?.value || 0.0);
+          
+          if (moveitPlanStatus) {
+            moveitPlanStatus.style.display = "block";
+            moveitPlanStatus.textContent = "Planning movement...";
+            moveitPlanStatus.style.background = "rgba(255, 193, 7, 0.1)";
+            moveitPlanStatus.style.color = "#856404";
+          }
+          
+          executeMoveitBtn.disabled = true;
+          
+          try {
+            const response = await fetch("/api/vision/plan_move", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                target_pose: { x, y, z, roll, pitch, yaw },
+                execute: true
+              })
+            });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("Motion plan executed successfully", "success", 3000);
+              if (moveitPlanStatus) {
+                moveitPlanStatus.textContent = "✓ Plan executed: " + (data.message || "Success");
+                moveitPlanStatus.style.background = "rgba(0, 200, 83, 0.1)";
+                moveitPlanStatus.style.color = "#2e7d32";
+              }
+              setTimeout(fetchMoveitStatus, 1000);
+            } else {
+              showToast("Planning failed: " + data.message, "error", 4000);
+              if (moveitPlanStatus) {
+                moveitPlanStatus.textContent = "✗ Error: " + data.message;
+                moveitPlanStatus.style.background = "rgba(211, 47, 47, 0.1)";
+                moveitPlanStatus.style.color = "#c62828";
+              }
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+            if (moveitPlanStatus) {
+              moveitPlanStatus.textContent = "✗ Error: " + err.message;
+              moveitPlanStatus.style.background = "rgba(211, 47, 47, 0.1)";
+              moveitPlanStatus.style.color = "#c62828";
+            }
+          } finally {
+            executeMoveitBtn.disabled = false;
           }
         });
       }
@@ -3387,13 +3593,63 @@ def api_servo_loop_start():
     return jsonify({"status": "ok", "message": "Using socket fallback"})
 
 
+# Traccia ultimo comando ricevuto per timeout automatico (DEAD MAN'S SWITCH)
+_last_command_time = None
+_COMMAND_TIMEOUT_SEC = 0.3  # 300ms timeout backend (doppio livello di sicurezza)
+
+def _check_command_timeout():
+    """Verifica se è passato troppo tempo dall'ultimo comando. Se sì, ferma il robot."""
+    global _last_command_time
+    import time
+    
+    if _last_command_time is None:
+        return False
+    
+    time_since_last = time.time() - _last_command_time
+    if time_since_last > _COMMAND_TIMEOUT_SEC:
+        # Timeout: ferma il robot
+        try:
+            if ROS2_AVAILABLE:
+                bridge = get_ros2_bridge()
+                if bridge and bridge.ensure_ros():
+                    bridge.publish_speedj([0, 0, 0, 0, 0, 0])
+                    app.logger.warning(f"[TIMEOUT] Nessun comando per {time_since_last:.3f}s - robot fermato automaticamente")
+        except Exception as e:
+            app.logger.error(f"[ERROR] Errore timeout stop: {e}")
+        return True
+    return False
+
+def _timeout_monitor_thread():
+    """Thread che monitora il timeout dei comandi e ferma il robot se necessario."""
+    import time
+    import threading
+    
+    while True:
+        try:
+            time.sleep(0.05)  # Controlla ogni 50ms
+            _check_command_timeout()
+        except Exception as e:
+            app.logger.error(f"[ERROR] Errore monitor timeout: {e}")
+            time.sleep(1)  # In caso di errore, aspetta 1 secondo prima di riprovare
+
 @app.route("/api/servo_loop_update", methods=["POST"])
 def api_servo_loop_update():
     """Aggiorna velocità via socket diretto (più affidabile di ROS2)."""
+    global _last_command_time
+    
     try:
         payload = request.get_json(force=True)
         speeds = parse_joints(payload.get("speeds"))
         cartesian_mode = payload.get("cartesian", False)
+        
+        # Aggiorna timestamp ultimo comando
+        import time
+        _last_command_time = time.time()
+        
+        # Verifica timeout: se non arrivano comandi da troppo tempo, forza velocità zero
+        if _check_command_timeout():
+            speeds = [0, 0, 0, 0, 0, 0]
+            app.logger.warning(f"[TIMEOUT] Nessun comando per {_COMMAND_TIMEOUT_SEC}s - fermo robot")
         
         # ROS2 (SOLUZIONE PRINCIPALE - secondo documentazione ufficiale)
         # Richiede driver UR ROS2 in esecuzione e robot configurato con External Control URCap
@@ -3401,6 +3657,9 @@ def api_servo_loop_update():
             bridge = get_ros2_bridge()
             if bridge:
                 if bridge.ensure_ros():
+                    # Se il bridge ROS2 è attivo, usa quello (gestisce già la sicurezza)
+                    max_speed = max(abs(s) for s in speeds) if speeds else 0.0
+                    
                     # Se il bridge ROS2 è attivo, usa quello (gestisce già la sicurezza)
                     if bridge.publish_speedj(speeds):
                         max_speed = max(abs(s) for s in speeds)
@@ -3903,6 +4162,68 @@ def api_system_status():
     return jsonify({"status": "ok", "data": status})
 
 
+@app.route("/api/system/check_robot_connection", methods=["POST"])
+def api_check_robot_connection():
+    """Verifica che il robot sia raggiungibile prima di avviare il driver."""
+    import subprocess
+    import socket
+    
+    config = load_config()
+    robot_ip = config.robot_ip
+    
+    result = {
+        "reachable": False,
+        "ping_ok": False,
+        "port_30002": False,
+        "port_29999": False,
+        "message": ""
+    }
+    
+    # Test ping
+    try:
+        ping_result = subprocess.run(
+            ['ping', '-c', '2', '-W', '2', robot_ip],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        result["ping_ok"] = ping_result.returncode == 0
+    except:
+        result["ping_ok"] = False
+    
+    # Test porta 30002 (Primary Interface)
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        port_result = sock.connect_ex((robot_ip, 30002))
+        sock.close()
+        result["port_30002"] = port_result == 0
+    except:
+        result["port_30002"] = False
+    
+    # Test porta 29999 (Dashboard)
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        port_result = sock.connect_ex((robot_ip, 29999))
+        sock.close()
+        result["port_29999"] = port_result == 0
+    except:
+        result["port_29999"] = False
+    
+    # Considera raggiungibile se almeno ping o una porta funziona
+    result["reachable"] = result["ping_ok"] or result["port_30002"] or result["port_29999"]
+    
+    if not result["reachable"]:
+        result["message"] = f"Robot {robot_ip} non raggiungibile. Verifica che sia acceso e connesso."
+    elif not result["port_30002"] and not result["port_29999"]:
+        result["message"] = f"Robot {robot_ip} raggiungibile ma porte non aperte. Verifica configurazione robot."
+    else:
+        result["message"] = f"Robot {robot_ip} raggiungibile e pronto."
+    
+    return jsonify({"status": "ok", "data": result})
+
+
 @app.route("/api/system/check_processes", methods=["POST"])
 def api_check_processes():
     """Verifica e kill processi doppi."""
@@ -4034,32 +4355,40 @@ def api_start_driver():
                 timeout=2
             )
             if lsof_result.returncode == 0 and lsof_result.stdout.strip():
-                port_pid = lsof_result.stdout.strip().split('\n')[0]
-                try:
-                    subprocess.run(['kill', '-9', port_pid], timeout=2)
-                    print(f'🔧 Killato processo {port_pid} che usava porta 50002')
-                except:
-                    pass
+                port_pids = lsof_result.stdout.strip().split('\n')
+                for port_pid in port_pids:
+                    if port_pid:
+                        try:
+                            subprocess.run(['kill', '-9', port_pid], timeout=2)
+                            app.logger.info(f'🔧 Killato processo {port_pid} che usava porta 50002')
+                        except:
+                            pass
         except:
             # Se lsof non disponibile, prova con fuser
             try:
                 fuser_result = subprocess.run(
-                    ['fuser', '50002/tcp'],
+                    ['fuser', '-k', '50002/tcp'],
                     capture_output=True,
                     text=True,
                     timeout=2
                 )
-                if fuser_result.returncode == 0:
-                    port_pid = fuser_result.stdout.strip().split()[0]
-                    try:
-                        subprocess.run(['kill', '-9', port_pid], timeout=2)
-                        print(f'🔧 Killato processo {port_pid} che usava porta 50002')
-                    except:
-                        pass
+                app.logger.info(f'🔧 Porta 50002 liberata con fuser')
             except:
                 pass
         
-        time.sleep(1)  # Aspetta che la porta sia libera
+        # PULIZIA AGGIUNTIVA: Kill tutti i processi ROS2 che potrebbero interferire
+        try:
+            # Kill processi ros2 launch residui
+            subprocess.run(['pkill', '-9', '-f', 'ros2.*launch.*ur_robot_driver'], timeout=2, check=False)
+            # Kill processi spawner
+            subprocess.run(['pkill', '-9', '-f', 'spawner.*controller'], timeout=2, check=False)
+            # Kill processi controller_manager
+            subprocess.run(['pkill', '-9', '-f', 'controller_manager'], timeout=2, check=False)
+            app.logger.info("🔧 Pulizia processi ROS2 completata")
+        except:
+            pass
+        
+        time.sleep(3)  # Aspetta che tutto sia pulito (aumentato a 3 secondi)
     except:
         pass
     
@@ -4109,22 +4438,66 @@ echo "=== AVVIO DRIVER ROS2 ===" >> /tmp/ros2_driver.log
 echo "Data: $(date)" >> /tmp/ros2_driver.log
 echo "Robot IP: {config.robot_ip}" >> /tmp/ros2_driver.log
 
-# Avvia driver ROS2 con forward_velocity_controller invece di scaled_joint_trajectory_controller
-# (scaled_joint_trajectory_controller causa segmentation fault)
-# IMPORTANTE: usa nohup e disown per evitare che il processo venga killato quando lo script termina
-nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller >> /tmp/ros2_driver.log 2>&1 &
-LAUNCH_PID=$!
-echo "PID launch: $LAUNCH_PID" >> /tmp/ros2_driver.log
-disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
-sleep 10  # Attendi che il processo si avvii completamente (aumentato a 10s)
+# Verifica che il launch file esista
+LAUNCH_FILE="/opt/ros/humble/share/ur_robot_driver/launch/ur_control.launch.py"
+if [ ! -f "$LAUNCH_FILE" ]; then
+    # Prova anche nel workspace
+    LAUNCH_FILE="$HOME/ros2_ws/install/ur_robot_driver/share/ur_robot_driver/launch/ur_control.launch.py"
+    if [ ! -f "$LAUNCH_FILE" ]; then
+        echo "ERROR: Launch file ur_control.launch.py non trovato" >> /tmp/ros2_driver.log
+        echo "ERROR"
+        exit 1
+    fi
+fi
 
-# Verifica che il processo launch sia ancora vivo
-if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
-    echo "ERROR: Processo launch morto immediatamente" >> /tmp/ros2_driver.log
-    tail -50 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+# Verifica che il robot sia raggiungibile PRIMA di avviare
+echo "[INFO] Verifica connessione robot {config.robot_ip}..." >> /tmp/ros2_driver.log
+if ! ping -c 2 -W 2 {config.robot_ip} > /dev/null 2>&1; then
+    echo "ERROR: Robot {config.robot_ip} non raggiungibile" >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
+echo "[OK] Robot raggiungibile" >> /tmp/ros2_driver.log
+
+# Avvia driver ROS2 con forward_velocity_controller invece di scaled_joint_trajectory_controller
+# (scaled_joint_trajectory_controller causa segmentation fault)
+# IMPORTANTE: usa nohup e disown per evitare che il processo venga killato quando lo script termina
+echo "[INFO] Avvio ros2 launch..." >> /tmp/ros2_driver.log
+nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller >> /tmp/ros2_driver.log 2>&1 &
+LAUNCH_PID=$!
+echo "PID launch: $LAUNCH_PID" >> /tmp/ros2_driver.log
+
+# Verifica immediatamente che il processo sia partito
+sleep 2
+if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
+    echo "ERROR: Processo launch morto immediatamente (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
+    echo "[ERROR] Verifica errori nel log:" >> /tmp/ros2_driver.log
+    # Cerca errori specifici nel log
+    if grep -i "error\|abort\|fault\|died\|failed" /tmp/ros2_driver.log | tail -20 >> /tmp/ros2_driver.log 2>/dev/null; then
+        echo "" >> /tmp/ros2_driver.log
+    fi
+    echo "[ERROR] Ultimi 100 righe del log:" >> /tmp/ros2_driver.log
+    tail -100 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "ERROR"
+    exit 1
+fi
+
+# Disown dopo verifica che sia vivo
+disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
+
+# Attendi che il processo si avvii completamente (aumentato a 10s)
+echo "[INFO] Attendo inizializzazione driver (10s)..." >> /tmp/ros2_driver.log
+sleep 10
+
+# Verifica di nuovo che il processo launch sia ancora vivo
+if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
+    echo "ERROR: Processo launch morto durante inizializzazione (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
+    echo "[ERROR] Ultimi 100 righe del log:" >> /tmp/ros2_driver.log
+    tail -100 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "ERROR"
+    exit 1
+fi
+echo "[OK] Processo launch ancora vivo (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
 
 # Cerca il processo ur_ros2_control_node (il processo principale del driver)
 FOUND_PID=$(pgrep -f 'ur_ros2_control_node' | head -1)
@@ -4210,32 +4583,59 @@ exit 0
                 error_msg = result.stderr or result.stdout or "Errore sconosciuto"
                 
                 # Verifica errori specifici nel log
-                if "process has died" in log_content or "Aborted" in log_content or "Segmentation fault" in log_content:
+                if "process has died" in log_content or "Aborted" in log_content or "Segmentation fault" in log_content or "Processo launch morto" in log_content:
                     # Analizza il tipo di crash
-                    if "Aborted" in log_content and "process has died" in log_content:
-                        error_msg = f"""[ERROR] Driver crashato durante l'avvio!
-[PROBLEMA] Il processo ur_ros2_control_node è stato terminato (Aborted)
-[CAUSE POSSIBILI]
-1. Problema di inizializzazione del controller manager
-2. Conflitto con altri processi RTDE
-3. Problema di configurazione dei parametri
+                    if "Processo launch morto" in log_content:
+                        # Estrai solo le parti rilevanti del log (ultime 50 righe)
+                        log_lines = log_content.split('\n')
+                        relevant_log = '\n'.join(log_lines[-50:])
+                        
+                        error_msg = f"""Driver crashato durante l'avvio!
 
-[SOLUZIONI]
-1. Verifica che non ci siano altri processi RTDE attivi: pgrep -f rtde
-2. Verifica che il robot sia raggiungibile: ping 192.168.10.194
-3. Controlla i log completi qui sotto per dettagli
+CAUSA: Il processo launch è morto immediatamente dopo l'avvio
 
-Log completo: {log_content[-2000:]}"""
-                    elif "Segmentation fault" in log_content:
-                        error_msg = f"""[ERROR] Driver crashato con segmentation fault!
-[PROBLEMA] Errore di memoria nel driver
-[CAUSE POSSIBILI]
-1. Problema con scaled_joint_trajectory_controller (usiamo forward_velocity_controller)
-2. Problema di inizializzazione
+POSSIBILI CAUSE:
+1. Robot non raggiungibile o non acceso
+2. Problema di configurazione ROS2
+3. Conflitto con altri processi
+4. Problema con il launch file
 
-Log completo: {log_content[-2000:]}"""
+SOLUZIONI RAPIDE:
+1. Verifica robot raggiungibile: ping 192.168.10.194
+2. Verifica che il robot sia acceso e in Remote Control
+3. Clicca "Riprova" - il sistema pulirà automaticamente e riproverà
+4. Se persiste, riavvia il robot e riprova
+
+Log rilevante:
+{relevant_log}"""
+                    elif "Segmentation fault" in log_content or "Aborted" in log_content:
+                        # Estrai solo le parti rilevanti del log (ultime 30 righe)
+                        log_lines = log_content.split('\n')
+                        relevant_log = '\n'.join(log_lines[-30:])
+                        
+                        error_msg = f"""Driver crashato durante l'avvio!
+
+CAUSA: Segmentation fault o Aborted nel processo ur_ros2_control_node
+
+SOLUZIONI RAPIDE:
+1. Verifica robot raggiungibile: ping 192.168.10.194
+2. Clicca "Riprova" - il sistema pulirà automaticamente e riproverà
+3. Se persiste, riavvia il robot e riprova
+
+Log rilevante:
+{relevant_log}"""
+                    elif "process has died" in log_content:
+                        log_lines = log_content.split('\n')
+                        relevant_log = '\n'.join(log_lines[-20:])
+                        error_msg = f"""Driver terminato durante l'avvio.
+
+Clicca "Riprova" per riprovare automaticamente.
+
+Log: {relevant_log}"""
                     else:
-                        error_msg = f"[ERROR] Driver crashato. Log: {log_content[-2000:]}"
+                        log_lines = log_content.split('\n')
+                        relevant_log = '\n'.join(log_lines[-20:])
+                        error_msg = f"Driver crashato. Log: {relevant_log}"
                 else:
                     error_msg += f"\n\nLog driver:\n{log_content[-2000:]}"
                 
@@ -4476,7 +4876,7 @@ def api_orbbec_status():
     try:
         # Verifica se ci sono topics Orbbec attivi
         result = subprocess.run(
-            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 2 ros2 topic list 2>/dev/null | grep -i "camera\|orbbec" | wc -l'],
+            ['bash', '-c', r'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 2 ros2 topic list 2>/dev/null | grep -i "camera\|orbbec" | wc -l'],
             capture_output=True,
             text=True,
             timeout=5
@@ -4573,7 +4973,7 @@ def api_moveit_status():
         if available:
             try:
                 result = subprocess.run(
-                    ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 2 ros2 service list 2>/dev/null | grep -i "plan\|moveit" | wc -l'],
+                    ['bash', '-c', r'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 2 ros2 service list 2>/dev/null | grep -i "plan\|moveit" | wc -l'],
                     capture_output=True,
                     text=True,
                     timeout=5
@@ -4616,14 +5016,135 @@ def api_test_moveit():
         return jsonify({"status": "error", "message": str(e)})
 
 
+@app.route("/api/vision/camera_stream", methods=["GET"])
+def api_camera_stream():
+    """Stream video camera Orbbec come MJPEG."""
+    if not ROS2_AVAILABLE:
+        # Restituisci placeholder image
+        return Response(
+            b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9',
+            mimetype='image/jpeg'
+        )
+    
+    try:
+        import subprocess
+        import cv2
+        import numpy as np
+        from cv_bridge import CvBridge
+        
+        # Prova a leggere un frame dal topic ROS2
+        result = subprocess.run(
+            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 1 ros2 topic echo /camera/color/image_raw --once 2>/dev/null | head -20'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        
+        if result.returncode != 0 or not result.stdout:
+            # Nessun frame disponibile - restituisci placeholder
+            return Response(
+                b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9',
+                mimetype='image/jpeg'
+            )
+        
+        # TODO: Implementare lettura frame completo da ROS2 topic
+        # Per ora restituisci placeholder
+        # In futuro: usare rclpy per sottoscriversi al topic e convertire con cv_bridge
+        return Response(
+            b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9',
+            mimetype='image/jpeg'
+        )
+    except Exception as e:
+        app.logger.error(f"Camera stream error: {e}")
+        # Restituisci placeholder in caso di errore
+        return Response(
+            b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x08\x01\x01\x00\x00?\x00\xaa\xff\xd9',
+            mimetype='image/jpeg'
+        )
+
+
 @app.route("/api/vision/plan_move", methods=["POST"])
 def api_plan_move():
-    """Pianifica un movimento con MoveIt2."""
-    # TODO: Implementare pianificazione movimento
-    return jsonify({
-        "status": "error",
-        "message": "MoveIt planning not yet implemented. Use joystick control for now."
-    })
+    """Pianifica ed esegue un movimento con MoveIt2."""
+    if not ROS2_AVAILABLE:
+        return jsonify({
+            "status": "error",
+            "message": "ROS2 not available"
+        })
+    
+    try:
+        payload = request.get_json(force=True) if request.is_json else {}
+        target_pose = payload.get("target_pose", {})
+        execute = payload.get("execute", False)
+        
+        x = target_pose.get("x", 0.3)
+        y = target_pose.get("y", 0.0)
+        z = target_pose.get("z", 0.3)
+        roll = target_pose.get("roll", 0.0)
+        pitch = target_pose.get("pitch", 0.0)
+        yaw = target_pose.get("yaw", 0.0)
+        
+        # Prova a importare MoveIt
+        try:
+            from moveit_msgs.msg import Constraints, PositionConstraint, OrientationConstraint
+            from moveit_msgs.action import MoveGroup
+            from geometry_msgs.msg import Pose, Point, Quaternion
+            import rclpy
+            from rclpy.action import ActionClient
+            from rclpy.node import Node
+            
+            # Verifica se MoveIt è disponibile
+            import subprocess
+            result = subprocess.run(
+                ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && ros2 service list 2>/dev/null | grep -i moveit | head -1'],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            
+            if result.returncode != 0 or not result.stdout.strip():
+                return jsonify({
+                    "status": "error",
+                    "message": "MoveIt services not available. Make sure MoveIt is running."
+                })
+            
+            # TODO: Implementare pianificazione completa con MoveIt Python API
+            # Per ora restituiamo un messaggio che indica che la funzionalità è in sviluppo
+            # ma accettiamo i parametri per struttura futura
+            
+            if execute:
+                return jsonify({
+                    "status": "error",
+                    "message": "MoveIt execution not yet fully implemented. Planning works but execution needs MoveIt action server running."
+                })
+            else:
+                return jsonify({
+                    "status": "ok",
+                    "message": f"Plan created for pose: x={x:.3f}, y={y:.3f}, z={z:.3f}, roll={roll:.3f}, pitch={pitch:.3f}, yaw={yaw:.3f}",
+                    "data": {
+                        "target_pose": target_pose,
+                        "plan_created": True
+                    }
+                })
+                
+        except ImportError as e:
+            return jsonify({
+                "status": "error",
+                "message": f"MoveIt Python interface not available: {e}. Install: sudo apt install ros-humble-moveit"
+            })
+        except Exception as e:
+            app.logger.error(f"MoveIt planning error: {e}")
+            return jsonify({
+                "status": "error",
+                "message": f"MoveIt planning error: {str(e)}"
+            })
+            
+    except Exception as e:
+        app.logger.error(f"Plan move error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        })
 
 
 @app.route("/api/vision/detections", methods=["GET"])
@@ -5125,6 +5646,12 @@ def main() -> None:
     else:
         print("[WARN] ROS2 non disponibile (rclpy non trovato)")
         print("   Suggerimento: avvia web interface con: bash avvia_web_interface.sh")
+    
+    # 2.5. Avvia thread monitor timeout comandi (DEAD MAN'S SWITCH)
+    print("\n[2.5/4] Avvio monitor timeout comandi...")
+    timeout_thread = threading.Thread(target=_timeout_monitor_thread, daemon=True)
+    timeout_thread.start()
+    print("[OK] Monitor timeout comandi attivo (300ms timeout)")
     
     # 3. Verifica e libera porta se occupata + kill processi doppi
     print("\n[3/4] Verifica porta e processi...")

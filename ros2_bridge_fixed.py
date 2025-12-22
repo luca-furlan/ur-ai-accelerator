@@ -207,7 +207,7 @@ class ROS2Bridge:
         self._user_command_received = False  # Flag CRITICO: comando utente ricevuto almeno una volta?
         self._speed_lock = threading.Lock()
         self._publish_rate = 125.0  # Hz - Frequenza originale che funzionava (125Hz = 8ms intervals)
-        self._smoothing_factor = 0.5  # Exponential smoothing: aumentato per risposta più rapida (0.5 = più reattivo, meno smooth)
+        self._smoothing_factor = 0.15  # Exponential smoothing: normale per movimento fluido (come commit funzionante)
         # Higher value = faster response but less smooth (0.5 = buon compromesso per controllo real-time)
         self._trajectory_duration = 0.1  # Duration of each trajectory segment (100ms per movimento fluido)
         # TEMPORANEO: usa forward_velocity_controller per evitare segfault
@@ -438,10 +438,20 @@ class ROS2Bridge:
                         time.sleep(interval)
                         continue
                     
-                    # IMPORTANTE: NON pubblicare se tutte le velocità sono zero (o molto vicine a zero)
-                    # Questo evita movimenti indesiderati quando joystick è fermo
+                    # IMPORTANTE: Pubblica zero se target è zero (per fermare robot), ma non pubblicare se tutto è già zero da tempo
                     max_speed = max(abs(s) for s in speeds)
-                    if max_speed < 0.001:  # Se tutte velocità < 0.001 rad/s, non pubblicare
+                    max_target = max(abs(t) for t in targets)
+                    
+                    # Se target è zero ma current non è ancora zero, pubblica zero per fermare
+                    if max_target < 0.001 and max_speed >= 0.001:
+                        # Target è zero ma robot ancora in movimento: pubblica zero per fermare
+                        speeds = [0.0] * 6
+                        # Continua a pubblicare finché non si ferma
+                    elif max_speed < 0.001 and max_target < 0.001:
+                        # Tutto è zero da tempo: non pubblicare (robot già fermo)
+                        # Ma resetta current_speeds a zero per sicurezza
+                        with self._speed_lock:
+                            self._current_speeds = [0.0] * 6
                         time.sleep(interval)
                         continue
 
@@ -646,24 +656,24 @@ class ROS2Bridge:
     
     def publish_speedj(self, speeds):
         """Update target speeds (will be published continuously at 125Hz).
-        
+
         This method updates the target velocities that are published
         continuously by the background thread. This ensures smooth,
         high-frequency control as recommended by Universal Robots.
         """
         if not self.ensure_ros():
             return False
-        
+
         try:
             # CRITICO: Segna che l'utente ha dato un comando esplicito
             # Questo permette al publish loop di iniziare a pubblicare
             self._user_command_received = True
-            print(f'✅ User command received! Speeds: {speeds}')
             
             # Update target speeds (thread-safe)
             with self._speed_lock:
                 self._target_speeds = [float(s) for s in speeds]
                 self._last_command_payload = list(self._target_speeds)
+            
             self._last_command_time = time.time()
             return True
         except Exception as e:
@@ -689,7 +699,7 @@ class ROS2Bridge:
         """Stop command - sets all velocities to zero."""
         if not self.ensure_ros():
             return False
-        
+
         try:
             # CRITICO: Segna che l'utente ha dato un comando esplicito (stop)
             # Questo permette al publish loop di pubblicare velocità zero
