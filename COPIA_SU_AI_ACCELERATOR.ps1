@@ -46,6 +46,7 @@ $filesToTransfer = @(
     @{Local = "avvia_vision_system.sh"; Remote = "$REMOTE_DIR/avvia_vision_system.sh"},
     @{Local = "FERMA_TUTTO.sh"; Remote = "$REMOTE_DIR/FERMA_TUTTO.sh"},
     @{Local = "remote_ur_control/web_interface.py"; Remote = "$REMOTE_DIR/remote_ur_control/web_interface.py"},
+    @{Local = "ros2_bridge_fixed.py"; Remote = "$REMOTE_DIR/ros2_bridge_fixed.py"},
     @{Local = "SISTEMA_VISION_COMPLETO.md"; Remote = "$REMOTE_DIR/SISTEMA_VISION_COMPLETO.md"},
     @{Local = "AGGIORNA_SU_AI_ACCELERATOR.md"; Remote = "$REMOTE_DIR/AGGIORNA_SU_AI_ACCELERATOR.md"}
 )
@@ -85,10 +86,10 @@ if ($failed -gt 0) {
 }
 Write-Host ""
 
-# Rendi eseguibili gli script
-Write-Host "[4/4] Impostazione permessi esecuzione..." -ForegroundColor Yellow
-ssh "$SSH_USER@$AI_ACCELERATOR_IP" "cd $REMOTE_DIR && chmod +x vision_yolo_detector.py avvia_vision_system.sh FERMA_TUTTO.sh 2>/dev/null || true" 2>&1 | Out-Null
-Write-Host "✅ Permessi impostati" -ForegroundColor Green
+# Rendi eseguibili gli script e converti terminazioni di riga
+Write-Host "[4/4] Impostazione permessi esecuzione e conversione terminazioni di riga..." -ForegroundColor Yellow
+ssh "$SSH_USER@$AI_ACCELERATOR_IP" "cd $REMOTE_DIR && dos2unix FERMA_TUTTO.sh avvia_vision_system.sh 2>/dev/null || sed -i 's/\r$//' FERMA_TUTTO.sh avvia_vision_system.sh 2>/dev/null || true; chmod +x vision_yolo_detector.py avvia_vision_system.sh FERMA_TUTTO.sh 2>/dev/null || true" 2>&1 | Out-Null
+Write-Host "✅ Permessi impostati e terminazioni di riga convertite" -ForegroundColor Green
 Write-Host ""
 
 # Verifica file sul server
