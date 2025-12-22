@@ -2050,9 +2050,41 @@ HTML_TEMPLATE = """
         }
         
         // STEP 3: Avvia driver con retry automatico e verifica stabilità
-        updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Avvio driver ROS2...');
+        updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Avvio driver ROS2...<br><div class="progress-bar-container" style="margin-top: 10px; width: 100%; background: #333; border-radius: 4px; overflow: hidden;"><div class="progress-bar" style="width: 0%; height: 20px; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div></div><small id="driver-progress-text" style="display: block; margin-top: 5px; color: #aaa;">Inizializzazione...</small>');
         let retryCount = 0;
         const maxRetries = 5; // Aumentato a 5 retry per maggiore stabilità
+        
+        // Funzione per aggiornare la barra di progresso
+        const updateProgress = (percent, text) => {
+          const progressBar = document.querySelector('#step-a .progress-bar');
+          const progressText = document.getElementById('driver-progress-text');
+          if (progressBar) progressBar.style.width = percent + '%';
+          if (progressText) progressText.textContent = text;
+        };
+        
+        // Funzione per leggere i log del driver
+        const pollDriverLogs = async (interval = 2000) => {
+          try {
+            const response = await fetch('/api/system/driver_logs?lines=10');
+            const data = await response.json();
+            if (data.status === 'ok' && data.logs && data.logs.length > 0) {
+              const lastLog = data.logs[data.logs.length - 1];
+              // Estrai informazioni utili dal log
+              if (lastLog.includes('[INFO]')) {
+                const info = lastLog.split('[INFO]')[1]?.trim();
+                if (info) {
+                  const progressText = document.getElementById('driver-progress-text');
+                  if (progressText) progressText.textContent = info;
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[POLL LOGS] Errore:', err);
+          }
+        };
+        
+        // Avvia polling log ogni 2 secondi
+        const logInterval = setInterval(pollDriverLogs, 2000);
         
         // Funzione per verificare che il driver sia stabile
         const verifyDriverStable = async (maxChecks = 10, checkInterval = 2000) => {
@@ -2082,13 +2114,22 @@ HTML_TEMPLATE = """
         
         const tryStartDriver = async () => {
           try {
+            updateProgress(10, 'Invio comando avvio driver...');
             const response = await fetch("/api/system/start_driver", { method: "POST" });
             const payload = await response.json();
             if (payload.status === "ok") {
-              updateWizardStep('a', 'waiting', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Driver avviato! Verifico stabilità (20 secondi)...');
+              updateProgress(30, 'Driver avviato! Verifico stabilità...');
+              updateWizardStep('a', 'waiting', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Driver avviato! Verifico stabilità (20 secondi)...<br><div class="progress-bar-container" style="margin-top: 10px; width: 100%; background: #333; border-radius: 4px; overflow: hidden;"><div class="progress-bar" style="width: 30%; height: 20px; background: linear-gradient(90deg, #4CAF50, #45a049); transition: width 0.3s;"></div></div><small id="driver-progress-text" style="display: block; margin-top: 5px; color: #aaa;">Verifica stabilità driver...</small>');
               
               // Verifica che il driver sia stabile prima di procedere
+              let progressPercent = 30;
+              const progressStep = 70 / 10; // 70% da distribuire su 10 check
               const isStable = await verifyDriverStable(10, 2000); // 10 check ogni 2 secondi = 20 secondi totali
+              for (let i = 0; i < 10; i++) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                progressPercent = 30 + (i + 1) * progressStep;
+                updateProgress(progressPercent, 'Verifica stabilità... (' + (i + 1) + '/10)');
+              }
               
               if (isStable) {
                 updateWizardStep('a', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Driver stabile e pronto!');
@@ -2098,7 +2139,8 @@ HTML_TEMPLATE = """
                 // Driver avviato ma non stabile - riprova se abbiamo ancora tentativi
                 if (retryCount < maxRetries) {
                   retryCount++;
-                  updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Driver non stabile. Riprovo (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small>');
+                  updateProgress(0, 'Driver non stabile. Riprovo (tentativo ' + retryCount + '/' + maxRetries + ')...');
+                  updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Driver non stabile. Riprovo (tentativo ' + retryCount + '/' + maxRetries + ')...<br><div class="progress-bar-container" style="margin-top: 10px; width: 100%; background: #333; border-radius: 4px; overflow: hidden;"><div class="progress-bar" style="width: 0%; height: 20px; background: linear-gradient(90deg, #ff9800, #f57c00); transition: width 0.3s;"></div></div><small id="driver-progress-text" style="display: block; margin-top: 5px; color: #aaa;">Pulizia completa in corso...</small>');
                   // Pulisci tutto e riprova
                   await fetch("/api/system/check_processes", {
                     method: "POST",
@@ -2144,12 +2186,14 @@ HTML_TEMPLATE = """
               await new Promise(resolve => setTimeout(resolve, 3000)); // Attesa più lunga tra retry
               await tryStartDriver();
             } else {
+              clearInterval(logInterval);
               updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore di connessione: ' + err.message + '<br><small>Verifica che la web interface sia attiva e riprova.</small>');
             }
           }
         };
         
         await tryStartDriver();
+        clearInterval(logInterval); // Pulisci interval quando finisce
       }
 
       async function wizardStepB() {
@@ -5087,13 +5131,13 @@ echo "[OK] Robot raggiungibile" >> /tmp/ros2_driver.log
 # IMPORTANTE: usa headless_mode:=true per far sì che il driver aspetti connessioni sulla porta 50002
 # senza cercare di connettersi immediatamente al robot (il robot si connetterà nello step D)
 # IMPORTANTE: usa nohup e disown per evitare che il processo venga killato quando lo script termina
-echo "[INFO] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
+echo "[STEP 2/8] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
 nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller headless_mode:=true >> /tmp/ros2_driver.log 2>&1 &
 LAUNCH_PID=$!
-echo "PID launch: $LAUNCH_PID" >> /tmp/ros2_driver.log
+echo "[OK] Processo launch avviato (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
 
 # Verifica immediatamente che il processo sia partito (con più attesa)
-echo "[INFO] Attendo avvio processo (5s)..." >> /tmp/ros2_driver.log
+echo "[STEP 3/8] Verifica processo avviato (attesa 5s)..." >> /tmp/ros2_driver.log
 sleep 5  # Aumentato a 5 secondi per dare più tempo al processo di avviarsi
 
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
@@ -5594,6 +5638,48 @@ def api_logs_clear():
         return jsonify({"status": "ok", "message": "Log puliti"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/system/driver_logs", methods=["GET"])
+def api_driver_logs():
+    """Restituisce gli ultimi log del driver ROS2 da /tmp/ros2_driver.log."""
+    try:
+        import subprocess
+        lines = int(request.args.get("lines", 50))
+        
+        # Leggi gli ultimi N righe del log del driver
+        result = subprocess.run(
+            ['tail', '-n', str(lines), '/tmp/ros2_driver.log'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        
+        if result.returncode == 0:
+            log_lines = result.stdout.strip().split('\n')
+            return jsonify({
+                "status": "ok",
+                "logs": log_lines,
+                "total_lines": len(log_lines)
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": "Impossibile leggere log driver",
+                "logs": []
+            })
+    except FileNotFoundError:
+        return jsonify({
+            "status": "ok",
+            "logs": ["[INFO] Log driver non ancora disponibile"],
+            "total_lines": 1
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "logs": []
+        })
 
 
 @app.route("/api/vision/orbbec_status", methods=["GET"])
