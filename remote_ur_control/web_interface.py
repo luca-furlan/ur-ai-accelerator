@@ -4106,6 +4106,51 @@ def api_movel_relative():
     return jsonify({"status": "ok", "message": "MoveL relative command sent"})
 
 
+@app.route("/api/system/ros2_bridge_status", methods=["GET"])
+def api_ros2_bridge_status():
+    """Verifica stato ROS2 bridge."""
+    bridge = get_ros2_bridge()
+    if bridge:
+        try:
+            is_initialized = bridge.ensure_ros()
+            is_running = getattr(bridge, '_running', False)
+            thread_alive = getattr(bridge, '_publish_thread', None) and bridge._publish_thread.is_alive()
+            last_error = getattr(bridge, '_last_error', None)
+            
+            return jsonify({
+                "status": "ok",
+                "data": {
+                    "initialized": is_initialized,
+                    "running": is_running,
+                    "thread_alive": thread_alive,
+                    "last_error": last_error
+                },
+                "message": "ROS2 bridge ready - publishing at 125Hz" if is_initialized and is_running else "ROS2 bridge not ready"
+            })
+        except Exception as e:
+            app.logger.error(f"Error checking ROS2 bridge status: {e}")
+            return jsonify({
+                "status": "error",
+                "data": {
+                    "initialized": False,
+                    "running": False,
+                    "thread_alive": False,
+                    "last_error": str(e)
+                },
+                "message": f"Error checking bridge: {e}"
+            })
+    return jsonify({
+        "status": "ok",
+        "data": {
+            "initialized": False,
+            "running": False,
+            "thread_alive": False,
+            "last_error": "Bridge not available"
+        },
+        "message": "Using socket fallback"
+    })
+
+
 @app.route("/api/servo_loop_start", methods=["POST"])
 def api_servo_loop_start():
     """Inizializza ROS2 bridge (publishing starts automatically at 125Hz)."""
