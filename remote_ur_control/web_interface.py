@@ -4865,7 +4865,8 @@ def api_start_driver():
         except:
             pass
         
-        time.sleep(3)  # Aspetta che tutto sia pulito (aumentato a 3 secondi)
+        # Attesa più lunga per pulizia completa e rilascio risorse
+        time.sleep(8)  # Aumentato a 8 secondi per maggiore stabilità
     except:
         pass
     
@@ -4880,21 +4881,59 @@ def api_start_driver():
         
         script_content = f"""#!/bin/bash
 # Non usare set -e per permettere gestione errori personalizzata
+set -o pipefail  # Cattura errori nei pipe
+
+# Aumenta limiti di risorse per evitare problemi
+ulimit -c unlimited  # Core dumps illimitati per debug
+ulimit -n 4096        # File descriptors aumentati
+ulimit -s 8192        # Stack size aumentato
+
 export HOME={os.path.expanduser('~')}
 cd {os.path.expanduser('~/MekoAiAccelerator')}
+
+# PULIZIA AGGIUNTIVA: Kill tutti i processi ROS2/RTDE prima dello script
+echo "[INFO] Pulizia preliminare processi..." >> /tmp/ros2_driver.log
+pkill -9 -f 'ur_ros2_control_node' 2>/dev/null || true
+pkill -9 -f 'ros2.*launch.*ur_robot_driver' 2>/dev/null || true
+pkill -9 -f 'spawner.*controller' 2>/dev/null || true
+pkill -9 -f 'controller_manager' 2>/dev/null || true
+sleep 2  # Attendi che i processi vengano killati
 
 # PRIMA: Esegui script per killare altri processi RTDE
 KILL_RTDE_SCRIPT="{kill_rtde_script}"
 if [ -f "$KILL_RTDE_SCRIPT" ]; then
     echo "[INFO] Esecuzione kill_rtde_processes.sh..." >> /tmp/ros2_driver.log
     bash "$KILL_RTDE_SCRIPT" >> /tmp/ros2_driver.log 2>&1
+    sleep 3  # Attesa dopo kill script
 else
     echo "[WARN] Script kill_rtde_processes.sh non trovato: $KILL_RTDE_SCRIPT" >> /tmp/ros2_driver.log
 fi
 
-# Source ROS2
+# Verifica che la porta 50002 sia libera
+echo "[INFO] Verifica porta 50002..." >> /tmp/ros2_driver.log
+if command -v lsof >/dev/null 2>&1; then
+    PORT_PIDS=$(lsof -ti :50002 2>/dev/null || true)
+    if [ -n "$PORT_PIDS" ]; then
+        echo "[WARN] Porta 50002 ancora occupata, kill processi..." >> /tmp/ros2_driver.log
+        echo "$PORT_PIDS" | xargs kill -9 2>/dev/null || true
+        sleep 2
+    fi
+fi
+
+# Source ROS2 con verifica errori
+echo "[INFO] Source ROS2 environment..." >> /tmp/ros2_driver.log
+if [ ! -f /opt/ros/humble/setup.bash ]; then
+    echo "ERROR: ROS2 Humble non trovato in /opt/ros/humble/" >> /tmp/ros2_driver.log
+    echo "ERROR"
+    exit 1
+fi
 source /opt/ros/humble/setup.bash
-source ~/ros2_ws/install/setup.bash
+
+if [ ! -f ~/ros2_ws/install/setup.bash ]; then
+    echo "[WARN] Workspace ROS2 non trovato, continuo comunque..." >> /tmp/ros2_driver.log
+else
+    source ~/ros2_ws/install/setup.bash
+fi
 
 # SOLUZIONE RTDE OVERFLOW: Riduci update_rate da 500Hz a 30Hz (come suggerito dall'utente)
 # Il file di configurazione viene caricato automaticamente dal launch file
@@ -4927,10 +4966,20 @@ if [ ! -f "$LAUNCH_FILE" ]; then
     fi
 fi
 
-# Verifica che il robot sia raggiungibile PRIMA di avviare
+# Verifica che il robot sia raggiungibile PRIMA di avviare (con più tentativi)
 echo "[INFO] Verifica connessione robot {config.robot_ip}..." >> /tmp/ros2_driver.log
-if ! ping -c 2 -W 2 {config.robot_ip} > /dev/null 2>&1; then
-    echo "ERROR: Robot {config.robot_ip} non raggiungibile" >> /tmp/ros2_driver.log
+ROBOT_REACHABLE=false
+for i in 1 2 3 4 5; do
+    if ping -c 2 -W 3 {config.robot_ip} > /dev/null 2>&1; then
+        ROBOT_REACHABLE=true
+        break
+    fi
+    echo "[WARN] Tentativo $i/5: robot non raggiungibile, riprovo..." >> /tmp/ros2_driver.log
+    sleep 1
+done
+
+if [ "$ROBOT_REACHABLE" = "false" ]; then
+    echo "ERROR: Robot {config.robot_ip} non raggiungibile dopo 5 tentativi" >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
@@ -4944,17 +4993,19 @@ nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={
 LAUNCH_PID=$!
 echo "PID launch: $LAUNCH_PID" >> /tmp/ros2_driver.log
 
-# Verifica immediatamente che il processo sia partito
-sleep 2
+# Verifica immediatamente che il processo sia partito (con più attesa)
+echo "[INFO] Attendo avvio processo (5s)..." >> /tmp/ros2_driver.log
+sleep 5  # Aumentato a 5 secondi per dare più tempo al processo di avviarsi
+
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
     echo "ERROR: Processo launch morto immediatamente (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
     echo "[ERROR] Verifica errori nel log:" >> /tmp/ros2_driver.log
     # Cerca errori specifici nel log
-    if grep -i "error\|abort\|fault\|died\|failed" /tmp/ros2_driver.log | tail -20 >> /tmp/ros2_driver.log 2>/dev/null; then
+    if grep -i "error\|abort\|fault\|died\|failed\|segmentation" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
         echo "" >> /tmp/ros2_driver.log
     fi
-    echo "[ERROR] Ultimi 100 righe del log:" >> /tmp/ros2_driver.log
-    tail -100 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Ultimi 150 righe del log:" >> /tmp/ros2_driver.log
+    tail -150 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
@@ -4962,15 +5013,19 @@ fi
 # Disown dopo verifica che sia vivo
 disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
 
-# Attendi che il processo si avvii completamente (aumentato a 15s per maggiore stabilità)
-echo "[INFO] Attendo inizializzazione driver (15s)..." >> /tmp/ros2_driver.log
-sleep 15
+# Attendi che il processo si avvii completamente (aumentato a 20s per maggiore stabilità)
+echo "[INFO] Attendo inizializzazione driver (20s)..." >> /tmp/ros2_driver.log
+sleep 20  # Aumentato a 20 secondi per dare più tempo all'inizializzazione
 
 # Verifica di nuovo che il processo launch sia ancora vivo
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
     echo "ERROR: Processo launch morto durante inizializzazione (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
-    echo "[ERROR] Ultimi 100 righe del log:" >> /tmp/ros2_driver.log
-    tail -100 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Cercando errori nel log..." >> /tmp/ros2_driver.log
+    if grep -i "error\|abort\|fault\|died\|failed\|segmentation" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
+        echo "" >> /tmp/ros2_driver.log
+    fi
+    echo "[ERROR] Ultimi 150 righe del log:" >> /tmp/ros2_driver.log
+    tail -150 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
