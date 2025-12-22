@@ -2616,7 +2616,10 @@ HTML_TEMPLATE = """
               } else {
                 // Mostra progresso durante i tentativi
                 if (attempts % 3 === 0) {
-                  updateWizardStep('e', 'active', '<span class="material-icons md-18">refresh</span> Verifica connessione... (tentativo ' + attempts + '/' + maxAttempts + ')<br><small>' + debugInfo + '</small>');
+                  const driverStatus = driverReady ? 'attivo' : 'non attivo';
+                  const portStatus = portReady ? 'aperta sul robot' : 'chiusa sul robot';
+                  const controllerStatus = controllerReady ? 'attivo' : 'non attivo';
+                  updateWizardStep('e', 'active', '<span class="material-icons md-18">refresh</span> Verifica connessione... (tentativo ' + attempts + '/' + maxAttempts + ')<br><small>Driver: ' + driverStatus + ', Porta 50002: ' + portStatus + ', Controller: ' + controllerStatus + '</small>');
                 }
               }
             }
