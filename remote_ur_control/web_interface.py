@@ -5168,16 +5168,27 @@ if [ -z "$FOUND_PID" ]; then
     exit 1
 fi
 
-# Verifica che il processo ur_ros2_control_node sia ancora vivo dopo 3 secondi
+# Verifica che il processo ur_ros2_control_node sia ancora vivo dopo 5 secondi
 # (diamo più tempo perché l'inizializzazione può richiedere tempo)
-sleep 3
+echo "[INFO] Verifica stabilità ur_ros2_control_node (5s)..." >> /tmp/ros2_driver.log
+sleep 5
 if ! ps -p $FOUND_PID > /dev/null 2>&1; then
-    echo "ERROR: ur_ros2_control_node è crashato durante l'inizializzazione" >> /tmp/ros2_driver.log
-    echo "Verifica ultimi errori nel log:" >> /tmp/ros2_driver.log
-    tail -100 /tmp/ros2_driver.log | grep -i "error\\|abort\\|fault\\|died" >> /tmp/ros2_driver.log || true
+    echo "ERROR: ur_ros2_control_node è crashato durante l'inizializzazione (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
+    echo "[ERROR] Cercando errori nel log..." >> /tmp/ros2_driver.log
+    if grep -i "error\|abort\|fault\|died\|failed\|segmentation\|killed" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
+        echo "" >> /tmp/ros2_driver.log
+    fi
+    echo "[ERROR] Ultimi 150 righe del log:" >> /tmp/ros2_driver.log
+    tail -150 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Diagnostica crash:" >> /tmp/ros2_driver.log
+    echo "  - Verifica robot raggiungibile: ping -c 2 {config.robot_ip}" >> /tmp/ros2_driver.log
+    echo "  - Verifica EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)" >> /tmp/ros2_driver.log
+    echo "  - Verifica Remote Control abilitato (Settings → System → Remote Control)" >> /tmp/ros2_driver.log
+    echo "  - Verifica programma remote_control.urp in PLAYING sul Teach Pendant" >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
+echo "[OK] ur_ros2_control_node stabile (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
 
 # Se arriviamo qui, il processo è ancora vivo dopo 8 secondi - probabilmente OK
 # Verifica solo errori fatali che indicano un crash definitivo
