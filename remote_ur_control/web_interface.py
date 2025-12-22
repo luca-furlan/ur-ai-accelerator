@@ -2198,9 +2198,9 @@ HTML_TEMPLATE = """
       }
 
       async function wizardStepB() {
-        updateWizardStep('b', 'active', '<span class="material-icons md-18">refresh</span> Verifica driver attivo e porta 50002...');
+        updateWizardStep('b', 'active', '<span class="material-icons md-18">refresh</span> Verifica driver attivo...');
         let attempts = 0;
-        const maxAttempts = 15; // Aumentato a 15 tentativi (30 secondi totali)
+        const maxAttempts = 10; // Ridotto a 10 tentativi (20 secondi totali) - porta 50002 verificata step D
         
         const checkDriver = async () => {
           attempts++;
@@ -2209,17 +2209,18 @@ HTML_TEMPLATE = """
             const payload = await response.json();
             if (payload.status === "ok") {
               const data = payload.data;
-              if (data.ros2_driver.running && data.port_50002.listening) {
-                updateWizardStep('a', 'success', 'Driver ROS2 attivo e porta 50002 aperta.');
-                updateWizardStep('b', 'success', 'Driver verificato correttamente.');
+              // Nello step B verifichiamo solo che il driver sia in esecuzione
+              // La porta 50002 verrà verificata nello step D (quando il robot si connette)
+              if (data.ros2_driver.running) {
+                updateWizardStep('a', 'success', 'Driver ROS2 attivo.');
+                updateWizardStep('b', 'success', 'Driver verificato correttamente. La porta 50002 verrà verificata nello step D.');
                 setTimeout(() => wizardStepC(), 1000);
                 return true;
               } else {
                 // Mostra progresso ogni 3 tentativi
                 if (attempts % 3 === 0) {
                   const driverStatus = data.ros2_driver.running ? 'attivo' : 'non attivo';
-                  const portStatus = data.port_50002.listening ? 'aperta' : 'chiusa';
-                  updateWizardStep('b', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Verifica in corso... (' + attempts + '/' + maxAttempts + ')<br><small>Driver: ' + driverStatus + ', Porta 50002: ' + portStatus + '</small>');
+                  updateWizardStep('b', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Verifica in corso... (' + attempts + '/' + maxAttempts + ')<br><small>Driver: ' + driverStatus + '</small>');
                 }
                 
                 if (attempts >= maxAttempts) {
@@ -4595,7 +4596,7 @@ def api_system_status():
         "robot_safety_mode": None,
         "remote_control": None,
         "program_state": None,
-        "port_50002": {"listening": False},
+        "port_50002": {"listening": False, "robot_ip": None},
     }
     
     # 1. Verifica driver ROS2
@@ -4699,13 +4700,18 @@ def api_system_status():
                 status["controller"]["error"] = f"Fallback failed: {str(e)}"
                 pass
     
-    # 3. Verifica porta 50002
+    # 3. Verifica porta 50002 sul ROBOT (non sull'AI Accelerator!)
+    # NOTA: In modalità headless, la porta 50002 viene aperta dal ROBOT quando
+    # il programma External Control è in PLAYING. Il driver si connette al robot.
     try:
+        config = load_config()
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(0.5)
-        result = sock.connect_ex(('127.0.0.1', 50002))
+        # Verifica porta 50002 sul ROBOT, non sull'AI Accelerator
+        result = sock.connect_ex((config.robot_ip, 50002))
         sock.close()
         status["port_50002"]["listening"] = (result == 0)
+        status["port_50002"]["robot_ip"] = config.robot_ip
     except:
         pass
     
@@ -5163,7 +5169,7 @@ fi
 disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
 
 # Attendi che il processo si avvii completamente (aumentato a 20s per maggiore stabilità)
-echo "[INFO] Attendo inizializzazione driver (20s)..." >> /tmp/ros2_driver.log
+echo "[STEP 4/9] Attendo inizializzazione driver (20s)..." >> /tmp/ros2_driver.log
 sleep 20  # Aumentato a 20 secondi per dare più tempo all'inizializzazione
 
 # Verifica di nuovo che il processo launch sia ancora vivo
@@ -5266,36 +5272,31 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     exit 1
 fi
 
-# Verifica che la porta 50002 si apra (il driver deve mettersi in ascolto)
-# NOTA: In modalità headless, il driver si mette in ascolto sulla porta 50002
-# anche senza che il robot si connetta. Questa verifica è opzionale nello step A.
-echo "[STEP 8/9] Verifica porta 50002 in ascolto (opzionale - verificata completamente nello step B)..." >> /tmp/ros2_driver.log
+# STEP 8/9: Verifica porta 50002 sul ROBOT (non sull'AI Accelerator!)
+# NOTA CRITICA: In modalità headless, la porta 50002 viene aperta dal ROBOT
+# quando il programma External Control è in PLAYING. Il driver si connette al robot.
+# Questa verifica controlla se il ROBOT ha la porta 50002 aperta.
+echo "[STEP 8/9] Verifica porta 50002 sul ROBOT (robot deve aprire porta quando programma in PLAYING)..." >> /tmp/ros2_driver.log
 PORT_OPEN=false
 for i in 1 2 3; do
-    if command -v lsof >/dev/null 2>&1; then
-        if lsof -ti :50002 >/dev/null 2>&1; then
-            PORT_OPEN=true
-            echo "[OK] Porta 50002 in ascolto (tentativo $i/3)" >> /tmp/ros2_driver.log
-            break
-        fi
-    elif command -v netstat >/dev/null 2>&1; then
-        if netstat -tuln 2>/dev/null | grep -q ":50002 "; then
-            PORT_OPEN=true
-            echo "[OK] Porta 50002 in ascolto (tentativo $i/3)" >> /tmp/ros2_driver.log
-            break
-        fi
+    # Verifica porta 50002 sul ROBOT, non sull'AI Accelerator
+    if timeout 1 bash -c "echo > /dev/tcp/{config.robot_ip}/50002" 2>/dev/null; then
+        PORT_OPEN=true
+        echo "[OK] Porta 50002 aperta sul ROBOT (tentativo $i/3)" >> /tmp/ros2_driver.log
+        break
     fi
     if [ $i -lt 3 ]; then
-        echo "[INFO] Porta 50002 non ancora aperta, attendo 2s... (tentativo $i/3)" >> /tmp/ros2_driver.log
+        echo "[INFO] Porta 50002 sul ROBOT non ancora aperta, attendo 2s... (tentativo $i/3)" >> /tmp/ros2_driver.log
+        echo "[INFO] La porta 50002 si aprirà quando il programma External Control è in PLAYING sul Teach Pendant (step D)" >> /tmp/ros2_driver.log
         sleep 2
     fi
 done
 
-# La porta 50002 non è obbligatoria nello step A (verificata completamente nello step B)
-# Il driver in modalità headless si metterà in ascolto quando sarà pronto
+# La porta 50002 non è obbligatoria nello step A/B (verificata completamente nello step D)
+# Il robot aprirà la porta quando il programma External Control è in PLAYING
 if [ "$PORT_OPEN" = false ]; then
-    echo "[WARN] Porta 50002 non ancora aperta (normale - si aprirà quando il driver sarà completamente inizializzato)" >> /tmp/ros2_driver.log
-    echo "[INFO] La porta 50002 verrà verificata completamente nello step B del wizard" >> /tmp/ros2_driver.log
+    echo "[INFO] Porta 50002 sul ROBOT non ancora aperta (normale - si aprirà nello step D quando programma in PLAYING)" >> /tmp/ros2_driver.log
+    echo "[INFO] La porta 50002 verrà verificata completamente nello step D del wizard" >> /tmp/ros2_driver.log
 fi
 
 # Verifica errori fatali nel log (anche se il processo è vivo, potrebbe essere in crash)
