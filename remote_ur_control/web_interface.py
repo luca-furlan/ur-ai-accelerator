@@ -4812,7 +4812,7 @@ def api_start_driver():
         except:
             pass
         
-        time.sleep(3)  # Aspetta che tutto sia pulito (aumentato a 3 secondi)
+        time.sleep(5)  # Aspetta che tutto sia pulito (aumentato a 5 secondi per maggiore stabilità)
     except:
         pass
     
