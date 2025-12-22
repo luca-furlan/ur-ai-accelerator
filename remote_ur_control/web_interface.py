@@ -1354,7 +1354,7 @@ HTML_TEMPLATE = """
         if (!container) return;
         
         const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
+        toast.className = 'toast ' + type;
         
         const icon = {
           success: 'check_circle',
@@ -1478,7 +1478,7 @@ HTML_TEMPLATE = """
         return Object.entries(publishers).map(([name, ok]) => {
           const cls = ok ? "ok" : "error";
           const label = ok ? "online" : "missing";
-          return `<div class="topic-row ${cls}"><span>${name}</span><span>${label}</span></div>`;
+          return '<div class="topic-row ' + cls + '"><span>' + name + '</span><span>' + label + '</span></div>';
         }).join("");
       }
 
@@ -1500,8 +1500,8 @@ HTML_TEMPLATE = """
           ? bridge.publish_rate_hz.toFixed(0)
           : "0";
         if (rosLoopState) {
-          rosLoopState.textContent = loopRunning ? `${publishRate} Hz` : "fermo";
-          rosLoopState.className = `monitor-value badge ${loopRunning ? "badge-ok" : "badge-error"}`;
+          rosLoopState.textContent = loopRunning ? publishRate + ' Hz' : 'fermo';
+          rosLoopState.className = 'monitor-value badge ' + (loopRunning ? 'badge-ok' : 'badge-error');
         }
 
         if (rosLastCommand) {
@@ -1625,7 +1625,7 @@ HTML_TEMPLATE = """
         if (robotMode) {
           const mode = dashboard.robotmode || "unknown";
           robotMode.textContent = mode;
-          robotMode.className = `monitor-value badge ${mode === "RUNNING" ? "badge-ok" : "badge-error"}`;
+          robotMode.className = 'monitor-value badge ' + (mode === 'RUNNING' ? 'badge-ok' : 'badge-error');
         }
 
         if (safetyMode) {
