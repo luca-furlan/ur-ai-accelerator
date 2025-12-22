@@ -5466,49 +5466,27 @@ Log: {relevant_log}"""
             )
             
             if check_result.returncode == 0 and check_result.stdout.strip():
-                # Verifica anche che la porta 50002 si apra (aspetta fino a 30 secondi)
-                port_open = False
-                max_wait = 30  # Aspetta fino a 30 secondi
-                for i in range(max_wait):
-                    try:
-                        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        sock.settimeout(0.5)
-                        result_port = sock.connect_ex(('127.0.0.1', 50002))
-                        sock.close()
-                        if result_port == 0:
-                            port_open = True
-                            break
-                    except:
-                        pass
-                    
-                    # Controlla anche se il processo è ancora vivo
-                    check_alive = subprocess.run(
-                        ['pgrep', '-f', 'ur_ros2_control_node'],
-                        capture_output=True,
-                        text=True,
-                        timeout=1
-                    )
-                    if check_alive.returncode != 0:
-                        # Processo morto! Leggi log per vedere perché
-                        try:
-                            with open('/tmp/ros2_driver.log', 'r') as log_file:
-                                log_content = log_file.read()[-2000:]
-                        except:
-                            log_content = "Impossibile leggere log"
-                        return jsonify({"status": "error", "message": f"Driver ROS2 crashato dopo l'avvio! Log: {log_content[-500:]}"})
-                    
-                    time.sleep(1)
-                
-                if port_open:
-                    return jsonify({"status": "ok", "message": f"Driver ROS2 avviato (PID: {pid}), porta 50002 aperta e pronta", "pid": pid})
-                else:
-                    # Leggi log per vedere cosa è successo
+                # NOTA: La porta 50002 verrà verificata completamente nello step B del wizard
+                # Nello step A basta che il driver sia in esecuzione (modalità headless)
+                # La porta si aprirà quando il driver sarà completamente inizializzato
+                # Verifica solo che il processo sia ancora vivo (non crashato)
+                check_alive = subprocess.run(
+                    ['pgrep', '-f', 'ur_ros2_control_node'],
+                    capture_output=True,
+                    text=True,
+                    timeout=1
+                )
+                if check_alive.returncode != 0:
+                    # Processo morto! Leggi log per vedere perché
                     try:
                         with open('/tmp/ros2_driver.log', 'r') as log_file:
                             log_content = log_file.read()[-2000:]
                     except:
                         log_content = "Impossibile leggere log"
-                    return jsonify({"status": "error", "message": f"Driver ROS2 avviato (PID: {pid}) ma porta 50002 non si è aperta dopo {max_wait} secondi. Verifica log: tail -50 /tmp/ros2_driver.log. Ultimi log: {log_content[-500:]}"})
+                    return jsonify({"status": "error", "message": f"Driver ROS2 crashato dopo l'avvio! Log: {log_content[-500:]}"})
+                
+                # Driver in esecuzione - OK (porta 50002 verificata nello step B)
+                return jsonify({"status": "ok", "message": f"Driver ROS2 avviato (PID: {pid}). La porta 50002 verrà verificata nello step B.", "pid": pid})
             else:
                 # Processo non trovato - mostra log completo
                 import time
