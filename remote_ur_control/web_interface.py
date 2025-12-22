@@ -5185,14 +5185,15 @@ echo "[OK] Processo launch ancora vivo (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.l
 
 # Cerca il processo ur_ros2_control_node (il processo principale del driver)
 # Aspetta con più tentativi per dare tempo al processo di avviarsi
+echo "[STEP 5/8] Cerca processo ur_ros2_control_node..." >> /tmp/ros2_driver.log
 FOUND_PID=""
 for i in 1 2 3 4 5 6 7 8; do
     FOUND_PID=$(pgrep -f 'ur_ros2_control_node' | head -1)
     if [ -n "$FOUND_PID" ]; then
-        echo "[OK] ur_ros2_control_node trovato (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
+        echo "[OK] ur_ros2_control_node trovato (PID: $FOUND_PID) al tentativo $i/8" >> /tmp/ros2_driver.log
         break
     fi
-    echo "[INFO] Tentativo $i/8: ur_ros2_control_node non ancora avviato, attendo..." >> /tmp/ros2_driver.log
+    echo "[INFO] Tentativo $i/8: ur_ros2_control_node non ancora avviato, attendo 3s..." >> /tmp/ros2_driver.log
     sleep 3
 done
 
@@ -5216,7 +5217,7 @@ fi
 
 # Verifica che il processo ur_ros2_control_node sia ancora vivo dopo 5 secondi
 # (diamo più tempo perché l'inizializzazione può richiedere tempo)
-echo "[INFO] Verifica stabilità ur_ros2_control_node (5s)..." >> /tmp/ros2_driver.log
+echo "[STEP 6/8] Verifica stabilità ur_ros2_control_node (5s)..." >> /tmp/ros2_driver.log
 sleep 5
 if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     echo "ERROR: ur_ros2_control_node è crashato durante l'inizializzazione (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
@@ -5235,10 +5236,14 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
 fi
 echo "[OK] ur_ros2_control_node stabile (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
 
-# VERIFICA FINALE: Aspetta che il driver completi l'inizializzazione e si connetta al robot
-# Questo può richiedere tempo, specialmente se il robot deve connettersi via External Control
-echo "[INFO] Attendo completamento inizializzazione e connessione robot (15s)..." >> /tmp/ros2_driver.log
-sleep 15
+# VERIFICA FINALE: Aspetta che il driver completi l'inizializzazione
+# In modalità headless, il driver NON si connette al robot immediatamente,
+# ma si mette in ascolto sulla porta 50002 e aspetta che il robot si connetta (step D)
+echo "[STEP 7/8] Attendo completamento inizializzazione driver (10s)..." >> /tmp/ros2_driver.log
+for i in 1 2; do
+    echo "[INFO] Inizializzazione finale... ($i/2 - $(($i * 5))s)" >> /tmp/ros2_driver.log
+    sleep 5
+done
 
 # Verifica che il processo sia ancora vivo dopo l'attesa
 if ! ps -p $FOUND_PID > /dev/null 2>&1; then
@@ -5260,7 +5265,7 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
 fi
 
 # Verifica che la porta 50002 si apra (il driver deve mettersi in ascolto)
-echo "[INFO] Verifica porta 50002 in ascolto..." >> /tmp/ros2_driver.log
+echo "[STEP 8/8] Verifica porta 50002 in ascolto..." >> /tmp/ros2_driver.log
 PORT_OPEN=false
 for i in 1 2 3 4 5; do
     if command -v lsof >/dev/null 2>&1; then
@@ -5277,7 +5282,7 @@ for i in 1 2 3 4 5; do
         fi
     fi
     if [ $i -lt 5 ]; then
-        echo "[INFO] Porta 50002 non ancora aperta, attendo... (tentativo $i/5)" >> /tmp/ros2_driver.log
+        echo "[INFO] Porta 50002 non ancora aperta, attendo 2s... (tentativo $i/5)" >> /tmp/ros2_driver.log
         sleep 2
     fi
 done
