@@ -80,6 +80,14 @@ _detections_lock = threading.Lock()
 _detections_subscriber_node = None
 _detections_subscriber_thread = None
 
+# Processi gestiti dalla web interface
+_managed_processes = {
+    'orbbec_camera': None,  # subprocess.Popen
+    'yolo_detector': None,
+    'moveit': None
+}
+_processes_lock = threading.Lock()
+
 def _init_camera_subscriber():
     """Inizializza subscriber ROS2 per camera stream."""
     global _camera_subscriber_node, _camera_subscriber_thread, _camera_bridge
@@ -1206,6 +1214,16 @@ HTML_TEMPLATE = """
                 </div>
               </div>
               <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <button class="mdc-button mdc-button--outlined" id="start-moveit" style="flex: 1;">
+                  <span class="material-icons md-18">play_arrow</span>
+                  Start MoveIt
+                </button>
+                <button class="mdc-button mdc-button--outlined" id="stop-moveit" style="flex: 1;">
+                  <span class="material-icons md-18">stop</span>
+                  Stop MoveIt
+                </button>
+              </div>
+              <div style="display: flex; gap: 8px; margin-bottom: 12px;">
                 <button class="mdc-button mdc-button--outlined" id="test-moveit" style="flex: 1;">
                   <span class="material-icons md-18">check_circle</span>
                   Test MoveIt
@@ -1263,6 +1281,16 @@ HTML_TEMPLATE = """
               <div style="color: rgba(0, 0, 0, 0.5); font-style: italic;">No detections yet. Start camera and vision system.</div>
             </div>
             <div style="display: flex; gap: 8px; margin-top: 12px;">
+              <button class="mdc-button mdc-button--outlined" id="start-yolo" style="flex: 1;">
+                <span class="material-icons md-18">play_arrow</span>
+                Start YOLO Detector
+              </button>
+              <button class="mdc-button mdc-button--outlined" id="stop-yolo" style="flex: 1;">
+                <span class="material-icons md-18">stop</span>
+                Stop YOLO Detector
+              </button>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
               <button class="mdc-button mdc-button--outlined" id="start-vision" style="flex: 1;">
                 <span class="material-icons md-18">play_arrow</span>
                 Start Vision System
@@ -3411,6 +3439,8 @@ HTML_TEMPLATE = """
       }
       
       // MoveIt Controls
+      const startMoveitBtn = document.getElementById("start-moveit");
+      const stopMoveitBtn = document.getElementById("stop-moveit");
       const testMoveitBtn = document.getElementById("test-moveit");
       const planMoveBtn = document.getElementById("plan-move");
       const moveitStatusValue = document.getElementById("moveit-status-value");
@@ -3418,14 +3448,25 @@ HTML_TEMPLATE = """
       
       async function fetchMoveitStatus() {
         try {
+          // Controlla status generale vision (include MoveIt)
+          const statusResponse = await fetch("/api/vision/status");
+          const statusData = await statusResponse.json();
+          
+          // Controlla anche status MoveIt specifico
           const response = await fetch("/api/vision/moveit_status");
           const data = await response.json();
+          
           if (data.status === "ok") {
             const status = data.data;
+            const moveitRunning = statusData.status === "ok" && statusData.data && statusData.data.moveit && statusData.data.moveit.running;
+            
             if (moveitStatusValue) {
-              if (status.available) {
-                moveitStatusValue.textContent = "Available";
+              if (moveitRunning) {
+                moveitStatusValue.textContent = "Running";
                 moveitStatusValue.className = "mdc-chip mdc-chip--success";
+              } else if (status.available) {
+                moveitStatusValue.textContent = "Available";
+                moveitStatusValue.className = "mdc-chip";
               } else {
                 moveitStatusValue.textContent = "Not Available";
                 moveitStatusValue.className = "mdc-chip mdc-chip--error";
@@ -3438,6 +3479,40 @@ HTML_TEMPLATE = """
         } catch (err) {
           console.error("MoveIt status error:", err);
         }
+      }
+      
+      if (startMoveitBtn) {
+        startMoveitBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/start_moveit", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("MoveIt started", "success", 2000);
+              setTimeout(fetchMoveitStatus, 2000);
+            } else {
+              showToast("Error starting MoveIt: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      if (stopMoveitBtn) {
+        stopMoveitBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/stop_moveit", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("MoveIt stopped", "success", 2000);
+              setTimeout(fetchMoveitStatus, 1000);
+            } else {
+              showToast("Error stopping MoveIt: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
       }
       
       if (testMoveitBtn) {
@@ -3560,9 +3635,50 @@ HTML_TEMPLATE = """
       }
       
       // Vision System Controls
+      const startYoloBtn = document.getElementById("start-yolo");
+      const stopYoloBtn = document.getElementById("stop-yolo");
       const startVisionBtn = document.getElementById("start-vision");
       const stopVisionBtn = document.getElementById("stop-vision");
       const detectionsContainer = document.getElementById("detections-container");
+      
+      if (startYoloBtn) {
+        startYoloBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/start_yolo", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("YOLO detector started", "success", 2000);
+              if (!detectionsInterval) {
+                detectionsInterval = setInterval(fetchDetections, 2000);
+              }
+            } else {
+              showToast("Error starting YOLO: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      if (stopYoloBtn) {
+        stopYoloBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/stop_yolo", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("YOLO detector stopped", "success", 2000);
+              if (detectionsInterval) {
+                clearInterval(detectionsInterval);
+                detectionsInterval = null;
+              }
+            } else {
+              showToast("Error stopping YOLO: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
       
       async function fetchDetections() {
         try {
@@ -3602,15 +3718,16 @@ HTML_TEMPLATE = """
       if (startVisionBtn) {
         startVisionBtn.addEventListener("click", async () => {
           try {
-            const response = await fetch("/api/vision/start", { method: "POST" });
+            // Chiama start_yolo invece di start (per compatibilità)
+            const response = await fetch("/api/vision/start_yolo", { method: "POST" });
             const data = await response.json();
             if (data.status === "ok") {
-              showToast("Vision system started", "success", 2000);
+              showToast("YOLO detector started", "success", 2000);
               if (!detectionsInterval) {
-                detectionsInterval = setInterval(fetchDetections, 1000);
+                detectionsInterval = setInterval(fetchDetections, 2000);
               }
             } else {
-              showToast("Error starting vision: " + data.message, "error", 4000);
+              showToast("Error starting YOLO: " + data.message, "error", 4000);
             }
           } catch (err) {
             showToast("Error: " + err.message, "error", 4000);
@@ -3621,16 +3738,16 @@ HTML_TEMPLATE = """
       if (stopVisionBtn) {
         stopVisionBtn.addEventListener("click", async () => {
           try {
-            const response = await fetch("/api/vision/stop", { method: "POST" });
+            const response = await fetch("/api/vision/stop_yolo", { method: "POST" });
             const data = await response.json();
             if (data.status === "ok") {
-              showToast("Vision system stopped", "success", 2000);
+              showToast("YOLO detector stopped", "success", 2000);
               if (detectionsInterval) {
                 clearInterval(detectionsInterval);
                 detectionsInterval = null;
               }
             } else {
-              showToast("Error stopping vision: " + data.message, "error", 4000);
+              showToast("Error stopping YOLO: " + data.message, "error", 4000);
             }
           } catch (err) {
             showToast("Error: " + err.message, "error", 4000);
@@ -5160,34 +5277,137 @@ def api_orbbec_status():
         return jsonify({"status": "error", "message": str(e)})
 
 
+def _check_process_running(process_name):
+    """Verifica se un processo è attivo."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', process_name],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        return result.returncode == 0
+    except:
+        return False
+
+def _start_process(name, command, log_file):
+    """Avvia un processo in background e lo traccia."""
+    global _managed_processes
+    import subprocess
+    import os
+    
+    with _processes_lock:
+        # Verifica se già attivo
+        if _managed_processes.get(name) is not None:
+            proc = _managed_processes[name]
+            if proc is not None and proc.poll() is None:
+                return {"status": "already_running", "pid": proc.pid}
+        
+        # Kill processo esistente se presente
+        if name == 'orbbec_camera':
+            subprocess.run(['pkill', '-f', 'orbbec_camera'], timeout=3, check=False)
+        elif name == 'yolo_detector':
+            subprocess.run(['pkill', '-f', 'vision_yolo_detector'], timeout=3, check=False)
+        elif name == 'moveit':
+            subprocess.run(['pkill', '-f', 'moveit.launch.py'], timeout=3, check=False)
+        
+        time.sleep(1)
+        
+        # Avvia nuovo processo
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        log_path = os.path.join('/tmp', log_file)
+        
+        # Comando completo con source ROS2
+        full_cmd = f'source /opt/ros/humble/setup.bash 2>/dev/null && '
+        if os.path.exists(os.path.expanduser('~/ros2_ws/install/setup.bash')):
+            full_cmd += f'source ~/ros2_ws/install/setup.bash 2>/dev/null && '
+        full_cmd += f'{command} > {log_path} 2>&1'
+        
+        proc = subprocess.Popen(
+            ['bash', '-c', full_cmd],
+            shell=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
+        )
+        
+        _managed_processes[name] = proc
+        
+        # Attendi un momento per verificare avvio
+        time.sleep(2)
+        
+        if proc.poll() is not None:
+            # Processo già terminato (errore)
+            _managed_processes[name] = None
+            return {"status": "error", "message": f"Process {name} terminated immediately. Check {log_path}"}
+        
+        return {"status": "ok", "pid": proc.pid, "log": log_path}
+
+def _stop_process(name, process_pattern):
+    """Ferma un processo gestito."""
+    global _managed_processes
+    import subprocess
+    
+    with _processes_lock:
+        # Kill processo gestito
+        if _managed_processes.get(name) is not None:
+            proc = _managed_processes[name]
+            if proc is not None:
+                try:
+                    proc.terminate()
+                    time.sleep(1)
+                    if proc.poll() is None:
+                        proc.kill()
+                except:
+                    pass
+                _managed_processes[name] = None
+        
+        # Kill anche per pattern (per sicurezza)
+        subprocess.run(['pkill', '-f', process_pattern], timeout=5, check=False)
+        time.sleep(1)
+        
+        return {"status": "ok"}
+
 @app.route("/api/vision/start_orbbec", methods=["POST"])
 def api_start_orbbec():
     """Avvia la camera Orbbec."""
-    import subprocess
     try:
-        # Avvia camera in background
-        result = subprocess.Popen(
-            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && source ~/ros2_ws/install/setup.bash 2>/dev/null && ros2 launch orbbec_camera gemini_330_series.launch.py > /tmp/orbbec_camera.log 2>&1 &'],
-            shell=True
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        result = _start_process(
+            'orbbec_camera',
+            'ros2 launch orbbec_camera gemini_330_series.launch.py',
+            'orbbec_camera.log'
         )
-        return jsonify({"status": "ok", "message": "Orbbec camera starting..."})
+        
+        if result["status"] == "ok":
+            return jsonify({
+                "status": "ok",
+                "message": f"Orbbec camera starting (PID: {result['pid']})",
+                "data": {"pid": result["pid"], "log": result["log"]}
+            })
+        elif result["status"] == "already_running":
+            return jsonify({
+                "status": "ok",
+                "message": f"Orbbec camera already running (PID: {result['pid']})"
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": result.get("message", "Failed to start Orbbec camera")
+            })
     except Exception as e:
+        app.logger.error(f"Start Orbbec error: {e}")
         return jsonify({"status": "error", "message": str(e)})
 
 
 @app.route("/api/vision/stop_orbbec", methods=["POST"])
 def api_stop_orbbec():
     """Ferma la camera Orbbec."""
-    import subprocess
     try:
-        result = subprocess.run(
-            ['pkill', '-f', 'orbbec_camera'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        result = _stop_process('orbbec_camera', 'orbbec_camera')
         return jsonify({"status": "ok", "message": "Orbbec camera stopped"})
     except Exception as e:
+        app.logger.error(f"Stop Orbbec error: {e}")
         return jsonify({"status": "error", "message": str(e)})
 
 
@@ -5544,9 +5764,9 @@ def api_detections():
             })
 
 
-@app.route("/api/vision/start", methods=["POST"])
-def api_vision_start():
-    """Avvia il sistema vision completo (YOLO + detections)."""
+@app.route("/api/vision/start_yolo", methods=["POST"])
+def api_start_yolo():
+    """Avvia YOLO detector."""
     if not ROS2_AVAILABLE:
         return jsonify({
             "status": "error",
@@ -5555,103 +5775,177 @@ def api_vision_start():
     
     try:
         # Verifica che la camera sia attiva
-        import subprocess
-        result = subprocess.run(
-            ['pgrep', '-f', 'orbbec_camera'],
-            capture_output=True,
-            text=True,
-            timeout=3
-        )
-        
-        if result.returncode != 0:
+        if not _check_process_running('orbbec_camera'):
             return jsonify({
                 "status": "error",
                 "message": "Orbbec camera not running. Start camera first using 'Start Camera' button."
             })
         
-        # Verifica se YOLO detector è già attivo
-        yolo_running = subprocess.run(
-            ['pgrep', '-f', 'vision_yolo_detector'],
-            capture_output=True,
-            text=True,
-            timeout=3
+        # Avvia YOLO detector
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        script_path = os.path.join(script_dir, "vision_yolo_detector.py")
+        
+        if not os.path.exists(script_path):
+            return jsonify({
+                "status": "error",
+                "message": f"YOLO detector script not found: {script_path}"
+            })
+        
+        result = _start_process(
+            'yolo_detector',
+            f'python3 {script_path}',
+            'yolo_detector.log'
         )
         
-        if yolo_running.returncode != 0:
-            # Avvia nodo YOLO detector
-            script_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "vision_yolo_detector.py")
-            if not os.path.exists(script_path):
-                return jsonify({
-                    "status": "error",
-                    "message": f"YOLO detector script not found: {script_path}"
-                })
+        if result["status"] == "ok":
+            # Inizializza subscriber detections
+            _init_detections_subscriber()
             
-            # Avvia in background
-            cmd = f'source /opt/ros/humble/setup.bash 2>/dev/null && python3 {script_path} > /tmp/yolo_detector.log 2>&1 &'
-            subprocess.Popen(
-                ['bash', '-c', cmd],
-                shell=False
-            )
-            
-            # Attendi un momento per verificare avvio
-            import time
-            time.sleep(2)
-            
-            # Verifica se si è avviato
-            yolo_check = subprocess.run(
-                ['pgrep', '-f', 'vision_yolo_detector'],
-                capture_output=True,
-                text=True,
-                timeout=3
-            )
-            
-            if yolo_check.returncode != 0:
-                return jsonify({
-                    "status": "error",
-                    "message": "Failed to start YOLO detector. Check logs: tail -f /tmp/yolo_detector.log"
-                })
-        
-        # Inizializza subscriber detections
-        _init_detections_subscriber()
-        
-        return jsonify({
-            "status": "ok",
-            "message": "Vision system started. YOLO detector active.",
-            "data": {
-                "camera_active": True,
-                "yolo_running": True
-            }
-        })
+            return jsonify({
+                "status": "ok",
+                "message": f"YOLO detector started (PID: {result['pid']})",
+                "data": {"pid": result["pid"], "log": result["log"]}
+            })
+        elif result["status"] == "already_running":
+            _init_detections_subscriber()
+            return jsonify({
+                "status": "ok",
+                "message": f"YOLO detector already running (PID: {result['pid']})"
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": result.get("message", "Failed to start YOLO detector")
+            })
     except Exception as e:
-        app.logger.error(f"Vision start error: {e}")
+        app.logger.error(f"Start YOLO error: {e}")
         return jsonify({
             "status": "error",
-            "message": f"Error starting vision system: {str(e)}"
+            "message": f"Error starting YOLO detector: {str(e)}"
         })
+
+@app.route("/api/vision/stop_yolo", methods=["POST"])
+def api_stop_yolo():
+    """Ferma YOLO detector."""
+    try:
+        result = _stop_process('yolo_detector', 'vision_yolo_detector')
+        return jsonify({"status": "ok", "message": "YOLO detector stopped"})
+    except Exception as e:
+        app.logger.error(f"Stop YOLO error: {e}")
+        return jsonify({"status": "error", "message": str(e)})
+
+@app.route("/api/vision/start", methods=["POST"])
+def api_vision_start():
+    """Avvia il sistema vision completo (YOLO + detections)."""
+    # Wrapper per compatibilità - chiama start_yolo
+    return api_start_yolo()
 
 
 @app.route("/api/vision/stop", methods=["POST"])
 def api_vision_stop():
     """Ferma il sistema vision completo."""
+    # Wrapper per compatibilità - chiama stop_yolo
+    return api_stop_yolo()
+
+@app.route("/api/vision/start_moveit", methods=["POST"])
+def api_start_moveit():
+    """Avvia MoveIt."""
+    if not ROS2_AVAILABLE:
+        return jsonify({
+            "status": "error",
+            "message": "ROS2 not available"
+        })
+    
+    try:
+        result = _start_process(
+            'moveit',
+            'ros2 launch ur_moveit_config moveit.launch.py',
+            'moveit.log'
+        )
+        
+        if result["status"] == "ok":
+            return jsonify({
+                "status": "ok",
+                "message": f"MoveIt started (PID: {result['pid']})",
+                "data": {"pid": result["pid"], "log": result["log"]}
+            })
+        elif result["status"] == "already_running":
+            return jsonify({
+                "status": "ok",
+                "message": f"MoveIt already running (PID: {result['pid']})"
+            })
+        else:
+            return jsonify({
+                "status": "error",
+                "message": result.get("message", "Failed to start MoveIt")
+            })
+    except Exception as e:
+        app.logger.error(f"Start MoveIt error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": f"Error starting MoveIt: {str(e)}"
+        })
+
+@app.route("/api/vision/stop_moveit", methods=["POST"])
+def api_stop_moveit():
+    """Ferma MoveIt."""
+    try:
+        result = _stop_process('moveit', 'moveit.launch.py')
+        return jsonify({"status": "ok", "message": "MoveIt stopped"})
+    except Exception as e:
+        app.logger.error(f"Stop MoveIt error: {e}")
+        return jsonify({"status": "error", "message": str(e)})
+
+@app.route("/api/vision/status", methods=["GET"])
+def api_vision_status():
+    """Restituisce lo stato di tutti i componenti vision."""
     try:
         import subprocess
-        # Ferma nodo YOLO detector
-        result = subprocess.run(
-            ['pkill', '-f', 'vision_yolo_detector'],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
+        
+        status = {
+            "orbbec_camera": {
+                "running": _check_process_running('orbbec_camera'),
+                "pid": None
+            },
+            "yolo_detector": {
+                "running": _check_process_running('vision_yolo_detector'),
+                "pid": None
+            },
+            "moveit": {
+                "running": _check_process_running('moveit.launch.py'),
+                "pid": None
+            }
+        }
+        
+        # Ottieni PID se attivi
+        for name in ['orbbec_camera', 'vision_yolo_detector', 'moveit.launch.py']:
+            try:
+                result = subprocess.run(
+                    ['pgrep', '-f', name],
+                    capture_output=True,
+                    text=True,
+                    timeout=2
+                )
+                if result.returncode == 0:
+                    pid = result.stdout.strip().split('\n')[0]
+                    if name == 'orbbec_camera':
+                        status['orbbec_camera']['pid'] = int(pid)
+                    elif name == 'vision_yolo_detector':
+                        status['yolo_detector']['pid'] = int(pid)
+                    elif name == 'moveit.launch.py':
+                        status['moveit']['pid'] = int(pid)
+            except:
+                pass
         
         return jsonify({
             "status": "ok",
-            "message": "Vision system stopped"
+            "data": status
         })
     except Exception as e:
-        app.logger.error(f"Vision stop error: {e}")
+        app.logger.error(f"Vision status error: {e}")
         return jsonify({
             "status": "error",
-            "message": f"Error stopping vision system: {str(e)}"
+            "message": str(e)
         })
 
 
