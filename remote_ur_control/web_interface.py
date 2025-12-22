@@ -1348,6 +1348,31 @@ HTML_TEMPLATE = """
     <div id="toast-container" class="toast-container"></div>
 
     <script>
+      // GLOBAL ERROR HANDLER - Intercetta TUTTI gli errori JavaScript
+      window.addEventListener('error', function(event) {
+        console.error('[GLOBAL ERROR]', event.error);
+        console.error('[GLOBAL ERROR] Message:', event.message);
+        console.error('[GLOBAL ERROR] Source:', event.filename, 'Line:', event.lineno, 'Col:', event.colno);
+        console.error('[GLOBAL ERROR] Stack:', event.error ? event.error.stack : 'N/A');
+        
+        // Mostra errore anche all'utente
+        const errorMsg = 'Errore JavaScript: ' + (event.message || 'Unknown error') + ' (Linea ' + event.lineno + ')';
+        if (typeof showToast === 'function') {
+          showToast(errorMsg, 'error', 10000);
+        } else {
+          alert(errorMsg);
+        }
+      });
+      
+      // Intercetta anche errori non catturati nelle Promise
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('[UNHANDLED PROMISE REJECTION]', event.reason);
+        const errorMsg = 'Errore Promise: ' + (event.reason ? event.reason.toString() : 'Unknown');
+        if (typeof showToast === 'function') {
+          showToast(errorMsg, 'error', 10000);
+        }
+      });
+      
       // Toast Notification System (NO EMOJI)
       function showToast(message, type = 'info', duration = 3000) {
         const container = document.getElementById('toast-container');
@@ -1900,7 +1925,7 @@ HTML_TEMPLATE = """
         const statusEl = document.getElementById('step-' + step + '-status');
         const messageEl = document.getElementById('step-' + step + '-message');
         const retryBtn = document.getElementById('wizard-retry-' + step);
-        const activateBtn = document.getElementById(`wizard-activate-controller`);
+        const activateBtn = document.getElementById('wizard-activate-controller');
         
         if (stepEl) {
           stepEl.classList.remove('active', 'completed', 'error');
@@ -1971,20 +1996,33 @@ HTML_TEMPLATE = """
       }
 
       async function wizardStepA() {
-        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Verifica pre-avvio...');
+        console.log('[WIZARD STEP A] Inizio wizard step A');
+        try {
+          updateWizardStep('a', 'active', '<span class=\"material-icons md-18\">refresh</span> Verifica pre-avvio...');
+          
+          // STEP 1: Verifica robot raggiungibile
+          console.log('[WIZARD STEP A] Verifica robot raggiungibile...');
+          updateWizardStep('a', 'active', '<span class=\"material-icons md-18\">refresh</span> Verifica connessione robot...');
+        } catch (err) {
+          console.error('[WIZARD STEP A] Errore iniziale:', err);
+          updateWizardStep('a', 'error', '<span class=\"material-icons md-18\">error</span> Errore: ' + err.message);
+          return;
+        }
         
-        // STEP 1: Verifica robot raggiungibile
-        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Verifica connessione robot...');
         try {
           const robotCheck = await fetch("/api/system/check_robot_connection", { method: "POST" });
+          console.log('[WIZARD STEP A] Risposta check robot:', robotCheck.status);
           const robotData = await robotCheck.json();
+          console.log('[WIZARD STEP A] Dati robot:', robotData);
           if (robotData.status !== "ok" || !robotData.data.reachable) {
-            updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Robot non raggiungibile!<br><small>Verifica che il robot sia acceso e connesso alla rete.<br>IP: 192.168.10.194</small>');
+            console.error('[WIZARD STEP A] Robot non raggiungibile');
+            updateWizardStep('a', 'error', '<span class=\"material-icons md-18\">error</span> Robot non raggiungibile!<br><small>Verifica che il robot sia acceso e connesso alla rete.<br>IP: 192.168.10.194</small>');
             return;
           }
+          console.log('[WIZARD STEP A] Robot raggiungibile OK');
         } catch (err) {
-          console.warn("Errore verifica robot:", err);
-          updateWizardStep('a', 'active', '<span class="material-icons md-18">warning</span> Impossibile verificare robot. Procedo comunque...');
+          console.error('[WIZARD STEP A] Errore verifica robot:', err);
+          updateWizardStep('a', 'active', '<span class=\"material-icons md-18\">warning</span> Impossibile verificare robot. Procedo comunque...');
         }
         
         // STEP 2: Verifica e kill processi esistenti (IMPORTANTE per evitare crash)
@@ -3824,7 +3862,35 @@ HTML_TEMPLATE = """
           }
         });
       }
-    
+      
+      // INIZIALIZZAZIONE AL CARICAMENTO DELLA PAGINA
+      // Assicurati che tutto sia inizializzato quando il DOM è pronto
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          console.log('[INIT] DOM caricato, inizializzo wizard...');
+          try {
+            initWizardEventListeners();
+            console.log('[INIT] Wizard inizializzato con successo');
+          } catch (err) {
+            console.error('[INIT ERROR] Errore inizializzazione wizard:', err);
+            if (typeof showToast === 'function') {
+              showToast('Errore inizializzazione: ' + err.message, 'error', 10000);
+            }
+          }
+        });
+      } else {
+        // DOM già caricato, inizializza subito
+        console.log('[INIT] DOM già caricato, inizializzo wizard immediatamente...');
+        try {
+          initWizardEventListeners();
+          console.log('[INIT] Wizard inizializzato con successo');
+        } catch (err) {
+          console.error('[INIT ERROR] Errore inizializzazione wizard:', err);
+          if (typeof showToast === 'function') {
+            showToast('Errore inizializzazione: ' + err.message, 'error', 10000);
+          }
+        }
+      }
     
     </script>
   </body>
