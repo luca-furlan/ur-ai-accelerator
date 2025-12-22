@@ -1363,13 +1363,11 @@ HTML_TEMPLATE = """
           info: 'info'
         }[type] || 'info';
         
-        toast.innerHTML = `
-          <span class="material-icons">${icon}</span>
-          <span style="flex: 1;">${message}</span>
-          <button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; opacity: 0.6; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
-            <span class="material-icons md-18">close</span>
-          </button>
-        `;
+        toast.innerHTML = '<span class="material-icons">' + icon + '</span>' +
+          '<span style="flex: 1;">' + message + '</span>' +
+          '<button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; opacity: 0.6; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">' +
+            '<span class="material-icons md-18">close</span>' +
+          '</button>';
         
         container.appendChild(toast);
         
@@ -1458,7 +1456,7 @@ HTML_TEMPLATE = """
 
       function setStatus(text, ok = true) {
         if (status) {
-          status.innerHTML = `Stato: <span class="${ok ? "ready" : "error"}">${text}</span>`;
+          status.innerHTML = 'Stato: <span class="' + (ok ? 'ready' : 'error') + '">' + text + '</span>';
         }
         if (statusBar) {
           statusBar.textContent = text;
@@ -1697,7 +1695,7 @@ HTML_TEMPLATE = """
           robotStatusJson.textContent = JSON.stringify(payload.data, null, 2);
         }
         if (robotStatusTimestamp) {
-          robotStatusTimestamp.textContent = `Agg. ${new Date().toLocaleTimeString()}`;
+          robotStatusTimestamp.textContent = 'Agg. ' + new Date().toLocaleTimeString();
         }
       }
 
@@ -1741,7 +1739,7 @@ HTML_TEMPLATE = """
 
       function updateSystemMessage(msg, isError = false) {
         if (systemMessages) {
-          systemMessages.innerHTML = `<div style="color: ${isError ? '#cc0000' : '#0066cc'};">${msg}</div>`;
+          systemMessages.innerHTML = '<div style="color: ' + (isError ? '#cc0000' : '#0066cc') + ';">' + msg + '</div>';
         }
       }
 
@@ -3060,7 +3058,7 @@ HTML_TEMPLATE = """
               
               // Formatta messaggio
               const message = log.message.replace(/<span class="material-icons md-18">warning<\\/span>/g, '[WARN]').replace(/<span class="material-icons md-18">check_circle<\\/span>/g, '[OK]').replace(/<span class="material-icons md-18">send<\\/span>/g, '[SEND]').replace(/<span class="material-icons md-18">hourglass_empty<\\/span>/g, '[WAIT]');
-              logLine.innerHTML = `<span style="color: #888;">[${log.timestamp}]</span> <span style="color: #569cd6;">[${log.level}]</span> ${message}`;
+              logLine.innerHTML = '<span style="color: #888;">[' + log.timestamp + ']</span> <span style="color: #569cd6;">[' + log.level + ']</span> ' + message;
               
               logsContainer.appendChild(logLine);
             });
@@ -3705,7 +3703,7 @@ HTML_TEMPLATE = """
             if (detectionsContainer) {
               detectionsContainer.innerHTML = data.detections.map((det, idx) => {
                 const pos = det.position || {};
-                const className = (det.class_name || 'unknown').replace(/'/g, "\\'");
+                const className = (det.class_name || 'unknown').replace(/'/g, "&apos;").replace(/"/g, "&quot;");
                 return '<div style="padding: 8px; margin-bottom: 4px; background: rgba(0, 0, 0, 0.06); border-radius: var(--mdc-shape-small); cursor: pointer;" onclick="selectDetection(' + idx + ')" id="detection-' + idx + '">' +
                   '<strong>' + className + '</strong> (' + (det.confidence * 100).toFixed(1) + '%)<br>' +
                   '<small>Position: [' + (pos.x || 0).toFixed(3) + ', ' + (pos.y || 0).toFixed(3) + ', ' + (pos.z || 0).toFixed(3) + '] m</small>' +
