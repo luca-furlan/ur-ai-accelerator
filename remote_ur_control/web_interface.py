@@ -1492,7 +1492,7 @@ HTML_TEMPLATE = """
         const rosReady = payload && payload.ros2_available && bridge && bridge.ros_initialized;
         if (rosBridgeState) {
           rosBridgeState.textContent = rosReady ? "ROS2 pronto" : "ROS2 non pronto";
-          rosBridgeState.className = `monitor-value badge ${rosReady ? "badge-ok" : "badge-error"}`;
+          rosBridgeState.className = 'monitor-value badge ' + (rosReady ? 'badge-ok' : 'badge-error');
         }
 
         const loopRunning = bridge && bridge.publish_loop_running;
@@ -1631,19 +1631,19 @@ HTML_TEMPLATE = """
         if (safetyMode) {
           const mode = dashboard.safetymode || "unknown";
           safetyMode.textContent = mode;
-          safetyMode.className = `monitor-value badge ${mode === "NORMAL" ? "badge-ok" : "badge-warning"}`;
+          safetyMode.className = 'monitor-value badge ' + (mode === 'NORMAL' ? 'badge-ok' : 'badge-warning');
         }
 
         if (programState) {
           const state = dashboard.programState || "unknown";
           programState.textContent = state;
-          programState.className = `monitor-value badge ${state === "PLAYING" ? "badge-ok" : "badge-error"}`;
+          programState.className = 'monitor-value badge ' + (state === 'PLAYING' ? 'badge-ok' : 'badge-error');
         }
 
         if (remoteControl) {
           const rc = dashboard.remote_control || "unknown";
           remoteControl.textContent = rc;
-          remoteControl.className = `monitor-value badge ${rc === "true" ? "badge-ok" : "badge-error"}`;
+          remoteControl.className = 'monitor-value badge ' + (rc === 'true' ? 'badge-ok' : 'badge-error');
         }
 
         // RTDE data
@@ -1882,7 +1882,7 @@ HTML_TEMPLATE = """
 
         // Pulsanti Retry
         for (const step of ['a', 'b', 'c', 'd', 'e']) {
-          const retryBtn = document.getElementById(`wizard-retry-${step}`);
+          const retryBtn = document.getElementById('wizard-retry-' + step);
           if (retryBtn) {
             retryBtn.addEventListener("click", () => {
               if (step === 'a') wizardStepA();
@@ -1896,10 +1896,10 @@ HTML_TEMPLATE = """
       }
 
       function updateWizardStep(step, status, message) {
-        const stepEl = document.getElementById(`step-${step}`);
-        const statusEl = document.getElementById(`step-${step}-status`);
-        const messageEl = document.getElementById(`step-${step}-message`);
-        const retryBtn = document.getElementById(`wizard-retry-${step}`);
+        const stepEl = document.getElementById('step-' + step);
+        const statusEl = document.getElementById('step-' + step + '-status');
+        const messageEl = document.getElementById('step-' + step + '-message');
+        const retryBtn = document.getElementById('wizard-retry-' + step);
         const activateBtn = document.getElementById(`wizard-activate-controller`);
         
         if (stepEl) {
@@ -2027,7 +2027,7 @@ HTML_TEMPLATE = """
               // Se c'è un errore e abbiamo ancora tentativi, riprova
               if (retryCount < maxRetries && (payload.message.includes("crashato") || payload.message.includes("Segmentation fault"))) {
                 retryCount++;
-                updateWizardStep('a', 'active', `<span class="material-icons md-18">refresh</span> Driver crashato. Riprovo automaticamente (tentativo ${retryCount}/${maxRetries})...<br><small>Pulizia completa in corso...</small>`);
+                updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Driver crashato. Riprovo automaticamente (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small>');
                 // Pulisci tutto e riprova
                 await fetch("/api/system/check_processes", {
                   method: "POST",
