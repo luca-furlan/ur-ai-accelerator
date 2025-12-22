@@ -359,10 +359,54 @@ class ROS2Bridge:
             traceback.print_exc()
     
     def ensure_ros(self):
-        """Ensure ROS2 is initialized."""
+        """Ensure ROS2 is initialized and context is valid."""
+        # Se non inizializzato, inizializza
         if not self._ros_initialized:
             self._init_ros()
-        return self._ros_initialized
+            return self._ros_initialized
+        
+        # Verifica che il context sia ancora valido
+        try:
+            if not ROS2_AVAILABLE:
+                return False
+            
+            # Verifica che rclpy sia ancora OK
+            if not rclpy.ok():
+                print('⚠️ ROS2 context not OK, reinizializzando...')
+                self._ros_initialized = False
+                self._node = None
+                self._publishers = {}
+                self._init_ros()
+                return self._ros_initialized
+            
+            # Verifica che il nodo sia ancora valido
+            if self._node is None:
+                print('⚠️ ROS2 node is None, reinizializzando...')
+                self._ros_initialized = False
+                self._init_ros()
+                return self._ros_initialized
+            
+            # Verifica che almeno un publisher sia valido
+            if not self._publishers or not any(self._publishers.values()):
+                print('⚠️ ROS2 publishers invalid, reinizializzando...')
+                self._ros_initialized = False
+                self._node = None
+                self._publishers = {}
+                self._init_ros()
+                return self._ros_initialized
+            
+            return True
+        except Exception as e:
+            print(f'⚠️ Error checking ROS2 context: {e}, reinizializzando...')
+            self._ros_initialized = False
+            self._node = None
+            self._publishers = {}
+            try:
+                self._init_ros()
+            except Exception as init_err:
+                print(f'❌ Failed to reinitialize ROS2: {init_err}')
+                return False
+            return self._ros_initialized
     
     def _start_publish_loop(self):
         """Start continuous publishing loop at 125Hz for smooth control."""
@@ -609,11 +653,26 @@ class ROS2Bridge:
                     time.sleep(interval)
                 except Exception as e:
                     error_msg = str(e)
-                    if "context is invalid" in error_msg or "publisher's context" in error_msg:
+                    if "context is invalid" in error_msg or "publisher's context" in error_msg or "rcl node's context" in error_msg:
                         print(f'❌ ROS2 context invalid in publish loop: {e}')
                         self._last_error = f"ROS2 context invalid: {error_msg}"
-                        # Ferma il loop se il contesto è invalido
-                        break
+                        # Prova a reinizializzare ROS2
+                        try:
+                            print('🔄 Tentativo di reinizializzazione ROS2 dopo context invalid...')
+                            self._ros_initialized = False
+                            self._node = None
+                            self._publishers = {}
+                            # Attendi un momento prima di reinizializzare
+                            time.sleep(1)
+                            if self.ensure_ros():
+                                print('✅ ROS2 reinizializzato con successo, continuo publish loop')
+                                continue  # Riprova a pubblicare
+                            else:
+                                print('❌ Reinizializzazione ROS2 fallita, fermo publish loop')
+                                break
+                        except Exception as reinit_err:
+                            print(f'❌ Errore durante reinizializzazione: {reinit_err}')
+                            break
                     else:
                         print(f'❌ Error in publish loop: {e}')
                         self._last_error = error_msg

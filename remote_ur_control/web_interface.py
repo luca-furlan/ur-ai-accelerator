@@ -2242,13 +2242,38 @@ HTML_TEMPLATE = """
                   showToast('Forward velocity controller attivo', 'success', 2000);
                   wizardStepCToastShown = true;
                 }
+                // Verifica anche che il ROS2 bridge sia stabile prima di procedere
+                try {
+                  const bridgeStatus = await fetch("/api/system/ros2_bridge_status");
+                  const bridgeData = await bridgeStatus.json();
+                  if (bridgeData.status === "ok" && bridgeData.data && bridgeData.data.initialized) {
+                    updateWizardStep('c', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Controller forward_velocity_controller attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                    if (!wizardStepCToastShown && typeof showToast === 'function') {
+                      showToast('Forward velocity controller attivo', 'success', 2000);
+                      wizardStepCToastShown = true;
+                    }
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Attesa per stabilità
+                    setTimeout(() => wizardStepD(), 1000);
+                    return true;
+                  }
+                } catch (bridgeErr) {
+                  console.warn('[WIZARD STEP C] Errore verifica bridge:', bridgeErr);
+                  // Continua comunque se il controller è attivo
+                }
+                
+                updateWizardStep('c', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Controller forward_velocity_controller attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                if (!wizardStepCToastShown && typeof showToast === 'function') {
+                  showToast('Forward velocity controller attivo', 'success', 2000);
+                  wizardStepCToastShown = true;
+                }
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Attesa per stabilità
                 setTimeout(() => wizardStepD(), 1000);
                 return true;
               }
               
               // Se non è attivo, prova ad attivarlo
               if (!controller.active || controller.name !== 'forward_velocity_controller') {
-                updateWizardStep('c', 'active', '<span class="material-icons md-18">refresh</span> Attivazione forward_velocity_controller... (tentativo ' + (attempts + 1) + '/' + maxAttempts + ')');
+                updateWizardStep('c', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Attivazione forward_velocity_controller... (tentativo ' + (attempts + 1) + '/' + maxAttempts + ')');
                 
                 const switchResponse = await fetch("/api/system/switch_controller", {
                   method: "POST",
@@ -2260,7 +2285,7 @@ HTML_TEMPLATE = """
                 
                 if (switchData.status === "ok") {
                   // Attendi un momento e verifica che sia stato attivato
-                  await new Promise(resolve => setTimeout(resolve, 1500));
+                  await new Promise(resolve => setTimeout(resolve, 2000)); // Aumentato a 2 secondi
                   
                   // Verifica di nuovo - solo che sia in stato 'active', non che risponda ai comandi
                   const verifyResponse = await fetch("/api/system/status");
@@ -2271,11 +2296,31 @@ HTML_TEMPLATE = """
                     // IMPORTANTE: Verifichiamo solo che sia attivo, non che il robot risponda
                     // Il robot potrebbe non essere in Remote Control ancora, ma il controller è comunque attivo
                     if (newController.active && newController.name === 'forward_velocity_controller') {
+                      // Verifica anche che il ROS2 bridge sia stabile
+                      try {
+                        const bridgeStatus = await fetch("/api/system/ros2_bridge_status");
+                        const bridgeData = await bridgeStatus.json();
+                        if (bridgeData.status === "ok" && bridgeData.data && bridgeData.data.initialized) {
+                          updateWizardStep('c', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Controller forward_velocity_controller attivato.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                          if (!wizardStepCToastShown && typeof showToast === 'function') {
+                            showToast('Forward velocity controller attivato', 'success', 2000);
+                            wizardStepCToastShown = true;
+                          }
+                          await new Promise(resolve => setTimeout(resolve, 2000)); // Attesa per stabilità
+                          setTimeout(() => wizardStepD(), 1000);
+                          return true;
+                        }
+                      } catch (bridgeErr) {
+                        console.warn('[WIZARD STEP C] Errore verifica bridge:', bridgeErr);
+                        // Continua comunque se il controller è attivo
+                      }
+                      
                       updateWizardStep('c', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Controller forward_velocity_controller attivato.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
                       if (!wizardStepCToastShown && typeof showToast === 'function') {
                         showToast('Forward velocity controller attivato', 'success', 2000);
                         wizardStepCToastShown = true;
                       }
+                      await new Promise(resolve => setTimeout(resolve, 2000)); // Attesa per stabilità
                       setTimeout(() => wizardStepD(), 1000);
                       return true;
                     }
@@ -2284,7 +2329,8 @@ HTML_TEMPLATE = """
                   // Se l'errore è che il controller non può essere attivato perché il robot non è in Remote Control,
                   // consideriamo comunque un successo parziale se il servizio ha risposto
                   if (switchData.message && (switchData.message.includes('already active') || switchData.message.includes('già attivo'))) {
-                    updateWizardStep('c', 'success', '<span class="material-icons md-18">check_circle</span> Controller già attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                    updateWizardStep('c', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Controller già attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Attesa per stabilità
                     setTimeout(() => wizardStepD(), 1000);
                     return true;
                   }
@@ -4993,19 +5039,17 @@ nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={
 LAUNCH_PID=$!
 echo "PID launch: $LAUNCH_PID" >> /tmp/ros2_driver.log
 
-# Verifica immediatamente che il processo sia partito (con più attesa)
-echo "[INFO] Attendo avvio processo (5s)..." >> /tmp/ros2_driver.log
-sleep 5  # Aumentato a 5 secondi per dare più tempo al processo di avviarsi
-
+# Verifica immediatamente che il processo sia partito
+sleep 2
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
     echo "ERROR: Processo launch morto immediatamente (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
     echo "[ERROR] Verifica errori nel log:" >> /tmp/ros2_driver.log
     # Cerca errori specifici nel log
-    if grep -i "error\|abort\|fault\|died\|failed\|segmentation" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
+    if grep -i "error\|abort\|fault\|died\|failed" /tmp/ros2_driver.log | tail -20 >> /tmp/ros2_driver.log 2>/dev/null; then
         echo "" >> /tmp/ros2_driver.log
     fi
-    echo "[ERROR] Ultimi 150 righe del log:" >> /tmp/ros2_driver.log
-    tail -150 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Ultimi 100 righe del log:" >> /tmp/ros2_driver.log
+    tail -100 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
@@ -5013,31 +5057,31 @@ fi
 # Disown dopo verifica che sia vivo
 disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
 
-# Attendi che il processo si avvii completamente (aumentato a 20s per maggiore stabilità)
-echo "[INFO] Attendo inizializzazione driver (20s)..." >> /tmp/ros2_driver.log
-sleep 20  # Aumentato a 20 secondi per dare più tempo all'inizializzazione
+# Attendi che il processo si avvii completamente (aumentato a 15s per maggiore stabilità)
+echo "[INFO] Attendo inizializzazione driver (15s)..." >> /tmp/ros2_driver.log
+sleep 15
 
 # Verifica di nuovo che il processo launch sia ancora vivo
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
     echo "ERROR: Processo launch morto durante inizializzazione (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
-    echo "[ERROR] Cercando errori nel log..." >> /tmp/ros2_driver.log
-    if grep -i "error\|abort\|fault\|died\|failed\|segmentation" /tmp/ros2_driver.log | tail -30 >> /tmp/ros2_driver.log 2>/dev/null; then
-        echo "" >> /tmp/ros2_driver.log
-    fi
-    echo "[ERROR] Ultimi 150 righe del log:" >> /tmp/ros2_driver.log
-    tail -150 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
+    echo "[ERROR] Ultimi 100 righe del log:" >> /tmp/ros2_driver.log
+    tail -100 /tmp/ros2_driver.log >> /tmp/ros2_driver.log
     echo "ERROR"
     exit 1
 fi
 echo "[OK] Processo launch ancora vivo (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
 
 # Cerca il processo ur_ros2_control_node (il processo principale del driver)
-FOUND_PID=$(pgrep -f 'ur_ros2_control_node' | head -1)
-if [ -z "$FOUND_PID" ]; then
-    # Aspetta altri 3 secondi
-    sleep 3
+# Aspetta con più tentativi per dare tempo al processo di avviarsi
+FOUND_PID=""
+for i in 1 2 3 4 5; do
     FOUND_PID=$(pgrep -f 'ur_ros2_control_node' | head -1)
-fi
+    if [ -n "$FOUND_PID" ]; then
+        break
+    fi
+    echo "[INFO] Tentativo $i/5: ur_ros2_control_node non ancora avviato, attendo..." >> /tmp/ros2_driver.log
+    sleep 3
+done
 
 if [ -z "$FOUND_PID" ]; then
     echo "ERROR: ur_ros2_control_node non trovato" >> /tmp/ros2_driver.log
