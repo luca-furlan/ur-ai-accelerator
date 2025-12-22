@@ -1467,8 +1467,8 @@ HTML_TEMPLATE = """
 
       function describeAge(ageSeconds, isoString) {
         if (ageSeconds == null) return "—";
-        const rounded = ageSeconds > 60 ? `${(ageSeconds / 60).toFixed(1)} min` : `${ageSeconds.toFixed(2)} s`;
-        return isoString ? `${rounded} fa (${isoString})` : `${rounded} fa`;
+        const rounded = ageSeconds > 60 ? (ageSeconds / 60).toFixed(1) + ' min' : ageSeconds.toFixed(2) + ' s';
+        return isoString ? rounded + ' fa (' + isoString + ')' : rounded + ' fa';
       }
 
       function renderTopics(publishers) {
@@ -2049,7 +2049,7 @@ HTML_TEMPLATE = """
           } catch (err) {
             if (retryCount < maxRetries) {
               retryCount++;
-              updateWizardStep('a', 'active', `<span class="material-icons md-18">refresh</span> Errore connessione. Riprovo (tentativo ${retryCount}/${maxRetries})...`);
+              updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Errore connessione. Riprovo (tentativo ' + retryCount + '/' + maxRetries + ')...');
               await new Promise(resolve => setTimeout(resolve, 2000));
               await tryStartDriver();
             } else {
@@ -2083,7 +2083,7 @@ HTML_TEMPLATE = """
                 if (attempts % 3 === 0) {
                   const driverStatus = data.ros2_driver.running ? 'attivo' : 'non attivo';
                   const portStatus = data.port_50002.listening ? 'aperta' : 'chiusa';
-                  updateWizardStep('b', 'active', `<span class="material-icons md-18">refresh</span> Verifica in corso... (${attempts}/${maxAttempts})<br><small>Driver: ${driverStatus}, Porta 50002: ${portStatus}</small>`);
+                  updateWizardStep('b', 'active', '<span class="material-icons md-18">refresh</span> Verifica in corso... (' + attempts + '/' + maxAttempts + ')<br><small>Driver: ' + driverStatus + ', Porta 50002: ' + portStatus + '</small>');
                 }
                 
                 if (attempts >= maxAttempts) {
@@ -2700,7 +2700,7 @@ HTML_TEMPLATE = """
       }
 
       function updateJoint(targetName, delta) {
-        const input = form.querySelector(`input[name='${targetName}']`);
+        const input = form.querySelector('input[name="' + targetName + '"]');
         if (!input) return;
         const current = parseFloat(input.value) || 0;
         const next = current + delta;
@@ -3021,7 +3021,7 @@ HTML_TEMPLATE = """
         if (typeof logsPaused === 'undefined' || logsPaused) return;
         
         try {
-          const response = await fetch(`/api/logs?last_id=${lastLogId}`);
+          const response = await fetch('/api/logs?last_id=' + lastLogId);
           const data = await response.json();
           
           if (data.status === 'ok' && data.logs && data.logs.length > 0) {
@@ -3550,7 +3550,7 @@ HTML_TEMPLATE = """
         setInterval(() => {
           if (cameraStreamImg) {
             const timestamp = new Date().getTime();
-            cameraStreamImg.src = `/api/vision/camera_stream?t=${timestamp}`;
+            cameraStreamImg.src = '/api/vision/camera_stream?t=' + timestamp;
           }
         }, 100); // 10 FPS
       }
