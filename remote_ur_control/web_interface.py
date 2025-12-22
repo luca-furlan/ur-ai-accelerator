@@ -2091,7 +2091,7 @@ HTML_TEMPLATE = """
               await new Promise(resolve => setTimeout(resolve, 2000));
               await tryStartDriver();
             } else {
-              updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Errore di connessione: ' + err.message + '<br><small>Verifica che la web interface sia attiva e riprova.</small>');
+              updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore di connessione: ' + err.message + '<br><small>Verifica che la web interface sia attiva e riprova.</small>');
             }
           }
         };
@@ -2121,7 +2121,7 @@ HTML_TEMPLATE = """
                 if (attempts % 3 === 0) {
                   const driverStatus = data.ros2_driver.running ? 'attivo' : 'non attivo';
                   const portStatus = data.port_50002.listening ? 'aperta' : 'chiusa';
-                  updateWizardStep('b', 'active', '<span class="material-icons md-18">refresh</span> Verifica in corso... (' + attempts + '/' + maxAttempts + ')<br><small>Driver: ' + driverStatus + ', Porta 50002: ' + portStatus + '</small>');
+                  updateWizardStep('b', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Verifica in corso... (' + attempts + '/' + maxAttempts + ')<br><small>Driver: ' + driverStatus + ', Porta 50002: ' + portStatus + '</small>');
                 }
                 
                 if (attempts >= maxAttempts) {
@@ -2184,7 +2184,7 @@ HTML_TEMPLATE = """
               // IMPORTANTE: Non verifichiamo se il robot risponde ai comandi (quello è compito dello step E)
               // Qui verifichiamo solo che il controller sia tecnicamente attivo
               if (controller.active && controller.name === 'forward_velocity_controller') {
-                updateWizardStep('c', 'success', '<span class="material-icons md-18">check_circle</span> Controller forward_velocity_controller attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                updateWizardStep('c', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Controller forward_velocity_controller attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
                 if (!wizardStepCToastShown && typeof showToast === 'function') {
                   showToast('Forward velocity controller attivo', 'success', 2000);
                   wizardStepCToastShown = true;
@@ -2218,7 +2218,7 @@ HTML_TEMPLATE = """
                     // IMPORTANTE: Verifichiamo solo che sia attivo, non che il robot risponda
                     // Il robot potrebbe non essere in Remote Control ancora, ma il controller è comunque attivo
                     if (newController.active && newController.name === 'forward_velocity_controller') {
-                      updateWizardStep('c', 'success', '<span class="material-icons md-18">check_circle</span> Controller forward_velocity_controller attivato.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
+                      updateWizardStep('c', 'success', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Controller forward_velocity_controller attivato.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
                       if (!wizardStepCToastShown && typeof showToast === 'function') {
                         showToast('Forward velocity controller attivato', 'success', 2000);
                         wizardStepCToastShown = true;
@@ -2237,7 +2237,7 @@ HTML_TEMPLATE = """
                   }
                   // Mostra errore solo una volta
                   if (!wizardStepCToastShown) {
-                    updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Errore attivazione: ' + switchData.message);
+                    updateWizardStep('c', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore attivazione: ' + switchData.message);
                     if (typeof showToast === 'function') {
                       showToast('Errore attivazione controller: ' + switchData.message, 'error', 4000);
                       wizardStepCToastShown = true;
@@ -2265,7 +2265,7 @@ HTML_TEMPLATE = """
             console.error("Wizard step C error", err);
             attempts++;
             if (attempts >= maxAttempts) {
-              updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Errore: ' + err.message);
+              updateWizardStep('c', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore: ' + err.message);
               if (!wizardStepCToastShown && typeof showToast === 'function') {
                 showToast('Errore durante attivazione controller: ' + err.message, 'error', 4000);
                 wizardStepCToastShown = true;
