@@ -1660,19 +1660,19 @@ HTML_TEMPLATE = """
           const warnings = [];
           const robotModeClean = (dashboard.robotmode || "").replace(/^Robotmode:\\s*/i, "").trim();
           if (robotModeClean && robotModeClean !== "RUNNING") {
-            warnings.push('<span class="material-icons md-18">warning</span> Robot non in RUNNING: ' + robotModeClean);
+            warnings.push('<span class=\"material-icons md-18\">warning</span> Robot non in RUNNING: ' + robotModeClean);
           }
           if (dashboard.programState && !dashboard.programState.includes("PLAYING")) {
-            warnings.push('<span class="material-icons md-18">warning</span> Programma non in PLAYING: ' + dashboard.programState);
+            warnings.push('<span class=\"material-icons md-18\">warning</span> Programma non in PLAYING: ' + dashboard.programState);
           }
           if (dashboard.remote_control && dashboard.remote_control !== "true") {
-            warnings.push('<span class="material-icons md-18">warning</span> Remote control non attivo');
+            warnings.push('<span class=\"material-icons md-18\">warning</span> Remote control non attivo');
           }
           if (rtde.error) {
-            warnings.push('<span class="material-icons md-18">warning</span> RTDE: ' + rtde.error);
+            warnings.push('<span class=\"material-icons md-18\">warning</span> RTDE: ' + rtde.error);
           }
           if (dashboard.error) {
-            warnings.push('<span class="material-icons md-18">warning</span> Dashboard: ' + dashboard.error);
+            warnings.push('<span class=\"material-icons md-18\">warning</span> Dashboard: ' + dashboard.error);
           }
           robotStatusWarning.textContent = warnings.join(" | ");
           robotStatusWarning.style.display = warnings.length > 0 ? "block" : "none";
@@ -1682,10 +1682,10 @@ HTML_TEMPLATE = """
         if (robotStatusInfo) {
           const infos = [];
           if (rtde.joints && rtde.tcp_pose) {
-            infos.push('<span class="material-icons md-18">check_circle</span> Dati RTDE disponibili');
+            infos.push('<span class=\"material-icons md-18\">check_circle</span> Dati RTDE disponibili');
           }
           if (dashboard.robotmode === "RUNNING" && dashboard.programState === "PLAYING") {
-            infos.push('<span class="material-icons md-18">check_circle</span> Robot pronto per controllo');
+            infos.push('<span class=\"material-icons md-18\">check_circle</span> Robot pronto per controllo');
           }
           robotStatusInfo.textContent = infos.join(" | ");
           robotStatusInfo.style.display = infos.length > 0 ? "block" : "none";
