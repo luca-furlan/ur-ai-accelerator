@@ -1948,19 +1948,19 @@ HTML_TEMPLATE = """
         if (statusEl) {
           statusEl.className = 'wizard-step__status';
           if (status === 'success') {
-            statusEl.innerHTML = '<span class="material-icons md-18">check_circle</span>';
+            statusEl.innerHTML = '<span class=' + '"material-icons md-18"' + '>check_circle</span>';
             statusEl.classList.add('success');
           } else if (status === 'error') {
-            statusEl.innerHTML = '<span class="material-icons md-18">error</span>';
+            statusEl.innerHTML = '<span class=' + '"material-icons md-18"' + '>error</span>';
             statusEl.classList.add('error');
           } else if (status === 'waiting') {
-            statusEl.innerHTML = '<span class="material-icons md-18">hourglass_empty</span>';
+            statusEl.innerHTML = '<span class=' + '"material-icons md-18"' + '>hourglass_empty</span>';
             statusEl.classList.add('waiting');
           } else if (status === 'active') {
-            statusEl.innerHTML = '<span class="material-icons md-18">refresh</span>';
+            statusEl.innerHTML = '<span class=' + '"material-icons md-18"' + '>refresh</span>';
             statusEl.classList.add('waiting');
           } else {
-            statusEl.innerHTML = '<span class="material-icons md-18">pause</span>';
+            statusEl.innerHTML = '<span class=' + '"material-icons md-18"' + '>pause</span>';
           }
         }
         
