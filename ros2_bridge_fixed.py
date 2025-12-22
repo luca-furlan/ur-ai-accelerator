@@ -207,8 +207,8 @@ class ROS2Bridge:
         self._user_command_received = False  # Flag CRITICO: comando utente ricevuto almeno una volta?
         self._speed_lock = threading.Lock()
         self._publish_rate = 125.0  # Hz - Frequenza originale che funzionava (125Hz = 8ms intervals)
-        self._smoothing_factor = 0.15  # Exponential smoothing: normale per movimento fluido
-        # Lower value = smoother but slower response (0.15 = buon compromesso)
+        self._smoothing_factor = 0.5  # Exponential smoothing: aumentato per risposta più rapida (0.5 = più reattivo, meno smooth)
+        # Higher value = faster response but less smooth (0.5 = buon compromesso per controllo real-time)
         self._trajectory_duration = 0.1  # Duration of each trajectory segment (100ms per movimento fluido)
         # TEMPORANEO: usa forward_velocity_controller per evitare segfault
         # TODO: Fix segfault con scaled_joint_trajectory_controller quando attivato

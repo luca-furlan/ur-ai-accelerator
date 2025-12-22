@@ -982,6 +982,101 @@ HTML_TEMPLATE = """
           </div>
         </div>
 
+        <!-- Vision & MoveIt Section -->
+        <section id="vision-moveit-section" class="mdc-card" style="margin-top: 24px; border-left: 4px solid #9c27b0;">
+          <div class="mdc-card__title">
+            <span class="material-icons">camera_alt</span>
+            Vision System & MoveIt
+          </div>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+            <!-- Orbbec Camera Status -->
+            <div>
+              <h3 style="font-size: 16px; font-weight: 500; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons md-18">videocam</span>
+                Orbbec Camera
+              </h3>
+              <div id="orbbec-status" style="padding: 12px; background: rgba(0, 0, 0, 0.04); border-radius: var(--mdc-shape-small); margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span>Status:</span>
+                  <span id="orbbec-status-value" class="mdc-chip">Checking...</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span>Topics:</span>
+                  <span id="orbbec-topics-count">—</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>FPS:</span>
+                  <span id="orbbec-fps">—</span>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="mdc-button mdc-button--outlined" id="start-orbbec" style="flex: 1;">
+                  <span class="material-icons md-18">play_arrow</span>
+                  Start Camera
+                </button>
+                <button class="mdc-button mdc-button--outlined" id="stop-orbbec" style="flex: 1;">
+                  <span class="material-icons md-18">stop</span>
+                  Stop Camera
+                </button>
+              </div>
+            </div>
+            
+            <!-- MoveIt Status -->
+            <div>
+              <h3 style="font-size: 16px; font-weight: 500; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons md-18">route</span>
+                MoveIt2 Motion Planning
+              </h3>
+              <div id="moveit-status" style="padding: 12px; background: rgba(0, 0, 0, 0.04); border-radius: var(--mdc-shape-small); margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span>Status:</span>
+                  <span id="moveit-status-value" class="mdc-chip">Checking...</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <span>Planning Group:</span>
+                  <span id="moveit-planning-group">ur_manipulator</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <span>Last Plan:</span>
+                  <span id="moveit-last-plan">—</span>
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button class="mdc-button mdc-button--outlined" id="test-moveit" style="flex: 1;">
+                  <span class="material-icons md-18">check_circle</span>
+                  Test MoveIt
+                </button>
+                <button class="mdc-button mdc-button--outlined" id="plan-move" style="flex: 1;">
+                  <span class="material-icons md-18">navigation</span>
+                  Plan Move
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Vision Detections -->
+          <div style="margin-top: 24px; border-top: 1px solid rgba(0, 0, 0, 0.12); padding-top: 16px;">
+            <h3 style="font-size: 16px; font-weight: 500; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+              <span class="material-icons md-18">visibility</span>
+              Object Detections
+            </h3>
+            <div id="detections-container" style="max-height: 200px; overflow-y: auto; padding: 12px; background: rgba(0, 0, 0, 0.04); border-radius: var(--mdc-shape-small);">
+              <div style="color: rgba(0, 0, 0, 0.5); font-style: italic;">No detections yet. Start camera and vision system.</div>
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 12px;">
+              <button class="mdc-button mdc-button--outlined" id="start-vision" style="flex: 1;">
+                <span class="material-icons md-18">play_arrow</span>
+                Start Vision System
+              </button>
+              <button class="mdc-button mdc-button--outlined" id="stop-vision" style="flex: 1;">
+                <span class="material-icons md-18">stop</span>
+                Stop Vision System
+              </button>
+            </div>
+          </div>
+        </section>
+
         <!-- Logging Section -->
         <div style="margin-top: 24px; border-top: 1px solid rgba(0, 0, 0, 0.12); padding-top: 16px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
@@ -1723,8 +1818,12 @@ HTML_TEMPLATE = """
         await checkDriver();
       }
 
+      // Flag per evitare toast ripetuti nel wizard
+      let wizardStepCToastShown = false;
+      
       async function wizardStepC() {
         updateWizardStep('c', 'active', '<span class="material-icons md-18">refresh</span> Verifica controller...');
+        wizardStepCToastShown = false; // Reset flag all'inizio
         
         // Prima verifica quale controller è attivo
         let attempts = 0;
@@ -1744,8 +1843,9 @@ HTML_TEMPLATE = """
               // Qui verifichiamo solo che il controller sia tecnicamente attivo
               if (controller.active && controller.name === 'forward_velocity_controller') {
                 updateWizardStep('c', 'success', '<span class="material-icons md-18">check_circle</span> Controller forward_velocity_controller attivo.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
-                if (typeof showToast === 'function') {
+                if (!wizardStepCToastShown && typeof showToast === 'function') {
                   showToast('Forward velocity controller attivo', 'success', 2000);
+                  wizardStepCToastShown = true;
                 }
                 setTimeout(() => wizardStepD(), 1000);
                 return true;
@@ -1777,8 +1877,9 @@ HTML_TEMPLATE = """
                     // Il robot potrebbe non essere in Remote Control ancora, ma il controller è comunque attivo
                     if (newController.active && newController.name === 'forward_velocity_controller') {
                       updateWizardStep('c', 'success', '<span class="material-icons md-18">check_circle</span> Controller forward_velocity_controller attivato.<br><small>Ora procedi al passo D per attivare Remote Control sul Teach Pendant.</small>');
-                      if (typeof showToast === 'function') {
+                      if (!wizardStepCToastShown && typeof showToast === 'function') {
                         showToast('Forward velocity controller attivato', 'success', 2000);
+                        wizardStepCToastShown = true;
                       }
                       setTimeout(() => wizardStepD(), 1000);
                       return true;
@@ -1792,9 +1893,13 @@ HTML_TEMPLATE = """
                     setTimeout(() => wizardStepD(), 1000);
                     return true;
                   }
-                  updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Errore attivazione: ' + switchData.message);
-                  if (typeof showToast === 'function') {
-                    showToast(`Errore attivazione controller: ${switchData.message}`, 'error', 4000);
+                  // Mostra errore solo una volta
+                  if (!wizardStepCToastShown) {
+                    updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Errore attivazione: ' + switchData.message);
+                    if (typeof showToast === 'function') {
+                      showToast(`Errore attivazione controller: ${switchData.message}`, 'error', 4000);
+                      wizardStepCToastShown = true;
+                    }
                   }
                   return false;
                 }
@@ -1804,8 +1909,9 @@ HTML_TEMPLATE = """
             attempts++;
             if (attempts >= maxAttempts) {
               updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Controller non attivato dopo ' + maxAttempts + ' tentativi.<br><small>Verifica che il driver ROS2 sia attivo. Puoi comunque procedere al passo D se il controller è già attivo manualmente.</small>');
-              if (typeof showToast === 'function') {
+              if (!wizardStepCToastShown && typeof showToast === 'function') {
                 showToast('Impossibile attivare forward_velocity_controller dopo ' + maxAttempts + ' tentativi', 'error', 5000);
+                wizardStepCToastShown = true;
               }
               // Non blocchiamo il wizard - permette di procedere comunque
               setTimeout(() => wizardStepD(), 2000);
@@ -1818,8 +1924,9 @@ HTML_TEMPLATE = """
             attempts++;
             if (attempts >= maxAttempts) {
               updateWizardStep('c', 'error', '<span class="material-icons md-18">error</span> Errore: ' + err.message);
-              if (typeof showToast === 'function') {
+              if (!wizardStepCToastShown && typeof showToast === 'function') {
                 showToast('Errore durante attivazione controller: ' + err.message, 'error', 4000);
+                wizardStepCToastShown = true;
               }
               return true;
             }
@@ -1840,6 +1947,8 @@ HTML_TEMPLATE = """
       
       // Verifica automatica forward_velocity_controller ogni 30 secondi
       let controllerCheckInterval = null;
+      let lastControllerToastTime = 0;
+      let controllerWasActive = false;
       function startControllerAutoCheck() {
         if (controllerCheckInterval) return; // Già attivo
         
@@ -1850,10 +1959,18 @@ HTML_TEMPLATE = """
             
             if (payload.status === "ok" && payload.data.controller) {
               const controller = payload.data.controller;
+              const isActive = controller.active && controller.name === 'forward_velocity_controller';
               
-              // Se il controller non è forward_velocity_controller o non è attivo, prova a riattivarlo
-              if (!controller.active || controller.name !== 'forward_velocity_controller') {
-                console.warn('<span class="material-icons md-18">warning</span> Forward velocity controller non attivo, tentativo riattivazione...');
+              // Se il controller è attivo, aggiorna il flag e non fare nulla
+              if (isActive) {
+                controllerWasActive = true;
+                return; // Controller OK, non fare nulla
+              }
+              
+              // Se il controller non è attivo, prova a riattivarlo SOLO se prima era attivo
+              // (evita spam se il controller non può essere attivato)
+              if (!isActive && controllerWasActive) {
+                console.warn('[WARN] Forward velocity controller non attivo, tentativo riattivazione...');
                 
                 const switchResponse = await fetch("/api/system/switch_controller", {
                   method: "POST",
@@ -1863,9 +1980,18 @@ HTML_TEMPLATE = """
                 
                 const switchData = await switchResponse.json();
                 if (switchData.status === "ok") {
-                  if (typeof showToast === 'function') {
-                    showToast('Forward velocity controller riattivato automaticamente', 'info', 3000);
+                  // Mostra toast solo una volta ogni 5 minuti per evitare spam
+                  const now = Date.now();
+                  if (now - lastControllerToastTime > 300000) { // 5 minuti
+                    if (typeof showToast === 'function') {
+                      showToast('Forward velocity controller riattivato automaticamente', 'info', 3000);
+                      lastControllerToastTime = now;
+                    }
                   }
+                  controllerWasActive = true; // Aggiorna flag dopo riattivazione
+                } else {
+                  // Se la riattivazione fallisce, non mostrare toast ripetuti
+                  controllerWasActive = false;
                 }
               }
             }
@@ -2080,15 +2206,106 @@ HTML_TEMPLATE = """
         });
       }
       
+      // --- Auto-Restart e Health Check System ---
+      let healthCheckInterval = null;
+      let lastHealthCheck = Date.now();
+      let consecutiveFailures = 0;
+      const MAX_CONSECUTIVE_FAILURES = 3;
+      
+      async function performHealthCheck() {
+        try {
+          const response = await fetch("/api/system/health_check", {
+            method: "GET",
+            headers: {"Content-Type": "application/json"}
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.status === "ok") {
+              consecutiveFailures = 0;
+              lastHealthCheck = Date.now();
+              return true;
+            }
+          }
+          
+          consecutiveFailures++;
+          if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            console.warn("[HEALTH] Multiple health check failures, attempting auto-restart...");
+            await autoRestartWebInterface();
+          }
+          return false;
+        } catch (err) {
+          console.error("[HEALTH] Health check error:", err);
+          consecutiveFailures++;
+          if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+            console.warn("[HEALTH] Multiple health check failures, attempting auto-restart...");
+            await autoRestartWebInterface();
+          }
+          return false;
+        }
+      }
+      
+      async function autoRestartWebInterface() {
+        try {
+          console.log("[AUTO-RESTART] Attempting to restart web interface...");
+          const response = await fetch("/api/system/auto_restart", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"}
+          });
+          
+          const data = await response.json();
+          if (data.status === "ok") {
+            showToast("Web interface restarting automatically...", "info", 3000);
+            // Attendi 3 secondi poi ricarica la pagina
+            setTimeout(() => {
+              window.location.reload();
+            }, 3000);
+          } else {
+            console.error("[AUTO-RESTART] Failed:", data.message);
+            showToast("Auto-restart failed: " + data.message, "error", 5000);
+          }
+        } catch (err) {
+          console.error("[AUTO-RESTART] Error:", err);
+          showToast("Auto-restart error: " + err.message, "error", 5000);
+        }
+      }
+      
+      // Health check all'avvio della pagina
+      async function initHealthCheck() {
+        // Verifica immediata all'avvio
+        const healthOk = await performHealthCheck();
+        if (!healthOk) {
+          console.warn("[HEALTH] Initial health check failed, attempting restart...");
+          await autoRestartWebInterface();
+          return;
+        }
+        
+        // Health check periodico ogni 10 secondi
+        healthCheckInterval = setInterval(performHealthCheck, 10000);
+        
+        // Verifica anche se la pagina è stata inattiva per troppo tempo
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) {
+            // Pagina tornata visibile - verifica stato
+            const timeSinceLastCheck = Date.now() - lastHealthCheck;
+            if (timeSinceLastCheck > 30000) { // Più di 30 secondi
+              performHealthCheck();
+            }
+          }
+        });
+      }
+      
       // Inizializza tutto quando il DOM è pronto
       if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
+          initHealthCheck(); // Prima di tutto, verifica health
           initWizardEventListeners();
           initWizard();
           initLogging();
         });
       } else {
         // DOM già caricato
+        initHealthCheck(); // Prima di tutto, verifica health
         initWizardEventListeners();
         initWizard();
         initLogging();
@@ -2569,6 +2786,12 @@ HTML_TEMPLATE = """
           .catch(err => console.error('Errore conteggio log:', err));
       }
 
+      // Throttling ottimizzato per ridurre delay - aggiorna ogni 8ms (125Hz per matchare bridge ROS2)
+      let lastSpeedUpdate = 0;
+      let pendingSpeeds = null;
+      let speedUpdatePending = false;
+      const SPEED_UPDATE_INTERVAL = 8; // 8ms = 125Hz (matcha frequenza bridge ROS2 per risposta immediata)
+      
       function updateSpeeds() {
         // Calculate speeds from joystick positions
         const magnitude = Math.hypot(joyVector.x, joyVector.y);
@@ -2607,21 +2830,41 @@ HTML_TEMPLATE = """
           }
         }
         
-        // Log per debug
+        // Salva le velocità per l'invio throttled
+        pendingSpeeds = speeds;
+        const cartesianModeEl = document.getElementById("cartesian-mode");
+        pendingCartesianMode = cartesianModeEl ? cartesianModeEl.checked : false;
+        
+        // Invia immediatamente se è passato abbastanza tempo dall'ultimo invio
+        const now = Date.now();
+        if (now - lastSpeedUpdate >= SPEED_UPDATE_INTERVAL && !speedUpdatePending) {
+          sendSpeedUpdate();
+        }
+      }
+      
+      let pendingCartesianMode = false;
+      function sendSpeedUpdate() {
+        if (speedUpdatePending || !pendingSpeeds) return;
+        
+        speedUpdatePending = true;
+        lastSpeedUpdate = Date.now();
+        const speeds = pendingSpeeds;
+        const cartesian = pendingCartesianMode;
+        
+        // Log per debug (solo se c'è movimento)
         const maxSpeed = Math.max(...speeds.map(Math.abs));
-        if (maxSpeed > 0.001) {
+        if (maxSpeed > 0.001 && Math.random() < 0.1) { // Log solo 10% delle volte per ridurre spam
           console.log('[JOYSTICK] speeds=[' + speeds.map(s => s.toFixed(4)).join(', ') + '], max=' + maxSpeed.toFixed(4));
         }
         
         // Update speeds (bridge publishes continuously at 125Hz)
-        const cartesianModeEl = document.getElementById("cartesian-mode");
-        const cartesianMode = cartesianModeEl ? cartesianModeEl.checked : false;
         fetch("/api/servo_loop_update", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ speeds, cartesian: cartesianMode }),
+          body: JSON.stringify({ speeds, cartesian: cartesian }),
         })
         .then(response => {
+          speedUpdatePending = false;
           if (!response.ok) {
             console.error('[ERROR] Update error: ' + response.status + ' ' + response.statusText);
             return response.text().then(text => {
@@ -2634,19 +2877,28 @@ HTML_TEMPLATE = """
           }
         })
         .then(data => {
-          if (data && data.message) {
-            console.log('[OK] Speed update: ' + data.message);
-            if (data.status === 'error') {
-              console.error('[ERROR] Server error: ' + data.message);
-              setStatus('Errore server: ' + data.message, false);
-            }
+          if (data && data.status === 'error') {
+            console.error('[ERROR] Server error: ' + data.message);
+            setStatus('Errore server: ' + data.message, false);
+          }
+          // Se ci sono nuove velocità in attesa, inviale subito
+          if (pendingSpeeds && Date.now() - lastSpeedUpdate >= SPEED_UPDATE_INTERVAL) {
+            sendSpeedUpdate();
           }
         })
         .catch(err => {
+          speedUpdatePending = false;
           console.error('[ERROR] Update error:', err);
           setStatus('Errore: ' + err.message, false);
         });
       }
+      
+      // Assicurati che le velocità vengano inviate anche quando il joystick si ferma
+      setInterval(() => {
+        if (pendingSpeeds && !speedUpdatePending && Date.now() - lastSpeedUpdate >= SPEED_UPDATE_INTERVAL) {
+          sendSpeedUpdate();
+        }
+      }, SPEED_UPDATE_INTERVAL);
 
       async function stopJointMotion() {
         joyX.textContent = "0.00";
@@ -2791,6 +3043,223 @@ HTML_TEMPLATE = """
       joystick2.addEventListener("touchmove", onJoystick2Move);
       joystick2.addEventListener("touchend", onJoystick2End);
       joystick2.addEventListener("touchcancel", onJoystick2End);
+      
+      // --- Vision & MoveIt System ---
+      let orbbecStatusInterval = null;
+      let moveitStatusInterval = null;
+      let detectionsInterval = null;
+      
+      // Orbbec Camera Controls
+      const startOrbbecBtn = document.getElementById("start-orbbec");
+      const stopOrbbecBtn = document.getElementById("stop-orbbec");
+      const orbbecStatusValue = document.getElementById("orbbec-status-value");
+      const orbbecTopicsCount = document.getElementById("orbbec-topics-count");
+      const orbbecFps = document.getElementById("orbbec-fps");
+      
+      async function fetchOrbbecStatus() {
+        try {
+          const response = await fetch("/api/vision/orbbec_status");
+          const data = await response.json();
+          if (data.status === "ok") {
+            const status = data.data;
+            if (orbbecStatusValue) {
+              if (status.active) {
+                orbbecStatusValue.textContent = "Active";
+                orbbecStatusValue.className = "mdc-chip mdc-chip--success";
+              } else {
+                orbbecStatusValue.textContent = "Inactive";
+                orbbecStatusValue.className = "mdc-chip mdc-chip--error";
+              }
+            }
+            if (orbbecTopicsCount) {
+              orbbecTopicsCount.textContent = status.topics_count || 0;
+            }
+            if (orbbecFps) {
+              orbbecFps.textContent = status.fps ? status.fps.toFixed(1) : "—";
+            }
+          }
+        } catch (err) {
+          console.error("Orbbec status error:", err);
+        }
+      }
+      
+      if (startOrbbecBtn) {
+        startOrbbecBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/start_orbbec", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("Orbbec camera started", "success", 2000);
+              setTimeout(fetchOrbbecStatus, 1000);
+            } else {
+              showToast("Error starting camera: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      if (stopOrbbecBtn) {
+        stopOrbbecBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/stop_orbbec", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("Orbbec camera stopped", "success", 2000);
+              setTimeout(fetchOrbbecStatus, 1000);
+            } else {
+              showToast("Error stopping camera: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      // MoveIt Controls
+      const testMoveitBtn = document.getElementById("test-moveit");
+      const planMoveBtn = document.getElementById("plan-move");
+      const moveitStatusValue = document.getElementById("moveit-status-value");
+      const moveitLastPlan = document.getElementById("moveit-last-plan");
+      
+      async function fetchMoveitStatus() {
+        try {
+          const response = await fetch("/api/vision/moveit_status");
+          const data = await response.json();
+          if (data.status === "ok") {
+            const status = data.data;
+            if (moveitStatusValue) {
+              if (status.available) {
+                moveitStatusValue.textContent = "Available";
+                moveitStatusValue.className = "mdc-chip mdc-chip--success";
+              } else {
+                moveitStatusValue.textContent = "Not Available";
+                moveitStatusValue.className = "mdc-chip mdc-chip--error";
+              }
+            }
+            if (moveitLastPlan) {
+              moveitLastPlan.textContent = status.last_plan_time ? new Date(status.last_plan_time * 1000).toLocaleTimeString() : "—";
+            }
+          }
+        } catch (err) {
+          console.error("MoveIt status error:", err);
+        }
+      }
+      
+      if (testMoveitBtn) {
+        testMoveitBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/test_moveit", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("MoveIt test successful", "success", 2000);
+              setTimeout(fetchMoveitStatus, 1000);
+            } else {
+              showToast("MoveIt test failed: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      if (planMoveBtn) {
+        planMoveBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/plan_move", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("Motion plan created", "success", 2000);
+              setTimeout(fetchMoveitStatus, 1000);
+            } else {
+              showToast("Planning failed: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      // Vision System Controls
+      const startVisionBtn = document.getElementById("start-vision");
+      const stopVisionBtn = document.getElementById("stop-vision");
+      const detectionsContainer = document.getElementById("detections-container");
+      
+      async function fetchDetections() {
+        try {
+          const response = await fetch("/api/vision/detections");
+          const data = await response.json();
+          if (data.status === "ok" && data.detections && data.detections.length > 0) {
+            if (detectionsContainer) {
+              detectionsContainer.innerHTML = data.detections.map(det => {
+                return `<div style="padding: 8px; margin-bottom: 4px; background: rgba(0, 0, 0, 0.06); border-radius: var(--mdc-shape-small);">
+                  <strong>${det.class_name}</strong> (${(det.confidence * 100).toFixed(1)}%)<br>
+                  <small>Position: [${det.position.map(p => p.toFixed(3)).join(", ")}]</small>
+                </div>`;
+              }).join("");
+            }
+          } else if (detectionsContainer && (!data.detections || data.detections.length === 0)) {
+            detectionsContainer.innerHTML = '<div style="color: rgba(0, 0, 0, 0.5); font-style: italic;">No detections yet. Start camera and vision system.</div>';
+          }
+        } catch (err) {
+          console.error("Detections fetch error:", err);
+        }
+      }
+      
+      if (startVisionBtn) {
+        startVisionBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/start", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("Vision system started", "success", 2000);
+              if (!detectionsInterval) {
+                detectionsInterval = setInterval(fetchDetections, 1000);
+              }
+            } else {
+              showToast("Error starting vision: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      if (stopVisionBtn) {
+        stopVisionBtn.addEventListener("click", async () => {
+          try {
+            const response = await fetch("/api/vision/stop", { method: "POST" });
+            const data = await response.json();
+            if (data.status === "ok") {
+              showToast("Vision system stopped", "success", 2000);
+              if (detectionsInterval) {
+                clearInterval(detectionsInterval);
+                detectionsInterval = null;
+              }
+            } else {
+              showToast("Error stopping vision: " + data.message, "error", 4000);
+            }
+          } catch (err) {
+            showToast("Error: " + err.message, "error", 4000);
+          }
+        });
+      }
+      
+      // Avvia polling status
+      if (orbbecStatusValue) {
+        fetchOrbbecStatus();
+        orbbecStatusInterval = setInterval(fetchOrbbecStatus, 3000);
+      }
+      
+      if (moveitStatusValue) {
+        fetchMoveitStatus();
+        moveitStatusInterval = setInterval(fetchMoveitStatus, 5000);
+      }
+      
+      if (detectionsContainer) {
+        detectionsInterval = setInterval(fetchDetections, 2000);
+      }
     
     
     </script>
@@ -4000,6 +4469,384 @@ def api_logs_clear():
         return jsonify({"status": "error", "message": str(e)})
 
 
+@app.route("/api/vision/orbbec_status", methods=["GET"])
+def api_orbbec_status():
+    """Restituisce lo stato della camera Orbbec."""
+    import subprocess
+    try:
+        # Verifica se ci sono topics Orbbec attivi
+        result = subprocess.run(
+            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 2 ros2 topic list 2>/dev/null | grep -i "camera\|orbbec" | wc -l'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        topics_count = int(result.stdout.strip()) if result.stdout.strip().isdigit() else 0
+        
+        # Verifica se il processo camera è attivo
+        result = subprocess.run(
+            ['pgrep', '-f', 'orbbec_camera'],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        active = result.returncode == 0
+        
+        # Prova a leggere FPS (se disponibile)
+        fps = None
+        if active:
+            try:
+                result = subprocess.run(
+                    ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 1 ros2 topic hz /camera/color/image_raw 2>/dev/null | head -1'],
+                    capture_output=True,
+                    text=True,
+                    timeout=3
+                )
+                if 'average rate' in result.stdout:
+                    import re
+                    match = re.search(r'(\d+\.?\d*)', result.stdout)
+                    if match:
+                        fps = float(match.group(1))
+            except:
+                pass
+        
+        return jsonify({
+            "status": "ok",
+            "data": {
+                "active": active,
+                "topics_count": topics_count,
+                "fps": fps
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/vision/start_orbbec", methods=["POST"])
+def api_start_orbbec():
+    """Avvia la camera Orbbec."""
+    import subprocess
+    try:
+        # Avvia camera in background
+        result = subprocess.Popen(
+            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && source ~/ros2_ws/install/setup.bash 2>/dev/null && ros2 launch orbbec_camera gemini_330_series.launch.py > /tmp/orbbec_camera.log 2>&1 &'],
+            shell=True
+        )
+        return jsonify({"status": "ok", "message": "Orbbec camera starting..."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/vision/stop_orbbec", methods=["POST"])
+def api_stop_orbbec():
+    """Ferma la camera Orbbec."""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ['pkill', '-f', 'orbbec_camera'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return jsonify({"status": "ok", "message": "Orbbec camera stopped"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/vision/moveit_status", methods=["GET"])
+def api_moveit_status():
+    """Restituisce lo stato di MoveIt2."""
+    import subprocess
+    try:
+        # Verifica se MoveIt è installato
+        result = subprocess.run(
+            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && ros2 pkg list 2>/dev/null | grep -i moveit | wc -l'],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        packages_count = int(result.stdout.strip()) if result.stdout.strip().isdigit() else 0
+        available = packages_count > 0
+        
+        # Verifica se il planning service è disponibile
+        planning_available = False
+        if available:
+            try:
+                result = subprocess.run(
+                    ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 2 ros2 service list 2>/dev/null | grep -i "plan\|moveit" | wc -l'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                planning_available = int(result.stdout.strip()) > 0 if result.stdout.strip().isdigit() else False
+            except:
+                pass
+        
+        return jsonify({
+            "status": "ok",
+            "data": {
+                "available": available,
+                "packages_count": packages_count,
+                "planning_available": planning_available,
+                "last_plan_time": None  # TODO: implementare tracking
+            }
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/vision/test_moveit", methods=["POST"])
+def api_test_moveit():
+    """Test MoveIt2 disponibilità."""
+    try:
+        # Verifica import Python
+        try:
+            from moveit_msgs.msg import Constraints
+            from moveit_msgs.action import MoveGroup
+            python_available = True
+        except ImportError:
+            python_available = False
+        
+        return jsonify({
+            "status": "ok" if python_available else "error",
+            "message": "MoveIt2 Python interface available" if python_available else "MoveIt2 Python interface not available",
+            "data": {"python_available": python_available}
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/vision/plan_move", methods=["POST"])
+def api_plan_move():
+    """Pianifica un movimento con MoveIt2."""
+    # TODO: Implementare pianificazione movimento
+    return jsonify({
+        "status": "error",
+        "message": "MoveIt planning not yet implemented. Use joystick control for now."
+    })
+
+
+@app.route("/api/vision/detections", methods=["GET"])
+def api_detections():
+    """Restituisce le ultime detections dalla vision system."""
+    try:
+        # Verifica se c'è un topic detections attivo
+        import subprocess
+        result = subprocess.run(
+            ['bash', '-c', 'source /opt/ros/humble/setup.bash 2>/dev/null && timeout 1 ros2 topic echo /vision/detections_3d --once 2>/dev/null'],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+        
+        if result.returncode == 0 and result.stdout:
+            # TODO: Parse detections from ROS2 topic
+            # Per ora restituiamo dati mock
+            return jsonify({
+                "status": "ok",
+                "detections": []  # TODO: implementare parsing
+            })
+        else:
+            return jsonify({
+                "status": "ok",
+                "detections": []
+            })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)})
+
+
+@app.route("/api/vision/start", methods=["POST"])
+def api_vision_start():
+    """Avvia il sistema vision completo."""
+    # TODO: Implementare avvio vision system
+    return jsonify({
+        "status": "error",
+        "message": "Vision system not yet implemented. Start Orbbec camera first."
+    })
+
+
+@app.route("/api/vision/stop", methods=["POST"])
+def api_vision_stop():
+    """Ferma il sistema vision completo."""
+    # TODO: Implementare stop vision system
+    return jsonify({
+        "status": "ok",
+        "message": "Vision system stopped"
+    })
+
+
+@app.route("/api/system/health_check", methods=["GET"])
+def api_health_check():
+    """Health check per verificare che il sistema sia funzionante."""
+    import subprocess
+    import os
+    import time
+    
+    health_status = {
+        "web_interface": True,
+        "ros2_bridge": False,
+        "ros2_driver": False,
+        "port_listening": False,
+        "timestamp": time.time()
+    }
+    
+    try:
+        # 1. Verifica che questo processo sia attivo
+        current_pid = os.getpid()
+        try:
+            os.kill(current_pid, 0)  # Verifica che il processo esista
+            health_status["web_interface"] = True
+        except:
+            health_status["web_interface"] = False
+        
+        # 2. Verifica ROS2 bridge
+        if ROS2_AVAILABLE:
+            bridge = get_ros2_bridge()
+            if bridge and bridge.ensure_ros():
+                health_status["ros2_bridge"] = True
+        
+        # 3. Verifica ROS2 driver
+        try:
+            result = subprocess.run(
+                ['pgrep', '-f', 'ur_ros2_control_node'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            health_status["ros2_driver"] = (result.returncode == 0 and result.stdout.strip() != "")
+        except:
+            pass
+        
+        # 4. Verifica che la porta sia in ascolto
+        try:
+            import socket
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(0.5)
+            result = sock.connect_ex(('127.0.0.1', int(os.environ.get("WEB_PORT", 8080))))
+            sock.close()
+            health_status["port_listening"] = (result == 0)
+        except:
+            pass
+        
+        # Calcola health score
+        health_score = sum([
+            health_status["web_interface"],
+            health_status["ros2_bridge"],
+            health_status["ros2_driver"],
+            health_status["port_listening"]
+        ]) / 4.0
+        
+        return jsonify({
+            "status": "ok" if health_score >= 0.5 else "degraded",
+            "data": health_status,
+            "health_score": health_score
+        })
+    except Exception as e:
+        app.logger.error(f"[HEALTH] Health check error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "data": health_status
+        })
+
+
+@app.route("/api/system/auto_restart", methods=["POST"])
+def api_auto_restart():
+    """Auto-restart del web interface quando viene chiamato all'accesso della pagina."""
+    import subprocess
+    import os
+    import time
+    
+    try:
+        app.logger.info("[AUTO-RESTART] Richiesta auto-restart web interface...")
+        
+        # 1. Verifica e kill processi doppi
+        try:
+            result = subprocess.run(
+                ['pgrep', '-f', 'web_interface'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                pids = result.stdout.strip().split('\n')
+                current_pid = str(os.getpid())
+                for pid in pids:
+                    if pid and pid != current_pid:
+                        try:
+                            subprocess.run(['kill', '-9', pid], timeout=2, check=False)
+                            app.logger.info(f"[AUTO-RESTART] Killed duplicate process {pid}")
+                        except:
+                            pass
+                time.sleep(1)
+        except:
+            pass
+        
+        # 2. Verifica che il processo corrente sia ancora attivo
+        current_pid = os.getpid()
+        
+        # 3. Crea script di riavvio robusto
+        script_content = f"""#!/bin/bash
+# Script auto-restart web interface
+set -e
+
+cd ~/MekoAiAccelerator || exit 1
+
+# Source ROS2
+source /opt/ros/humble/setup.bash 2>/dev/null || true
+if [ -f ~/ros2_ws/install/setup.bash ]; then
+    source ~/ros2_ws/install/setup.bash 2>/dev/null || true
+fi
+
+# Export variabili
+export LD_LIBRARY_PATH=/opt/ros/humble/lib:${{LD_LIBRARY_PATH:-}}
+export PYTHONPATH=/opt/ros/humble/lib/python3.10/site-packages:/opt/ros/humble/local/lib/python3.10/dist-packages:${{PYTHONPATH:-}}
+export UR_ROBOT_IP=${{UR_ROBOT_IP:-192.168.10.194}}
+export WEB_HOST=${{WEB_HOST:-0.0.0.0}}
+export WEB_PORT=${{WEB_PORT:-8080}}
+
+# Kill processo corrente se ancora attivo
+sleep 1
+kill -9 {current_pid} 2>/dev/null || true
+
+# Attendi che il processo venga killato
+sleep 2
+
+# Libera porta se occupata
+fuser -k ${{WEB_PORT}}/tcp 2>/dev/null || true
+sleep 1
+
+# Avvia nuovo processo
+nohup python3 -m remote_ur_control.web_interface > /tmp/web_interface_auto_restart.log 2>&1 &
+
+echo "Web interface auto-restarted (PID: $!)"
+"""
+        
+        script_path = "/tmp/auto_restart_web_interface.sh"
+        with open(script_path, 'w') as f:
+            f.write(script_content)
+        os.chmod(script_path, 0o755)
+        
+        # Esegui lo script in background
+        subprocess.Popen(
+            ['bash', script_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            preexec_fn=os.setsid  # Crea nuovo process group
+        )
+        
+        app.logger.info(f"[AUTO-RESTART] Auto-restart script avviato (PID corrente: {current_pid})")
+        return jsonify({
+            "status": "ok",
+            "message": f"Auto-restart avviato. Il processo verrà riavviato automaticamente."
+        })
+    except Exception as e:
+        app.logger.error(f"[AUTO-RESTART] Errore: {e}")
+        import traceback
+        app.logger.error(traceback.format_exc())
+        return jsonify({"status": "error", "message": str(e)})
+
+
 @app.route("/api/system/restart_web_interface", methods=["POST"])
 def api_restart_web_interface():
     """Riavvia il web interface killando il processo corrente."""
@@ -4009,33 +4856,8 @@ def api_restart_web_interface():
     try:
         app.logger.info("[INFO] Richiesta riavvio web interface...")
         
-        # Trova il PID del processo corrente
-        current_pid = os.getpid()
-        
-        # Crea uno script che killera questo processo e riavvierà
-        script_content = f"""#!/bin/bash
-# Script temporaneo per riavviare web interface
-sleep 2
-kill -9 {current_pid} 2>/dev/null || true
-cd ~/MekoAiAccelerator
-nohup ./avvia_web_interface_joystick.sh > /tmp/web_interface_restart.log 2>&1 &
-"""
-        
-        script_path = "/tmp/restart_web_interface.sh"
-        with open(script_path, 'w') as f:
-            f.write(script_content)
-        os.chmod(script_path, 0o755)
-        
-        # Esegui lo script in background
-        subprocess.Popen(['bash', script_path], 
-                        stdout=subprocess.DEVNULL, 
-                        stderr=subprocess.DEVNULL)
-        
-        app.logger.info(f"[OK] Script di riavvio avviato (PID corrente: {current_pid})")
-        return jsonify({
-            "status": "ok", 
-            "message": f"Riavvio avviato. Il processo corrente (PID: {current_pid}) verrà terminato e riavviato."
-        })
+        # Usa lo stesso meccanismo di auto-restart
+        return api_auto_restart()
     except Exception as e:
         app.logger.error(f"[ERROR] Errore riavvio web interface: {e}")
         import traceback
@@ -4304,16 +5126,39 @@ def main() -> None:
         print("[WARN] ROS2 non disponibile (rclpy non trovato)")
         print("   Suggerimento: avvia web interface con: bash avvia_web_interface.sh")
     
-    # 3. Verifica e libera porta se occupata
-    print("\n[3/3] Verifica porta...")
+    # 3. Verifica e libera porta se occupata + kill processi doppi
+    print("\n[3/4] Verifica porta e processi...")
     host = os.environ.get("WEB_HOST", "0.0.0.0")
     port = int(os.environ.get("WEB_PORT", 8080))
     debug = bool(int(os.environ.get("WEB_DEBUG", "0")))
+    
+    # Kill processi web_interface esistenti (tranne questo se già esiste)
+    current_pid = os.getpid()
+    try:
+        result = subprocess.run(
+            ['pgrep', '-f', 'web_interface'],
+            capture_output=True,
+            text=True,
+            timeout=2
+        )
+        if result.returncode == 0:
+            pids = result.stdout.strip().split('\n')
+            for pid in pids:
+                if pid and pid != str(current_pid):
+                    try:
+                        subprocess.run(['kill', '-9', pid], timeout=2, check=False)
+                        print(f"[INFO] Processo web_interface {pid} terminato")
+                    except:
+                        pass
+            time.sleep(1)
+    except:
+        pass
     
     # Verifica se la porta è occupata e kill processo
     try:
         import socket
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(0.5)
         result = sock.connect_ex((host, port))
         sock.close()
         
@@ -4330,10 +5175,10 @@ def main() -> None:
                 if result.returncode == 0 and result.stdout.strip():
                     pids = result.stdout.strip().split('\n')
                     for pid in pids:
-                        if pid:
+                        if pid and pid != str(current_pid):
                             try:
                                 subprocess.run(['kill', '-9', pid], timeout=2, check=False)
-                                print(f"[INFO] Processo {pid} terminato")
+                                print(f"[INFO] Processo {pid} sulla porta {port} terminato")
                             except:
                                 pass
                     time.sleep(1)
@@ -4343,8 +5188,19 @@ def main() -> None:
                 try:
                     subprocess.run(['fuser', '-k', f'{port}/tcp'], timeout=2, check=False)
                     time.sleep(1)
+                    print("[OK] Porta liberata (fuser)")
                 except:
                     pass
+    except:
+        pass
+    
+    # 4. Salva PID per monitoraggio
+    print("\n[4/4] Salvataggio PID per monitoraggio...")
+    try:
+        pid_file = "/tmp/web_interface.pid"
+        with open(pid_file, 'w') as f:
+            f.write(str(current_pid))
+        print(f"[OK] PID salvato: {current_pid}")
     except:
         pass
     
