@@ -1557,7 +1557,7 @@ HTML_TEMPLATE = """
         }
         if (rosWarning) {
           if (bridge && bridge.last_error) {
-            rosWarning.innerHTML = '<span class="material-icons md-18">warning</span> Errore: ' + bridge.last_error;
+            rosWarning.innerHTML = '<span class=' + '"material-icons md-18"' + '>warning</span> Errore: ' + bridge.last_error;
             rosWarning.style.display = "block";
           } else {
             rosWarning.textContent = "";
@@ -1572,21 +1572,21 @@ HTML_TEMPLATE = """
             const speeds = bridge.target_speeds || [0,0,0,0,0,0];
             const hasNonZeroSpeed = speeds.some(s => Math.abs(s) > 0.001);
             if (hasNonZeroSpeed) {
-                infoMessages.push('<span class="material-icons md-18">sports_esports</span> Velocità target: [' + speeds.map(s => s.toFixed(3)).join(", ") + ']');
+                infoMessages.push('<span class=' + '"material-icons md-18"' + '>sports_esports</span> Velocità target: [' + speeds.map(s => s.toFixed(3)).join(', ') + ']');
             }
             if (bridge.publish_loop_running && bridge.last_publish_age_s !== null) {
               const age = bridge.last_publish_age_s;
               if (age > 0.1) {
-                infoMessages.push('<span class="material-icons md-18">warning</span> Ultimo publish ' + age.toFixed(2) + 's fa - potrebbe essere un problema');
+                infoMessages.push('<span class=' + '"material-icons md-18"' + '>warning</span> Ultimo publish ' + age.toFixed(2) + 's fa - potrebbe essere un problema');
               } else {
-                infoMessages.push('<span class="material-icons md-18">check_circle</span> Pubblicazione attiva (' + bridge.publish_rate_hz + 'Hz)');
+                infoMessages.push('<span class=' + '"material-icons md-18"' + '>check_circle</span> Pubblicazione attiva (' + bridge.publish_rate_hz + 'Hz)');
               }
             }
             if (!bridge.ros_initialized) {
-              infoMessages.push('<span class="material-icons md-18">error</span> ROS2 non inizializzato - controlla la configurazione');
+              infoMessages.push('<span class=' + '"material-icons md-18"' + '>error</span> ROS2 non inizializzato - controlla la configurazione');
             }
             if (!bridge.publish_loop_running) {
-              infoMessages.push('<span class="material-icons md-18">error</span> Loop di pubblicazione fermo - riavvia il servizio');
+              infoMessages.push('<span class=' + '"material-icons md-18"' + '>error</span> Loop di pubblicazione fermo - riavvia il servizio');
             }
           }
           rosInfo.textContent = infoMessages.length > 0 ? infoMessages.join(" | ") : "";
@@ -1777,20 +1777,20 @@ HTML_TEMPLATE = """
             
             if (ros2DriverStatus) {
               if (data.ros2_driver.running) {
-                ros2DriverStatus.innerHTML = '<span class="material-icons md-18">check_circle</span> Attivo';
+                ros2DriverStatus.innerHTML = '<span class=' + '"material-icons md-18"' + '>check_circle</span> Attivo';
                 ros2DriverStatus.className = "monitor-value badge badge-success";
               } else {
-                ros2DriverStatus.innerHTML = '<span class="material-icons md-18">error</span> Fermo';
+                ros2DriverStatus.innerHTML = '<span class=' + '"material-icons md-18"' + '>error</span> Fermo';
                 ros2DriverStatus.className = "monitor-value badge badge-error";
               }
             }
             
             if (controllerStatus) {
               if (data.controller.active) {
-                controllerStatus.innerHTML = '<span class="material-icons md-18">check_circle</span> ' + data.controller.name;
+                controllerStatus.innerHTML = '<span class=' + '"material-icons md-18"' + '>check_circle</span> ' + data.controller.name;
                 controllerStatus.className = "monitor-value badge badge-success";
               } else {
-                controllerStatus.innerHTML = data.controller.error || '<span class="material-icons md-18">error</span> Nessuno';
+                controllerStatus.innerHTML = data.controller.error || '<span class=' + '"material-icons md-18"' + '>error</span> Nessuno';
                 controllerStatus.className = "monitor-value badge badge-error";
               }
             }
@@ -1803,10 +1803,10 @@ HTML_TEMPLATE = """
             
             if (portStatus) {
               if (data.port_50002.listening) {
-                portStatus.innerHTML = '<span class="material-icons md-18">check_circle</span> Aperta';
+                portStatus.innerHTML = '<span class=' + '"material-icons md-18"' + '>check_circle</span> Aperta';
                 portStatus.className = "monitor-value badge badge-success";
               } else {
-                portStatus.innerHTML = '<span class="material-icons md-18">error</span> Chiusa';
+                portStatus.innerHTML = '<span class=' + '"material-icons md-18"' + '>error</span> Chiusa';
                 portStatus.className = "monitor-value badge badge-error";
               }
             }
@@ -1821,20 +1821,20 @@ HTML_TEMPLATE = """
             if (quickStatus && ros2DriverQuick && controllerQuick && robotModeQuick && portQuick) {
               quickStatus.style.display = "block";
               if (data.ros2_driver.running) {
-                ros2DriverQuick.innerHTML = '<span class="material-icons md-18">check_circle</span> Attivo';
+                ros2DriverQuick.innerHTML = '<span class=' + '"material-icons md-18"' + '>check_circle</span> Attivo';
               } else {
-                ros2DriverQuick.innerHTML = '<span class="material-icons md-18">error</span> Fermo';
+                ros2DriverQuick.innerHTML = '<span class=' + '"material-icons md-18"' + '>error</span> Fermo';
               }
               if (data.controller.active) {
                 controllerQuick.textContent = data.controller.name;
               } else {
-                controllerQuick.innerHTML = '<span class="material-icons md-18">error</span> Nessuno';
+                controllerQuick.innerHTML = '<span class=' + '"material-icons md-18"' + '>error</span> Nessuno';
               }
               robotModeQuick.textContent = data.robot_mode || "—";
               if (data.port_50002.listening) {
-                portQuick.innerHTML = '<span class="material-icons md-18">check_circle</span> Aperta';
+                portQuick.innerHTML = '<span class=' + '"material-icons md-18"' + '>check_circle</span> Aperta';
               } else {
-                portQuick.innerHTML = '<span class="material-icons md-18">error</span> Chiusa';
+                portQuick.innerHTML = '<span class=' + '"material-icons md-18"' + '>error</span> Chiusa';
               }
             }
             
@@ -2026,7 +2026,7 @@ HTML_TEMPLATE = """
         }
         
         // STEP 2: Verifica e kill processi esistenti (IMPORTANTE per evitare crash)
-        updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Pulizia processi esistenti...');
+        updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Pulizia processi esistenti...');
         try {
           const checkResponse = await fetch("/api/system/check_processes", {
             method: "POST",
@@ -2045,7 +2045,7 @@ HTML_TEMPLATE = """
           }
         } catch (err) {
           console.warn("Errore verifica processi:", err);
-          updateWizardStep('a', 'active', '<span class="material-icons md-18">warning</span> Impossibile verificare processi. Procedo comunque...');
+          updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>warning</span> Impossibile verificare processi. Procedo comunque...');
           await new Promise(resolve => setTimeout(resolve, 2000)); // Attendi comunque per sicurezza
         }
         
@@ -2059,7 +2059,7 @@ HTML_TEMPLATE = """
             const response = await fetch("/api/system/start_driver", { method: "POST" });
             const payload = await response.json();
             if (payload.status === "ok") {
-              updateWizardStep('a', 'waiting', '<span class="material-icons md-18">check_circle</span> Driver avviato! Attendo stabilizzazione (5 secondi)...');
+              updateWizardStep('a', 'waiting', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Driver avviato! Attendo stabilizzazione (5 secondi)...');
               setTimeout(() => wizardStepB(), 5000);
             } else {
               // Se c'è un errore e abbiamo ancora tentativi, riprova
@@ -2081,7 +2081,7 @@ HTML_TEMPLATE = """
                 if (errorMsg.length > 500) {
                   errorMsg = errorMsg.substring(0, 500) + "...\n\n[Clicca 'Riprova' per vedere log completo]";
                 }
-                updateWizardStep('a', 'error', '<span class="material-icons md-18">error</span> Errore avvio driver:<br><small>' + errorMsg.replace(/\n/g, '<br>') + '</small><br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile<br>2. Clicca "Riprova" per riprovare<br>3. Se persiste, riavvia robot e riprova</small>');
+                updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore avvio driver:<br><small>' + errorMsg.replace(/\n/g, '<br>') + '</small><br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile<br>2. Clicca "Riprova" per riprovare<br>3. Se persiste, riavvia robot e riprova</small>');
               }
             }
           } catch (err) {
