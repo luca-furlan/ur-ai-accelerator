@@ -1388,7 +1388,7 @@ HTML_TEMPLATE = """
           info: 'info'
         }[type] || 'info';
         
-        toast.innerHTML = '<span class=' + '"material-icons"' + '>' + icon + '</span>' +
+        toast.innerHTML = '<span class="material-icons">' + icon + '</span>' +
           '<span style="flex: 1;">' + message + '</span>' +
           '<button onclick="this.parentElement.remove()" style="background: none; border: none; cursor: pointer; opacity: 0.6; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">' +
             '<span class="material-icons md-18">close</span>' +
@@ -2036,10 +2036,10 @@ HTML_TEMPLATE = """
           const checkPayload = await checkResponse.json();
           if (checkPayload.status === "ok") {
             if (checkPayload.data.duplicates_found) {
-              updateWizardStep('a', 'active', '<span class="material-icons md-18">refresh</span> Processi duplicati terminati. Attendo pulizia completa (5 secondi)...');
+              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Processi duplicati terminati. Attendo pulizia completa (5 secondi)...');
               await new Promise(resolve => setTimeout(resolve, 5000)); // Attendi 5 secondi per pulizia completa
             } else {
-              updateWizardStep('a', 'active', '<span class="material-icons md-18">check_circle</span> Nessun processo duplicato. Procedo...');
+              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Nessun processo duplicato. Procedo...');
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
           }
@@ -2079,9 +2079,9 @@ HTML_TEMPLATE = """
                 let errorMsg = payload.message;
                 // Rimuovi dettagli tecnici eccessivi se presenti
                 if (errorMsg.length > 500) {
-                  errorMsg = errorMsg.substring(0, 500) + "...\n\n[Clicca 'Riprova' per vedere log completo]";
+                  errorMsg = errorMsg.substring(0, 500) + '...' + String.fromCharCode(10) + String.fromCharCode(10) + '[Clicca \'Riprova\' per vedere log completo]';
                 }
-                updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore avvio driver:<br><small>' + errorMsg.replace(/\n/g, '<br>') + '</small><br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile<br>2. Clicca "Riprova" per riprovare<br>3. Se persiste, riavvia robot e riprova</small>');
+                updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore avvio driver:<br><small>' + errorMsg.replace(/\\n/g, '<br>') + '</small><br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile<br>2. Clicca "Riprova" per riprovare<br>3. Se persiste, riavvia robot e riprova</small>');
               }
             }
           } catch (err) {
