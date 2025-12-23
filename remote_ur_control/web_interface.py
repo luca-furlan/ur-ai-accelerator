@@ -2177,7 +2177,8 @@ HTML_TEMPLATE = """
                 retryCount++;
                 // Mostra log rilevanti durante retry
                 const errorPreview = errorMsg.substring(0, 200);
-                updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Driver crashato. Riprovo automaticamente (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small><br><details style="margin-top: 10px;"><summary style="cursor: pointer; color: #ff9800;">Dettagli errore</summary><pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; overflow-y: auto;">' + errorPreview.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre></details>');
+                const errorPreviewEscaped = errorPreview.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+                updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Driver crashato. Riprovo automaticamente (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small><br><details style="margin-top: 10px;"><summary style="cursor: pointer; color: #ff9800;">Dettagli errore</summary><pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; overflow-y: auto;">' + errorPreviewEscaped + '</pre></details>');
                 // Pulisci tutto e riprova
                 await fetch("/api/system/check_processes", {
                   method: "POST",
@@ -2189,15 +2190,19 @@ HTML_TEMPLATE = """
               } else {
                 // Formatta messaggio errore in modo più leggibile con log completi
                 let displayErrorMsg = errorMsg;
+                // Escapa caratteri speciali nei log
+                const fullLogsEscaped = fullLogs ? fullLogs.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/\\/g, '&#92;') : '';
                 // Mostra log completi in un dettaglio espandibile
-                const logSection = fullLogs ? '<details style="margin-top: 10px;"><summary style="cursor: pointer; color: #ff9800; font-weight: bold;">📋 Log completi driver (clicca per espandere)</summary><pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 400px; overflow-y: auto; white-space: pre-wrap;">' + fullLogs.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre></details>' : '';
+                const logSection = fullLogsEscaped ? '<details style="margin-top: 10px;"><summary style="cursor: pointer; color: #ff9800; font-weight: bold;">Log completi driver (clicca per espandere)</summary><pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 400px; overflow-y: auto; white-space: pre-wrap;">' + fullLogsEscaped + '</pre></details>' : '';
                 
                 // Limita messaggio principale a 300 caratteri
                 if (displayErrorMsg.length > 300) {
                   displayErrorMsg = displayErrorMsg.substring(0, 300) + '...';
                 }
                 
-                updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore avvio driver:<br><small>' + displayErrorMsg.replace(/\\n/g, '<br>').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</small>' + logSection + '<br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile (ping 192.168.10.194)<br>2. Verifica EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)<br>3. Clicca "Riprova" per riprovare<br>4. Se persiste, riavvia robot e riprova</small>');
+                // Escapa caratteri speciali nel messaggio
+                const displayErrorMsgEscaped = displayErrorMsg.replace(/\\n/g, '<br>').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+                updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore avvio driver:<br><small>' + displayErrorMsgEscaped + '</small>' + logSection + '<br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile (ping 192.168.10.194)<br>2. Verifica EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)<br>3. Clicca "Riprova" per riprovare<br>4. Se persiste, riavvia robot e riprova</small>');
               }
             }
           } catch (err) {
