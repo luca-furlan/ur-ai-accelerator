@@ -5003,15 +5003,20 @@ def api_start_driver():
                 pass
         
         # PULIZIA AGGIUNTIVA: Kill tutti i processi ROS2 che potrebbero interferire
+        # NOTA: I messaggi "Killed" in stderr sono normali quando pkill uccide processi
         try:
-            # Kill processi ros2 launch residui
-            subprocess.run(['pkill', '-9', '-f', 'ros2.*launch.*ur_robot_driver'], timeout=2, check=False)
+            # Kill processi ros2 launch residui (ignora stderr con "Killed" - è normale)
+            result = subprocess.run(['pkill', '-9', '-f', 'ros2.*launch.*ur_robot_driver'], 
+                                  timeout=2, check=False, capture_output=True)
             # Kill processi spawner
-            subprocess.run(['pkill', '-9', '-f', 'spawner.*controller'], timeout=2, check=False)
+            result = subprocess.run(['pkill', '-9', '-f', 'spawner.*controller'], 
+                                  timeout=2, check=False, capture_output=True)
             # Kill processi controller_manager
-            subprocess.run(['pkill', '-9', '-f', 'controller_manager'], timeout=2, check=False)
+            result = subprocess.run(['pkill', '-9', '-f', 'controller_manager'], 
+                                  timeout=2, check=False, capture_output=True)
             app.logger.info("🔧 Pulizia processi ROS2 completata")
-        except:
+        except Exception as e:
+            app.logger.warning(f"Errore durante pulizia processi (ignorato): {e}")
             pass
         
         # Attesa più lunga per pulizia completa e rilascio risorse
@@ -5040,26 +5045,29 @@ ulimit -s 8192        # Stack size aumentato
 export HOME={os.path.expanduser('~')}
 cd {os.path.expanduser('~/MekoAiAccelerator')}
 
-# PULIZIA AGGIUNTIVA: Kill tutti i processi ROS2/RTDE prima dello script
-echo "[INFO] Pulizia preliminare processi..." >> /tmp/ros2_driver.log
+# STEP 0/9: PULIZIA AGGIUNTIVA: Kill tutti i processi ROS2/RTDE prima dello script
+# NOTA: I messaggi "Killed" in stderr sono normali quando pkill uccide processi - ignorali
+echo "[STEP 0/9] Pulizia preliminare processi..." >> /tmp/ros2_driver.log
 pkill -9 -f 'ur_ros2_control_node' 2>/dev/null || true
 pkill -9 -f 'ros2.*launch.*ur_robot_driver' 2>/dev/null || true
 pkill -9 -f 'spawner.*controller' 2>/dev/null || true
 pkill -9 -f 'controller_manager' 2>/dev/null || true
 sleep 2  # Attendi che i processi vengano killati
+echo "[OK] Pulizia preliminare completata" >> /tmp/ros2_driver.log
 
-# PRIMA: Esegui script per killare altri processi RTDE
+# STEP 1/9: Esegui script per killare altri processi RTDE
 KILL_RTDE_SCRIPT="{kill_rtde_script}"
 if [ -f "$KILL_RTDE_SCRIPT" ]; then
-    echo "[INFO] Esecuzione kill_rtde_processes.sh..." >> /tmp/ros2_driver.log
+    echo "[STEP 1/9] Esecuzione kill_rtde_processes.sh..." >> /tmp/ros2_driver.log
     bash "$KILL_RTDE_SCRIPT" >> /tmp/ros2_driver.log 2>&1
     sleep 3  # Attesa dopo kill script
+    echo "[OK] Script kill_rtde_processes.sh completato" >> /tmp/ros2_driver.log
 else
     echo "[WARN] Script kill_rtde_processes.sh non trovato: $KILL_RTDE_SCRIPT" >> /tmp/ros2_driver.log
 fi
 
-# Verifica che la porta 50002 sia libera
-echo "[INFO] Verifica porta 50002..." >> /tmp/ros2_driver.log
+# STEP 2/9: Verifica che la porta 50002 sia libera (sul robot, non sull'AI Accelerator)
+echo "[STEP 2/9] Verifica porta 50002..." >> /tmp/ros2_driver.log
 if command -v lsof >/dev/null 2>&1; then
     PORT_PIDS=$(lsof -ti :50002 2>/dev/null || true)
     if [ -n "$PORT_PIDS" ]; then
@@ -5069,8 +5077,8 @@ if command -v lsof >/dev/null 2>&1; then
     fi
 fi
 
-# Source ROS2 con verifica errori
-echo "[INFO] Source ROS2 environment..." >> /tmp/ros2_driver.log
+# STEP 3/9: Source ROS2 con verifica errori
+echo "[STEP 3/9] Source ROS2 environment..." >> /tmp/ros2_driver.log
 if [ ! -f /opt/ros/humble/setup.bash ]; then
     echo "ERROR: ROS2 Humble non trovato in /opt/ros/humble/" >> /tmp/ros2_driver.log
     echo "ERROR"
@@ -5084,11 +5092,11 @@ else
     source ~/ros2_ws/install/setup.bash
 fi
 
-# SOLUZIONE RTDE OVERFLOW: Riduci update_rate da 500Hz a 30Hz (come suggerito dall'utente)
+# STEP 4/9: SOLUZIONE RTDE OVERFLOW: Riduci update_rate da 500Hz a 30Hz (come suggerito dall'utente)
 # Il file di configurazione viene caricato automaticamente dal launch file
 UPDATE_RATE_FILE="$HOME/ros2_ws/install/ur_robot_driver/share/ur_robot_driver/config/ur5e_update_rate.yaml"
 if [ -f "$UPDATE_RATE_FILE" ]; then
-    echo "[INFO] Modifica update_rate da 500Hz a 30Hz per evitare RTDE overflow..." >> /tmp/ros2_driver.log
+    echo "[STEP 4/9] Modifica update_rate da 500Hz a 30Hz per evitare RTDE overflow..." >> /tmp/ros2_driver.log
     cp "$UPDATE_RATE_FILE" "$UPDATE_RATE_FILE.backup" 2>/dev/null || true
     cat > "$UPDATE_RATE_FILE" << 'EOF'
 controller_manager:
@@ -5098,11 +5106,11 @@ EOF
     echo "[OK] update_rate modificato a 30Hz" >> /tmp/ros2_driver.log
 fi
 
-# Avvia driver ROS2 in background
+# STEP 5/9: Avvia driver ROS2 in background
 echo "=== AVVIO DRIVER ROS2 ===" >> /tmp/ros2_driver.log
 echo "Data: $(date)" >> /tmp/ros2_driver.log
 echo "Robot IP: {config.robot_ip}" >> /tmp/ros2_driver.log
-echo "[INFO] Porta 50002 verificata libera - driver si metterà in ascolto su questa porta" >> /tmp/ros2_driver.log
+echo "[STEP 5/9] Avvio driver ROS2 in modalità headless..." >> /tmp/ros2_driver.log
 
 # Verifica che il launch file esista
 LAUNCH_FILE="/opt/ros/humble/share/ur_robot_driver/launch/ur_control.launch.py"
@@ -5140,13 +5148,13 @@ echo "[OK] Robot raggiungibile" >> /tmp/ros2_driver.log
 # IMPORTANTE: usa headless_mode:=true per far sì che il driver aspetti connessioni sulla porta 50002
 # senza cercare di connettersi immediatamente al robot (il robot si connetterà nello step D)
 # IMPORTANTE: usa nohup e disown per evitare che il processo venga killato quando lo script termina
-echo "[STEP 2/8] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
+echo "[STEP 5/9] Avvio ros2 launch in modalità headless (aspetta connessioni robot)..." >> /tmp/ros2_driver.log
 nohup ros2 launch ur_robot_driver ur_control.launch.py ur_type:=ur5e robot_ip:={config.robot_ip} launch_rviz:=false initial_joint_controller:=forward_velocity_controller headless_mode:=true >> /tmp/ros2_driver.log 2>&1 &
 LAUNCH_PID=$!
 echo "[OK] Processo launch avviato (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
 
-# Verifica immediatamente che il processo sia partito (con più attesa)
-echo "[STEP 3/9] Verifica processo avviato (attesa 5s)..." >> /tmp/ros2_driver.log
+# STEP 6/9: Verifica immediatamente che il processo sia partito (con più attesa)
+echo "[STEP 6/9] Verifica processo avviato (attesa 5s)..." >> /tmp/ros2_driver.log
 sleep 5  # Aumentato a 5 secondi per dare più tempo al processo di avviarsi
 
 if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
@@ -5169,8 +5177,8 @@ fi
 # Disown dopo verifica che sia vivo
 disown $LAUNCH_PID 2>/dev/null || true  # Disown per evitare che venga killato quando lo script termina
 
-# Attendi che il processo si avvii completamente (aumentato a 20s per maggiore stabilità)
-echo "[STEP 4/9] Attendo inizializzazione driver (20s)..." >> /tmp/ros2_driver.log
+# STEP 7/9: Attendi che il processo si avvii completamente (aumentato a 20s per maggiore stabilità)
+echo "[STEP 7/9] Attendo inizializzazione driver (20s)..." >> /tmp/ros2_driver.log
 sleep 20  # Aumentato a 20 secondi per dare più tempo all'inizializzazione
 
 # Verifica di nuovo che il processo launch sia ancora vivo
@@ -5192,9 +5200,9 @@ if ! ps -p $LAUNCH_PID > /dev/null 2>&1; then
 fi
 echo "[OK] Processo launch ancora vivo (PID: $LAUNCH_PID)" >> /tmp/ros2_driver.log
 
-# Cerca il processo ur_ros2_control_node (il processo principale del driver)
+# STEP 8/9: Cerca il processo ur_ros2_control_node (il processo principale del driver)
 # Aspetta con più tentativi per dare tempo al processo di avviarsi
-echo "[STEP 5/8] Cerca processo ur_ros2_control_node..." >> /tmp/ros2_driver.log
+echo "[STEP 8/9] Cerca processo ur_ros2_control_node..." >> /tmp/ros2_driver.log
 FOUND_PID=""
 for i in 1 2 3 4 5 6 7 8; do
     FOUND_PID=$(pgrep -f 'ur_ros2_control_node' | head -1)
@@ -5224,9 +5232,9 @@ if [ -z "$FOUND_PID" ]; then
     exit 1
 fi
 
-# Verifica che il processo ur_ros2_control_node sia ancora vivo dopo 5 secondi
+# STEP 9/9: Verifica che il processo ur_ros2_control_node sia ancora vivo dopo 5 secondi
 # (diamo più tempo perché l'inizializzazione può richiedere tempo)
-echo "[STEP 6/9] Verifica stabilità ur_ros2_control_node (5s)..." >> /tmp/ros2_driver.log
+echo "[STEP 9/9] Verifica stabilità ur_ros2_control_node (5s)..." >> /tmp/ros2_driver.log
 sleep 5
 if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     echo "ERROR: ur_ros2_control_node è crashato durante l'inizializzazione (PID: $FOUND_PID)" >> /tmp/ros2_driver.log
@@ -5337,8 +5345,15 @@ exit 0
             except:
                 pass
             
-            # Debug: mostra output completo
-            app.logger.info(f"Script output: stdout='{result.stdout}', stderr='{result.stderr}', returncode={result.returncode}")
+            # Debug: mostra output completo (filtra messaggi "Killed" normali da pkill)
+            stderr_filtered = result.stderr
+            if stderr_filtered:
+                # Rimuovi righe con "Killed" da pkill - sono normali quando uccide processi
+                stderr_lines = stderr_filtered.split('\n')
+                stderr_filtered = '\n'.join([line for line in stderr_lines 
+                                           if not (line.strip().endswith('Killed') and 'pkill' in line or 'pkill' in line and 'Killed' in line)])
+            
+            app.logger.info(f"Script output: stdout='{result.stdout}', stderr='{stderr_filtered}', returncode={result.returncode}")
             
             # Leggi il log per verificare errori
             log_content = ""
@@ -5349,7 +5364,8 @@ exit 0
                 pass
             
             if result.returncode != 0:
-                error_msg = result.stderr or result.stdout or "Errore sconosciuto"
+                # Usa stderr filtrato per evitare confusione con messaggi "Killed" normali
+                error_msg = stderr_filtered or result.stdout or "Errore sconosciuto"
                 
                 # Verifica errori specifici nel log
                 if "process has died" in log_content or "Aborted" in log_content or "Segmentation fault" in log_content or "Processo launch morto" in log_content:
