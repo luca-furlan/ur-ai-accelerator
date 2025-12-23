@@ -2159,11 +2159,25 @@ HTML_TEMPLATE = """
             } else {
               // Se c'è un errore e abbiamo ancora tentativi, riprova
               const errorMsg = payload.message || '';
-              const isCrash = errorMsg.includes("crashato") || errorMsg.includes("Segmentation fault") || errorMsg.includes("ERROR") || errorMsg.includes("died") || errorMsg.includes("failed");
+              const isCrash = errorMsg.includes("crashato") || errorMsg.includes("Segmentation fault") || errorMsg.includes("ERROR") || errorMsg.includes("died") || errorMsg.includes("failed") || errorMsg.includes("Processo launch morto");
+              
+              // Leggi log completi per diagnostica
+              let fullLogs = '';
+              try {
+                const logResponse = await fetch('/api/system/driver_logs?lines=200');
+                const logData = await logResponse.json();
+                if (logData.status === 'ok' && logData.logs) {
+                  fullLogs = logData.logs.join('\n');
+                }
+              } catch (logErr) {
+                console.warn('Errore lettura log:', logErr);
+              }
               
               if (retryCount < maxRetries && isCrash) {
                 retryCount++;
-                updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Driver crashato. Riprovo automaticamente (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small>');
+                // Mostra log rilevanti durante retry
+                const errorPreview = errorMsg.substring(0, 200);
+                updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Driver crashato. Riprovo automaticamente (tentativo ' + retryCount + '/' + maxRetries + ')...<br><small>Pulizia completa in corso...</small><br><details style="margin-top: 10px;"><summary style="cursor: pointer; color: #ff9800;">Dettagli errore</summary><pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 200px; overflow-y: auto;">' + errorPreview.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre></details>');
                 // Pulisci tutto e riprova
                 await fetch("/api/system/check_processes", {
                   method: "POST",
@@ -2173,13 +2187,17 @@ HTML_TEMPLATE = """
                 await new Promise(resolve => setTimeout(resolve, 8000)); // Attendi pulizia più a lungo
                 await tryStartDriver(); // Retry
               } else {
-                // Formatta messaggio errore in modo più leggibile
-                let errorMsg = payload.message || 'Errore sconosciuto';
-                // Rimuovi dettagli tecnici eccessivi se presenti
-                if (errorMsg.length > 500) {
-                  errorMsg = errorMsg.substring(0, 500) + '...' + String.fromCharCode(10) + String.fromCharCode(10) + '[Clicca ' + String.fromCharCode(39) + 'Riprova' + String.fromCharCode(39) + ' per vedere log completo]';
+                // Formatta messaggio errore in modo più leggibile con log completi
+                let displayErrorMsg = errorMsg;
+                // Mostra log completi in un dettaglio espandibile
+                const logSection = fullLogs ? '<details style="margin-top: 10px;"><summary style="cursor: pointer; color: #ff9800; font-weight: bold;">📋 Log completi driver (clicca per espandere)</summary><pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 400px; overflow-y: auto; white-space: pre-wrap;">' + fullLogs.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre></details>' : '';
+                
+                // Limita messaggio principale a 300 caratteri
+                if (displayErrorMsg.length > 300) {
+                  displayErrorMsg = displayErrorMsg.substring(0, 300) + '...';
                 }
-                updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore avvio driver:<br><small>' + errorMsg.replace(/\\n/g, '<br>') + '</small><br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile<br>2. Clicca "Riprova" per riprovare<br>3. Se persiste, riavvia robot e riprova</small>');
+                
+                updateWizardStep('a', 'error', '<span class=' + '"material-icons md-18"' + '>error</span> Errore avvio driver:<br><small>' + displayErrorMsg.replace(/\\n/g, '<br>').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</small>' + logSection + '<br><br><small><strong>Soluzioni:</strong><br>1. Verifica robot acceso e raggiungibile (ping 192.168.10.194)<br>2. Verifica EtherNet/IP DISABILITATO sul robot (Installation → Fieldbus)<br>3. Clicca "Riprova" per riprovare<br>4. Se persiste, riavvia robot e riprova</small>');
               }
             }
           } catch (err) {
@@ -5369,8 +5387,12 @@ exit 0
                 # Usa stderr filtrato per evitare confusione con messaggi "Killed" normali
                 error_msg = stderr_filtered or result.stdout or "Errore sconosciuto"
                 
+                # Estrai ultime righe del log per diagnostica
+                log_lines = log_content.split('\n') if log_content else []
+                last_log_lines = '\n'.join(log_lines[-100:]) if len(log_lines) > 100 else log_content
+                
                 # Verifica errori specifici nel log
-                if "process has died" in log_content or "Aborted" in log_content or "Segmentation fault" in log_content or "Processo launch morto" in log_content:
+                if "process has died" in log_content or "Aborted" in log_content or "Segmentation fault" in log_content or "Processo launch morto" in log_content or "ERROR" in log_content:
                     # Analizza il tipo di crash
                     if "Processo launch morto" in log_content:
                         # Estrai solo le parti rilevanti del log (ultime 50 righe)
@@ -5420,11 +5442,16 @@ Clicca "Riprova" per riprovare automaticamente.
 
 Log: {relevant_log}"""
                     else:
-                        log_lines = log_content.split('\n')
-                        relevant_log = '\n'.join(log_lines[-20:])
-                        error_msg = f"Driver crashato. Log: {relevant_log}"
+                        # Estrai log rilevanti (ultime 50 righe con ERROR o WARN)
+                        error_lines = [line for line in log_lines if '[ERROR]' in line or 'ERROR' in line or '[WARN]' in line or 'WARN' in line]
+                        if error_lines:
+                            relevant_log = '\n'.join(error_lines[-30:] + log_lines[-20:])
+                        else:
+                            relevant_log = '\n'.join(log_lines[-50:])
+                        error_msg = f"Driver crashato durante l'avvio.\n\nUltimi log:\n{relevant_log}"
                 else:
-                    error_msg += f"\n\nLog driver:\n{log_content[-2000:]}"
+                    # Se non ci sono errori specifici, mostra comunque gli ultimi log
+                    error_msg += f"\n\nLog driver (ultime 100 righe):\n{last_log_lines}"
                 
                 return jsonify({"status": "error", "message": f"Errore avvio driver: {error_msg}"})
             
