@@ -2191,7 +2191,7 @@ HTML_TEMPLATE = """
                 // Formatta messaggio errore in modo più leggibile con log completi
                 let displayErrorMsg = errorMsg;
                 // Escapa caratteri speciali nei log
-                const fullLogsEscaped = fullLogs ? fullLogs.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/\\/g, '&#92;') : '';
+                const fullLogsEscaped = fullLogs ? fullLogs.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/\\\\/g, '&#92;') : '';
                 // Mostra log completi in un dettaglio espandibile
                 const logSection = fullLogsEscaped ? '<details style="margin-top: 10px;"><summary style="cursor: pointer; color: #ff9800; font-weight: bold;">Log completi driver (clicca per espandere)</summary><pre style="background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 11px; max-height: 400px; overflow-y: auto; white-space: pre-wrap;">' + fullLogsEscaped + '</pre></details>' : '';
                 
