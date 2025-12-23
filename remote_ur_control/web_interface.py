@@ -1026,9 +1026,10 @@ HTML_TEMPLATE = """
                 <ol style="margin: 0; padding-left: 20px;">
                   <li>Go to <strong>Program</strong></li>
                   <li>Open program with <strong>External Control</strong></li>
-                  <li>IP: <strong>192.168.10.191</strong>, Port: <strong>50002</strong></li>
+                  <li>Configure Host IP: <strong>192.168.10.191</strong>, Port: <strong>50002</strong></li>
                   <li><strong>IMPORTANT:</strong> Enable <strong>Remote Control</strong> on Teach Pendant</li>
                   <li><strong>SAVE</strong> and press <strong>PLAY</strong></li>
+                  <li>When program is <strong>PLAYING</strong>, click "Verify Connection" below</li>
                 </ol>
               </div>
             </details>
@@ -2026,7 +2027,8 @@ HTML_TEMPLATE = """
         }
         
         // STEP 2: Verifica e kill processi esistenti (IMPORTANTE per evitare crash)
-        updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Pulizia processi esistenti e verifica porta 50002 libera...');
+        // NOTA: La porta 50002 viene aperta dal ROBOT nello step D, non qui
+        updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Pulizia processi esistenti...');
         try {
           const checkResponse = await fetch("/api/system/check_processes", {
             method: "POST",
@@ -2036,11 +2038,11 @@ HTML_TEMPLATE = """
           const checkPayload = await checkResponse.json();
           if (checkPayload.status === "ok") {
             if (checkPayload.data.duplicates_found) {
-              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Processi duplicati terminati. Verifico porta 50002 libera (5 secondi)...');
+              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>refresh</span> Processi duplicati terminati. Attendo pulizia completa (5 secondi)...');
               await new Promise(resolve => setTimeout(resolve, 5000)); // Attendi 5 secondi per pulizia completa
             } else {
-              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Nessun processo duplicato. Verifico porta 50002 libera...');
-              await new Promise(resolve => setTimeout(resolve, 2000)); // Attendi per verifica porta
+              updateWizardStep('a', 'active', '<span class=' + '"material-icons md-18"' + '>check_circle</span> Nessun processo duplicato. Procedo con avvio driver...');
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Attendi per sicurezza
             }
           }
         } catch (err) {
@@ -2088,7 +2090,7 @@ HTML_TEMPLATE = """
         
         // Funzione per verificare che il driver sia stabile
         // NOTA: Nello step A verifichiamo solo che il driver sia in esecuzione
-        // La verifica della porta 50002 viene fatta nello step B (dopo che il Teach Pendant è configurato)
+        // La verifica della porta 50002 viene fatta nello step E (dopo che il Teach Pendant è configurato nello step D)
         const verifyDriverStable = async (maxChecks = 10, checkInterval = 2000) => {
           for (let i = 0; i < maxChecks; i++) {
             try {
@@ -2096,8 +2098,8 @@ HTML_TEMPLATE = """
               const statusData = await statusResponse.json();
               if (statusData.status === "ok" && statusData.data.ros2_driver.running) {
                 // Nello step A basta che il driver sia in esecuzione
-                // La porta 50002 verrà verificata nello step B
-                return true; // Driver stabile (porta 50002 verificata nello step B)
+                // La porta 50002 verrà verificata nello step E (quando il robot si connette)
+                return true; // Driver stabile (porta 50002 verificata nello step E)
               }
               // Se non è ancora stabile, aspetta prima del prossimo check
               if (i < maxChecks - 1) {
@@ -5256,7 +5258,7 @@ echo "[OK] ur_ros2_control_node stabile (PID: $FOUND_PID)" >> /tmp/ros2_driver.l
 # VERIFICA FINALE: Aspetta che il driver completi l'inizializzazione
 # In modalità headless, il driver NON si connette al robot immediatamente,
 # ma si mette in ascolto sulla porta 50002 e aspetta che il robot si connetta (step D)
-echo "[STEP 7/8] Attendo completamento inizializzazione driver (10s)..." >> /tmp/ros2_driver.log
+echo "[INFO] Attendo completamento inizializzazione driver (10s)..." >> /tmp/ros2_driver.log
 for i in 1 2; do
     echo "[INFO] Inizializzazione finale... ($i/2 - $(($i * 5))s)" >> /tmp/ros2_driver.log
     sleep 5
@@ -5281,11 +5283,11 @@ if ! ps -p $FOUND_PID > /dev/null 2>&1; then
     exit 1
 fi
 
-# STEP 8/9: Driver completamente inizializzato
+# Driver completamente inizializzato
 # NOTA: La porta 50002 viene aperta dal ROBOT quando il programma External Control è in PLAYING
-# La verifica della porta 50002 viene fatta nello step D del wizard, non qui
-echo "[STEP 8/9] Driver completamente inizializzato" >> /tmp/ros2_driver.log
-echo "[INFO] La porta 50002 verrà verificata nello step D del wizard (quando il robot si connette)" >> /tmp/ros2_driver.log
+# La verifica della porta 50002 viene fatta nello step E del wizard, non qui
+echo "[OK] Driver completamente inizializzato" >> /tmp/ros2_driver.log
+echo "[INFO] La porta 50002 verrà verificata nello step E del wizard (quando il robot si connette nello step D)" >> /tmp/ros2_driver.log
 
 # Verifica errori fatali nel log (anche se il processo è vivo, potrebbe essere in crash)
 if grep -q "process has died.*exit code -[0-9]" /tmp/ros2_driver.log 2>/dev/null; then
