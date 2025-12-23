@@ -2167,7 +2167,7 @@ HTML_TEMPLATE = """
                 const logResponse = await fetch('/api/system/driver_logs?lines=200');
                 const logData = await logResponse.json();
                 if (logData.status === 'ok' && logData.logs) {
-                  fullLogs = logData.logs.join('\n');
+                  fullLogs = logData.logs.join(String.fromCharCode(10));
                 }
               } catch (logErr) {
                 console.warn('Errore lettura log:', logErr);
